@@ -147,8 +147,8 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = ({
         : null;
 
   const spriteSize = isSplitDesktop
-    ? 296
-    : Math.min(264, Math.max(208, width - 96));
+    ? 336
+    : Math.min(288, Math.max(224, width - 84));
 
   const outfitIcon = resolveOutfitChipIcon(
     decision.sceneId,
@@ -499,7 +499,7 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = ({
                   { color: palette.inkSecondary },
                 ]}
               >
-                {gender === 'male' ? 'Cậu bé Mây' : 'Cô bé Nắng'} · 60fps Live Rig
+                {gender === 'male' ? 'Cậu bé Mây' : 'Cô bé Nắng'}
               </Text>
             </View>
 
@@ -509,7 +509,7 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = ({
                 { color: palette.inkMuted },
               ]}
             >
-              Chạm để vẫy tay
+              Chạm để tương tác
             </Text>
           </View>
 
@@ -525,46 +525,6 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = ({
               showAmbientProps
               npcMode
             />
-          </View>
-
-          {/* Bottom Collectible Pedestal Footer Strip */}
-          <View
-            style={[
-              styles.pedestalFooterBar,
-              {
-                backgroundColor: palette.coreElevatedBg,
-                borderColor: palette.hairline,
-              },
-            ]}
-          >
-            <View style={styles.pedestalFooterItem}>
-              <Feather name="eye" size={12} color={palette.accent} />
-              <Text
-                style={[
-                  styles.pedestalFooterText,
-                  { color: palette.inkSecondary },
-                ]}
-              >
-                Ánh mắt theo trỏ chuột
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.pedestalFooterDot,
-                { backgroundColor: palette.hairline },
-              ]}
-            />
-            <View style={styles.pedestalFooterItem}>
-              <Feather name="refresh-cw" size={12} color={palette.accent} />
-              <Text
-                style={[
-                  styles.pedestalFooterText,
-                  { color: palette.inkSecondary },
-                ]}
-              >
-                Đổi hoạt động 5 phút
-              </Text>
-            </View>
           </View>
         </View>
       </View>

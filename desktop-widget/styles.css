@@ -722,31 +722,23 @@ body[data-mode="widget"].widget-compact .character-stage-viewport {
 .character-rig-pivot {
   position: relative;
   z-index: 2;
-  width: 248px;
-  height: 248px;
+  width: 245px;
+  height: 245px;
   display: flex;
   align-items: center;
   justify-content: center;
   transform-origin: 50% 88%;
-  transform-style: preserve-3d;
-}
-
-.character-rig-pivot[data-articulated="true"] {
-  animation: none !important;
-  transform: perspective(760px) rotateX(var(--tilt-y, 0deg)) rotateY(var(--tilt-x, 0deg));
-  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
 }
 
 body[data-mode="popup"] .character-rig-pivot,
 body[data-mode="widget"] .character-rig-pivot {
-  width: 200px;
-  height: 200px;
+  width: 196px;
+  height: 196px;
 }
 
 body[data-mode="widget"].widget-compact .character-rig-pivot {
-  width: 168px;
-  height: 168px;
+  width: 164px;
+  height: 164px;
 }
 
 .character-sprite-img {
@@ -756,27 +748,6 @@ body[data-mode="widget"].widget-compact .character-rig-pivot {
   filter: drop-shadow(0 12px 22px rgba(15, 23, 42, 0.18));
   transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
-}
-
-.character-sprite-img.is-rig-active {
-  display: none;
-}
-
-.articulated-chibi-svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 14px 24px rgba(15, 23, 42, 0.18));
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .character-aura,
-  .ambient-micro-accent,
-  .character-rig-pivot {
-    animation: none !important;
-    transition: none !important;
-  }
 }
 
 /* Volume-preserving NPC Idle Action Motions */

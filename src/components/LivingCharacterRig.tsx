@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
-import Svg from 'react-native-svg';
-import { Feather } from '@expo/vector-icons';
-import { NPC_ACTION_META } from '../core';
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Stop } from 'react-native-svg';
 import {
   CHARACTER_PROFILES,
+  COMPANION_SPRITES,
+  getCharacterSprite,
   SCENE_MOTION_PROFILES,
   SCENE_VISUAL_META,
   type CharacterSceneId,
@@ -18,17 +18,7 @@ import {
   type NpcActionId,
 } from '../art/characterAssets';
 import { useNpcStageController } from '../hooks/useWeatherBuddy';
-import {
-  ArticulatedChibiSvg,
-  CANONICAL_CHIBI_LANDMARKS,
-  createCanonicalChibiFrame,
-  type ChibiKinematicFrame,
-} from './ArticulatedChibiSvg';
-import {
-  FONT_FAMILY_SANS,
-  WEB_NO_OUTLINE,
-  type AtmosphericPalette,
-} from './themeTokens';
+import { type AtmosphericPalette } from './themeTokens';
 
 export interface LivingCharacterRigProps {
   gender: Gender;
@@ -38,22 +28,43 @@ export interface LivingCharacterRigProps {
   reduceMotion?: boolean;
   interactive?: boolean;
   showAmbientProps?: boolean;
-  /** Enables cozy Chibi NPC idle mode (5 actions rotating every 5m) + stand-up-on-tap */
+  /** Enables 5-minute rotating NPC companion/idle behaviors + interactive tap reaction */
   npcMode?: boolean;
 }
 
-const NATURAL_NPC_LABELS: Record<NpcActionId, string> = {
-  reading_book: 'Đọc sách',
-  petting_cat: 'Xoa đầu mèo',
-  petting_puppy: 'Chơi với cún',
-  scrolling_phone: 'Xem điện thoại',
-  listening_music: 'Nghe nhạc',
-};
+/**
+ * Canonical 768x768 Master 3D Vinyl Landmarks
+ * Locked identically across Male (Cậu bé Mây) & Female (Cô bé Nắng) and all 7 weather states.
+ */
+export const CANONICAL_CHIBI_LANDMARKS = {
+  canvasSize: 768,
+  centerX: 384,
+  leftEyeX: 327,
+  rightEyeX: 441,
+  eyeY: 296,
+  ipd: 114,
+  neckY: 374,
+  soleY: 692,
+} as const;
 
-interface InternalRigMutableState {
+interface LiveRigFrame {
+  breathScaleX: number;
+  breathScaleY: number;
+  swayDeg: number;
+  hopOffsetY: number;
+  gazeX: number;
+  gazeY: number;
+  blinkAmount: number;
+  happyBounce: number;
+  sparkleProgress: number;
+  petProgress: number; // 0 = offstage, 1 = seated cozily beside character
+  petBobY: number;
+  notePhase: number;
+}
+
+interface InternalMutableState {
   startTimeMs: number;
   lastFrameMs: number;
-  standBlend: number;
   gazeX: number;
   gazeY: number;
   targetGazeX: number;
@@ -62,35 +73,36 @@ interface InternalRigMutableState {
   nextSaccadeAtMs: number;
   saccadeX: number;
   saccadeY: number;
-  headTiltDeg: number;
-  secondaryLagDeg: number;
-  prevHeadTiltDeg: number;
-  leftArmDeg: number;
-  rightArmDeg: number;
-  // Autonomous blinking
   nextBlinkAtMs: number;
   blinkStartMs: number;
   blinkDurationMs: number;
   pendingDoubleBlink: boolean;
-  // Interactive wave / happy squint / hop
-  waveUntilMs: number;
-  happySquintUntilMs: number;
   hopStartMs: number;
-  // Head-petting stroke detector
+  sparkleStartMs: number;
   lastPointerX: number;
   strokeAccum: number;
-  // Companion walking state (cat from right 295 -> 212, puppy from left 25 -> 106)
-  activePetAction: NpcActionId | null;
+  activePetKind: 'cat' | 'puppy' | null;
   petEnteredAtMs: number;
-  petNextBlinkAtMs: number;
-  petBlinkUntilMs: number;
 }
 
-function createInitialFrame(isStanding: boolean, npcAction: NpcActionId): ChibiKinematicFrame {
-  return createCanonicalChibiFrame({ isStanding, npcAction });
-}
+const INITIAL_FRAME: LiveRigFrame = {
+  breathScaleX: 1,
+  breathScaleY: 1,
+  swayDeg: 0,
+  hopOffsetY: 0,
+  gazeX: 0,
+  gazeY: 0,
+  blinkAmount: 0,
+  happyBounce: 0,
+  sparkleProgress: -1,
+  petProgress: 0,
+  petBobY: 0,
+  notePhase: 0,
+};
 
-export { CANONICAL_CHIBI_LANDMARKS, createCanonicalChibiFrame };
+export function createCanonicalChibiFrame() {
+  return INITIAL_FRAME;
+}
 
 export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
   gender,
@@ -104,12 +116,17 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
 }) => {
   const npcStage = useNpcStageController();
   const isStanding = npcMode ? npcStage.isStanding : true;
-  const npcAction = npcStage.npcAction;
+  const npcAction: NpcActionId = npcStage.npcAction;
 
   const profile = CHARACTER_PROFILES[gender];
   const sceneMeta = SCENE_VISUAL_META[sceneId];
   const sceneMotion =
     SCENE_MOTION_PROFILES[sceneId] ?? SCENE_MOTION_PROFILES.pleasant_sunny;
+
+  const spriteSource = useMemo(
+    () => getCharacterSprite(gender, sceneId),
+    [gender, sceneId]
+  );
 
   const stageRef = useRef<View | null>(null);
   const propsRef = useRef({
@@ -132,82 +149,78 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
   };
 
   const nowInit = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  const rigRef = useRef<InternalRigMutableState>({
+  const rigRef = useRef<InternalMutableState>({
     startTimeMs: nowInit,
     lastFrameMs: nowInit,
-    standBlend: isStanding ? 1 : 0,
     gazeX: 0,
     gazeY: 0,
     targetGazeX: 0,
     targetGazeY: 0,
     pointerActiveUntilMs: 0,
-    nextSaccadeAtMs: nowInit + 1200,
+    nextSaccadeAtMs: nowInit + 1300,
     saccadeX: 0,
     saccadeY: 0,
-    headTiltDeg: 0,
-    secondaryLagDeg: 0,
-    prevHeadTiltDeg: 0,
-    leftArmDeg: isStanding ? 18 : -28,
-    rightArmDeg: isStanding ? -18 : 28,
-    nextBlinkAtMs: nowInit + 2600,
+    nextBlinkAtMs: nowInit + 2500,
     blinkStartMs: -1,
-    blinkDurationMs: 135,
+    blinkDurationMs: 130,
     pendingDoubleBlink: false,
-    waveUntilMs: 0,
-    happySquintUntilMs: 0,
     hopStartMs: -1,
+    sparkleStartMs: -1,
     lastPointerX: 0,
     strokeAccum: 0,
-    activePetAction: null,
+    activePetKind: null,
     petEnteredAtMs: nowInit,
-    petNextBlinkAtMs: nowInit + 3100,
-    petBlinkUntilMs: 0,
   });
 
-  const [frame, setFrame] = useState<ChibiKinematicFrame>(() =>
-    createInitialFrame(isStanding, npcAction)
-  );
+  const [frame, setFrame] = useState<LiveRigFrame>(INITIAL_FRAME);
 
-  // Trigger wave + hop whenever weather sceneId changes or user clicks character
-  const prevSceneIdRef = useRef<CharacterSceneId>(sceneId);
-  const prevStandTriggerRef = useRef<number>(npcStage.standTriggerCount);
+  // Trigger joyful bounce whenever weather outfit changes or user taps character
+  const prevSceneRef = useRef<CharacterSceneId>(sceneId);
+  const prevGenderRef = useRef<Gender>(gender);
+  const prevTriggerRef = useRef<number>(npcStage.standTriggerCount);
 
   useEffect(() => {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const sceneChanged = prevSceneIdRef.current !== sceneId;
-    const standTriggered = prevStandTriggerRef.current !== npcStage.standTriggerCount;
-    prevSceneIdRef.current = sceneId;
-    prevStandTriggerRef.current = npcStage.standTriggerCount;
+    const changed =
+      prevSceneRef.current !== sceneId ||
+      prevGenderRef.current !== gender ||
+      prevTriggerRef.current !== npcStage.standTriggerCount;
+    prevSceneRef.current = sceneId;
+    prevGenderRef.current = gender;
+    prevTriggerRef.current = npcStage.standTriggerCount;
 
-    if (sceneChanged || standTriggered) {
+    if (changed && !reduceMotion) {
       const st = rigRef.current;
-      st.waveUntilMs = now + 2400;
-      st.happySquintUntilMs = now + (standTriggered ? 1650 : 1200);
       st.hopStartMs = now;
+      st.sparkleStartMs = now;
     }
-  }, [sceneId, npcStage.standTriggerCount]);
+  }, [sceneId, gender, npcStage.standTriggerCount, reduceMotion]);
 
-  // Reset walking companion entrance whenever entering `petting_cat` or `petting_puppy` in seated NPC mode
+  // Track 3D companion arrival when 5-minute NPC mode enters petting_cat or petting_puppy
   useEffect(() => {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const st = rigRef.current;
-    if (!isStanding && (npcAction === 'petting_cat' || npcAction === 'petting_puppy')) {
-      if (st.activePetAction !== npcAction) {
-        st.activePetAction = npcAction;
-        st.petEnteredAtMs = now;
-      }
-    } else {
-      st.activePetAction = null;
+    const wantedPet =
+      npcMode && !isStanding
+        ? npcAction === 'petting_cat'
+          ? 'cat'
+          : npcAction === 'petting_puppy'
+            ? 'puppy'
+            : null
+        : null;
+    if (st.activePetKind !== wantedPet) {
+      st.activePetKind = wantedPet;
+      st.petEnteredAtMs = now;
     }
-  }, [npcAction, isStanding]);
+  }, [npcMode, isStanding, npcAction]);
 
-  // Global Web cursor eye-tracking listener so the character's living eyes follow the cursor smoothly
+  // Global cursor eye-tracking on Web so living eyes smoothly follow the user's pointer
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined' || reduceMotion || !interactive) {
       return;
     }
 
-    const handleWindowPointerMove = (evt: PointerEvent) => {
+    const onWinMove = (evt: PointerEvent) => {
       const node = stageRef.current as unknown as HTMLElement | null;
       if (!node || typeof node.getBoundingClientRect !== 'function') {
         return;
@@ -216,31 +229,30 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
       if (!rect.width || !rect.height) {
         return;
       }
-      const centerX = rect.left + rect.width * 0.5;
-      const centerY = rect.top + rect.height * 0.42;
-      const dx = (evt.clientX - centerX) / (rect.width * 0.65);
-      const dy = (evt.clientY - centerY) / (rect.height * 0.65);
+      const eyeCenterX = rect.left + rect.width * 0.5;
+      const eyeCenterY = rect.top + rect.height * (CANONICAL_CHIBI_LANDMARKS.eyeY / 768);
+      const dx = (evt.clientX - eyeCenterX) / (rect.width * 0.72);
+      const dy = (evt.clientY - eyeCenterY) / (rect.height * 0.72);
 
-      // Only track cursor when within reasonable proximity of the stage card
-      if (Math.abs(dx) <= 2.4 && Math.abs(dy) <= 2.2) {
+      if (Math.abs(dx) <= 2.6 && Math.abs(dy) <= 2.4) {
         const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const st = rigRef.current;
         st.targetGazeX = Math.max(-1, Math.min(1, dx));
         st.targetGazeY = Math.max(-1, Math.min(1, dy));
-        st.pointerActiveUntilMs = now + 2500;
+        st.pointerActiveUntilMs = now + 2600;
       }
     };
 
-    window.addEventListener('pointermove', handleWindowPointerMove, { passive: true });
+    window.addEventListener('pointermove', onWinMove, { passive: true });
     return () => {
-      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointermove', onWinMove);
     };
   }, [reduceMotion, interactive]);
 
-  // 60fps requestAnimationFrame Kinematic & Autonomous Gaze/Blink/Companion Engine
+  // 60fps Live 2.5D Vinyl Animation Loop
   useEffect(() => {
     if (reduceMotion) {
-      setFrame(createInitialFrame(isStanding, npcAction));
+      setFrame(INITIAL_FRAME);
       return;
     }
 
@@ -258,274 +270,138 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
       st.lastFrameMs = nowMs;
       const elapsedSec = (nowMs - st.startTimeMs) / 1000;
 
-      // 1. Posture blend (1 = Standing Weather Showcase, 0 = Seated Cozy NPC Behavior in same weather outfit!)
-      const targetStand = p.npcMode ? (p.isStanding ? 1 : 0) : 1;
-      const blendSpeed = targetStand > st.standBlend ? 8.5 : 6.2; // ~320ms stand up, ~400ms settle down
-      st.standBlend += (targetStand - st.standBlend) * Math.min(1, dtSec * blendSpeed);
-      if (Math.abs(targetStand - st.standBlend) < 0.003) {
-        st.standBlend = targetStand;
-      }
-
-      const isSeated = st.standBlend < 0.5;
-
-      // 2. Natural Autonomous Eye Blinking (every 2.4s - 5.2s, 130ms curve, 20% double-blink)
+      // 1. Natural autonomous blinking (130ms smooth close-open, occasional double blink)
       if (st.blinkStartMs < 0 && nowMs >= st.nextBlinkAtMs) {
         st.blinkStartMs = nowMs;
-        st.blinkDurationMs = 130;
-        if (!st.pendingDoubleBlink && Math.random() < 0.22) {
-          st.pendingDoubleBlink = true;
-        } else {
-          st.pendingDoubleBlink = false;
-        }
+        st.blinkDurationMs = 132;
+        st.pendingDoubleBlink = !st.pendingDoubleBlink && Math.random() < 0.2;
       }
 
       let blinkAmount = 0;
       if (st.blinkStartMs >= 0) {
-        const blinkT = (nowMs - st.blinkStartMs) / st.blinkDurationMs;
-        if (blinkT >= 1) {
+        const bt = (nowMs - st.blinkStartMs) / st.blinkDurationMs;
+        if (bt >= 1) {
           st.blinkStartMs = -1;
-          if (st.pendingDoubleBlink) {
-            st.nextBlinkAtMs = nowMs + 85;
-          } else {
-            st.nextBlinkAtMs = nowMs + 2400 + Math.random() * 2800;
-          }
+          st.nextBlinkAtMs = st.pendingDoubleBlink
+            ? nowMs + 90
+            : nowMs + 2600 + Math.random() * 2800;
         } else {
-          blinkAmount = Math.sin(blinkT * Math.PI);
+          blinkAmount = Math.sin(bt * Math.PI);
         }
       }
 
-      // 3. Autonomous Eye Saccades when user cursor is idle
+      // 2. Living eye saccades when pointer is idle
+      const inNpcIdle = p.npcMode && !p.isStanding;
       if (nowMs > st.pointerActiveUntilMs) {
         if (nowMs >= st.nextSaccadeAtMs) {
-          if (isSeated) {
-            switch (p.npcAction) {
-              case 'reading_book': {
-                // Scan left-to-right across book lines, occasionally glance at user
-                const glanceUp = Math.random() < 0.18;
-                st.saccadeX = glanceUp ? 0 : (Math.random() - 0.5) * 0.85;
-                st.saccadeY = glanceUp ? -0.05 : 0.44 + Math.random() * 0.12;
-                st.nextSaccadeAtMs = nowMs + (glanceUp ? 900 : 650 + Math.random() * 750);
-                break;
-              }
-              case 'petting_cat': {
-                // Look warmly down-right at the ginger kitten (or glance at user)
-                const lookAtUser = Math.random() < 0.25;
-                st.saccadeX = lookAtUser ? 0.08 : 0.52 + Math.random() * 0.16;
-                st.saccadeY = lookAtUser ? 0 : 0.48 + Math.random() * 0.12;
-                st.nextSaccadeAtMs = nowMs + 1100 + Math.random() * 1300;
-                break;
-              }
-              case 'petting_puppy': {
-                // Look warmly down-left at the Corgi puppy (or glance at user)
-                const lookAtUser = Math.random() < 0.25;
-                st.saccadeX = lookAtUser ? -0.08 : -0.52 - Math.random() * 0.16;
-                st.saccadeY = lookAtUser ? 0 : 0.48 + Math.random() * 0.12;
-                st.nextSaccadeAtMs = nowMs + 1100 + Math.random() * 1300;
-                break;
-              }
-              case 'scrolling_phone': {
-                // Look down at smartphone feed, occasionally peek up at user
-                const peekUser = Math.random() < 0.24;
-                st.saccadeX = peekUser ? 0 : (Math.random() - 0.5) * 0.24;
-                st.saccadeY = peekUser ? -0.04 : 0.46 + Math.random() * 0.12;
-                st.nextSaccadeAtMs = nowMs + (peekUser ? 1050 : 800 + Math.random() * 900);
-                break;
-              }
-              case 'listening_music':
-              default: {
-                st.saccadeX = Math.sin(elapsedSec * 1.1) * 0.42;
-                st.saccadeY = -0.1 + Math.cos(elapsedSec * 0.8) * 0.14;
-                st.nextSaccadeAtMs = nowMs + 950;
-                break;
-              }
-            }
+          if (inNpcIdle && p.npcAction === 'petting_cat') {
+            const glanceUser = Math.random() < 0.28;
+            st.saccadeX = glanceUser ? 0.05 : 0.62 + Math.random() * 0.16;
+            st.saccadeY = glanceUser ? 0 : 0.56 + Math.random() * 0.14;
+            st.nextSaccadeAtMs = nowMs + 1200 + Math.random() * 1400;
+          } else if (inNpcIdle && p.npcAction === 'petting_puppy') {
+            const glanceUser = Math.random() < 0.28;
+            st.saccadeX = glanceUser ? -0.05 : -0.62 - Math.random() * 0.16;
+            st.saccadeY = glanceUser ? 0 : 0.56 + Math.random() * 0.14;
+            st.nextSaccadeAtMs = nowMs + 1200 + Math.random() * 1400;
+          } else if (inNpcIdle && p.npcAction === 'reading_book') {
+            const glanceUp = Math.random() < 0.25;
+            st.saccadeX = glanceUp ? 0 : (Math.random() - 0.5) * 0.72;
+            st.saccadeY = glanceUp ? -0.04 : 0.42 + Math.random() * 0.12;
+            st.nextSaccadeAtMs = nowMs + (glanceUp ? 1100 : 750 + Math.random() * 800);
+          } else if (inNpcIdle && p.npcAction === 'scrolling_phone') {
+            const peekUp = Math.random() < 0.26;
+            st.saccadeX = peekUp ? 0 : (Math.random() - 0.5) * 0.28;
+            st.saccadeY = peekUp ? -0.04 : 0.45 + Math.random() * 0.12;
+            st.nextSaccadeAtMs = nowMs + (peekUp ? 1150 : 850 + Math.random() * 950);
+          } else if (inNpcIdle && p.npcAction === 'listening_music') {
+            st.saccadeX = Math.sin(elapsedSec * 1.2) * 0.45;
+            st.saccadeY = -0.08 + Math.cos(elapsedSec * 0.9) * 0.14;
+            st.nextSaccadeAtMs = nowMs + 950;
           } else {
-            // Standing weather observation saccades
-            if (p.sceneId === 'light_rain_umbrella' || p.sceneId === 'storm_raincoat') {
-              const checkSky = Math.random() < 0.45;
-              st.saccadeX = (Math.random() - 0.5) * 0.65;
-              st.saccadeY = checkSky ? -0.38 : 0.05;
-            } else {
-              st.saccadeX = (Math.random() - 0.5) * 0.58;
-              st.saccadeY = (Math.random() - 0.5) * 0.32;
-            }
-            st.nextSaccadeAtMs = nowMs + 1400 + Math.random() * 1800;
+            const lookSky =
+              (p.sceneId === 'light_rain_umbrella' || p.sceneId === 'storm_raincoat') &&
+              Math.random() < 0.4;
+            st.saccadeX = (Math.random() - 0.5) * 0.62;
+            st.saccadeY = lookSky ? -0.36 : (Math.random() - 0.5) * 0.3;
+            st.nextSaccadeAtMs = nowMs + 1500 + Math.random() * 1900;
           }
         }
         st.targetGazeX = st.saccadeX;
         st.targetGazeY = st.saccadeY;
       }
 
-      // Smooth spring interpolation for Eye Gaze
       const gazeLerp = Math.min(1, dtSec * 10.5);
       st.gazeX += (st.targetGazeX - st.gazeX) * gazeLerp;
       st.gazeY += (st.targetGazeY - st.gazeY) * gazeLerp;
 
-      // 4. Breathing, Body Sway & Head Tilt
-      const breathPhase = elapsedSec * 2.2;
-      let swayDeg = Math.sin(elapsedSec * 1.35) * 1.6;
-      let targetHeadTilt = st.gazeX * 5.2 + Math.sin(elapsedSec * 1.1) * 1.4;
+      // 3. Volume-preserving 2.5D breathing + gentle natural sway (foot-anchored!)
+      const breathWave = (Math.sin(elapsedSec * 2.15) + 1) * 0.5; // 0..1
+      const breathScaleY = 1 + breathWave * 0.022;
+      const breathScaleX = 1 - breathWave * 0.011;
 
-      if (isSeated) {
-        if (p.npcAction === 'listening_music') {
-          swayDeg = Math.sin(elapsedSec * 3.1) * 3.1;
-          targetHeadTilt = Math.sin(elapsedSec * 3.1 + 0.4) * 5.4 + st.gazeX * 3.5;
-        } else if (p.npcAction === 'reading_book') {
-          swayDeg = Math.sin(elapsedSec * 1.1) * 1.1;
-          targetHeadTilt = st.gazeX * 4.2 + Math.sin(elapsedSec * 1.8) * 1.6;
-        } else if (p.npcAction === 'petting_cat') {
-          swayDeg = 1.4 + Math.sin(elapsedSec * 1.6) * 1.4;
-          targetHeadTilt = 4.2 + Math.sin(elapsedSec * 2.1) * 2.2;
-        } else if (p.npcAction === 'petting_puppy') {
-          swayDeg = -1.4 + Math.sin(elapsedSec * 1.7) * 1.4;
-          targetHeadTilt = -4.2 + Math.sin(elapsedSec * 2.2) * 2.2;
-        }
-      } else {
-        if (p.sceneId === 'storm_raincoat') {
-          swayDeg = -2.4 + Math.sin(elapsedSec * 2.8) * 2.6;
-          targetHeadTilt = -3.2 + Math.sin(elapsedSec * 2.6) * 2.4 + st.gazeX * 3.5;
-        } else if (p.sceneId === 'freezing_puffer') {
-          swayDeg = Math.sin(elapsedSec * 1.5) * 1.3 + Math.sin(elapsedSec * 18) * 0.35;
-        }
+      let swayDeg = Math.sin(elapsedSec * 1.35) * 1.45 + st.gazeX * 1.15;
+      if (inNpcIdle && p.npcAction === 'listening_music') {
+        swayDeg = Math.sin(elapsedSec * 3.1) * 2.65 + st.gazeX * 0.9;
+      } else if (inNpcIdle && p.npcAction === 'petting_cat') {
+        swayDeg = 1.6 + Math.sin(elapsedSec * 1.8) * 1.1;
+      } else if (inNpcIdle && p.npcAction === 'petting_puppy') {
+        swayDeg = -1.6 + Math.sin(elapsedSec * 1.8) * 1.1;
+      } else if (p.sceneId === 'storm_raincoat') {
+        swayDeg = -2.1 + Math.sin(elapsedSec * 2.6) * 2.2;
+      } else if (p.sceneId === 'freezing_puffer') {
+        swayDeg = Math.sin(elapsedSec * 1.5) * 1.1 + Math.sin(elapsedSec * 17) * 0.28;
       }
 
-      st.prevHeadTiltDeg = st.headTiltDeg;
-      st.headTiltDeg += (targetHeadTilt - st.headTiltDeg) * Math.min(1, dtSec * 8.5);
-
-      // Secondary hair / twin-bun / scarf physics lag
-      const headVelocity = (st.headTiltDeg - st.prevHeadTiltDeg) / dtSec;
-      const targetLag =
-        -st.headTiltDeg * 0.45 -
-        Math.max(-12, Math.min(12, headVelocity * 0.08)) +
-        Math.sin(elapsedSec * (p.sceneId === 'storm_raincoat' ? 4.2 : 2.1)) *
-          (p.sceneId === 'storm_raincoat' ? 5.5 : 2.2);
-      st.secondaryLagDeg += (targetLag - st.secondaryLagDeg) * Math.min(1, dtSec * 7.5);
-
-      // 5. Walking Cat & Corgi Puppy Companion Kinematics
-      let petX = p.npcAction === 'petting_cat' ? 212 : 106;
-      let petWalking = false;
-      const petFacingLeft = p.npcAction === 'petting_cat';
-      let petBeingPetted = false;
-
-      if (isSeated && (p.npcAction === 'petting_cat' || p.npcAction === 'petting_puppy')) {
-        const walkDurationMs = 1750;
-        const walkProgress = Math.min(1, Math.max(0, (nowMs - st.petEnteredAtMs) / walkDurationMs));
-        const easedWalk = 1 - Math.pow(1 - walkProgress, 2.4);
-        if (p.npcAction === 'petting_cat') {
-          petX = 295 + (212 - 295) * easedWalk;
-        } else {
-          petX = 25 + (106 - 25) * easedWalk;
-        }
-        petWalking = walkProgress < 0.98;
-        petBeingPetted = walkProgress >= 0.92;
-      }
-
-      if (nowMs >= st.petNextBlinkAtMs) {
-        st.petBlinkUntilMs = nowMs + 140;
-        st.petNextBlinkAtMs = nowMs + 2700 + Math.random() * 2300;
-      }
-      const petBlinkClosed = nowMs < st.petBlinkUntilMs;
-
-      // 6. Articulated Left & Right Arm Joint Kinematics
-      const isWaving = nowMs < st.waveUntilMs;
-      let targetLeftArm = 18 + Math.sin(elapsedSec * 1.6) * 4.5;
-      let targetRightArm = -18 - Math.sin(elapsedSec * 1.6) * 4.5;
-
-      if (isWaving) {
-        // Enthusiastic right-arm greeting wave (-135deg <-> -105deg)
-        targetRightArm = -120 + Math.sin(elapsedSec * 11.5) * 16;
-        targetLeftArm = 22 + Math.sin(elapsedSec * 3.2) * 5;
-      } else if (isSeated) {
-        switch (p.npcAction) {
-          case 'reading_book':
-            targetLeftArm = -34 + Math.sin(elapsedSec * 1.2) * 2.5;
-            targetRightArm = 32 + Math.max(0, Math.sin(elapsedSec * 1.9)) * 12;
-            break;
-          case 'petting_cat':
-            targetLeftArm = 16 + Math.sin(elapsedSec * 1.4) * 3;
-            // Reach down toward the kitten at x=212 and stroke its head up and down!
-            targetRightArm = petBeingPetted
-              ? -44 + Math.sin(elapsedSec * 4.6) * 13
-              : -26;
-            break;
-          case 'petting_puppy':
-            // Reach down toward the Corgi puppy at x=106 and stroke its head up and down!
-            targetLeftArm = petBeingPetted
-              ? 44 + Math.sin(elapsedSec * 4.8) * 13
-              : 26;
-            targetRightArm = -16 - Math.sin(elapsedSec * 1.4) * 3;
-            break;
-          case 'scrolling_phone':
-            targetLeftArm = -36 + Math.sin(elapsedSec * 1.5) * 2;
-            targetRightArm = 28 + Math.sin(elapsedSec * 3.4) * 9.5;
-            break;
-          case 'listening_music':
-          default:
-            targetLeftArm = -28 + Math.sin(elapsedSec * 3.1) * 4;
-            targetRightArm = 26 - Math.sin(elapsedSec * 3.1) * 4;
-            break;
-        }
-      } else {
-        // Weather-specific standing outfit showcase gesture
-        switch (p.sceneId) {
-          case 'light_rain_umbrella':
-            targetRightArm = -46 + Math.sin(elapsedSec * 1.8) * 3.5;
-            targetLeftArm = 28 + Math.sin(elapsedSec * 1.5) * 5;
-            break;
-          case 'storm_raincoat':
-            targetRightArm = -108 + Math.sin(elapsedSec * 3.4) * 7;
-            targetLeftArm = 26 + Math.cos(elapsedSec * 2.8) * 6;
-            break;
-          case 'freezing_puffer':
-            targetLeftArm = -38 + Math.sin(elapsedSec * 5.5) * 3;
-            targetRightArm = 38 - Math.sin(elapsedSec * 5.5) * 3;
-            break;
-          case 'chilly_cozy':
-            targetLeftArm = -24 + Math.sin(elapsedSec * 1.5) * 3;
-            targetRightArm = 24 - Math.sin(elapsedSec * 1.5) * 3;
-            break;
-          default:
-            targetLeftArm = 18 + Math.sin(elapsedSec * 1.6) * 4.5;
-            targetRightArm = -18 - Math.sin(elapsedSec * 1.6) * 4.5;
-            break;
-        }
-      }
-
-      st.leftArmDeg += (targetLeftArm - st.leftArmDeg) * Math.min(1, dtSec * 11);
-      st.rightArmDeg += (targetRightArm - st.rightArmDeg) * Math.min(1, dtSec * 11);
-
-      // 7. Interactive Hop Bounce Curve
+      // 4. Interactive Hop & Sparkle Burst
       let hopOffsetY = 0;
+      let happyBounce = 0;
       if (st.hopStartMs >= 0) {
-        const hopElapsed = (nowMs - st.hopStartMs) / 420;
-        if (hopElapsed >= 1) {
+        const ht = (nowMs - st.hopStartMs) / 460;
+        if (ht >= 1) {
           st.hopStartMs = -1;
         } else {
-          hopOffsetY = -Math.sin(hopElapsed * Math.PI) * 14 * (1 - hopElapsed * 0.35);
+          hopOffsetY = -Math.sin(ht * Math.PI) * 13 * (1 - ht * 0.3);
+          happyBounce = Math.sin(ht * Math.PI);
         }
       }
 
-      const happySquint = nowMs < st.happySquintUntilMs;
+      let sparkleProgress = -1;
+      if (st.sparkleStartMs >= 0) {
+        const sp = (nowMs - st.sparkleStartMs) / 950;
+        if (sp >= 1) {
+          st.sparkleStartMs = -1;
+        } else {
+          sparkleProgress = sp;
+        }
+      }
+
+      // 5. 3D Companion Pet Trot-In & Happy Bobbing
+      let petProgress = 0;
+      let petBobY = 0;
+      if (st.activePetKind !== null) {
+        const walkT = Math.min(1, Math.max(0, (nowMs - st.petEnteredAtMs) / 1550));
+        petProgress = 1 - Math.pow(1 - walkT, 2.6);
+        if (walkT < 0.98) {
+          petBobY = -Math.abs(Math.sin(elapsedSec * 9.5)) * 5.5;
+        } else {
+          petBobY = Math.sin(elapsedSec * 2.9) * 1.8;
+        }
+      }
 
       setFrame({
-        standBlend: st.standBlend,
-        breathPhase,
+        breathScaleX,
+        breathScaleY,
         swayDeg,
-        headTiltDeg: st.headTiltDeg,
+        hopOffsetY,
         gazeX: st.gazeX,
         gazeY: st.gazeY,
         blinkAmount,
-        happySquint,
-        leftArmDeg: st.leftArmDeg,
-        rightArmDeg: st.rightArmDeg,
-        secondaryLagDeg: st.secondaryLagDeg,
-        propClock: elapsedSec * 2.2,
-        hopOffsetY,
-        petX,
-        petWalking,
-        petFacingLeft,
-        petBeingPetted,
-        petBlinkClosed,
+        happyBounce,
+        sparkleProgress,
+        petProgress,
+        petBobY,
+        notePhase: elapsedSec,
       });
 
       rafId = requestAnimationFrame(tick);
@@ -538,26 +414,21 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
         cancelAnimationFrame(rafId);
       }
     };
-  }, [reduceMotion, isStanding, npcAction]);
+  }, [reduceMotion]);
 
-  // Interactive Tap / Click -> Stand up (or wave/hop if already standing) with happy squint & waving right arm!
   const handleCharacterPress = useCallback(() => {
     if (!interactive) {
       return;
     }
-
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const st = rigRef.current;
-    st.waveUntilMs = now + 2600;
-    st.happySquintUntilMs = now + 1850;
     st.hopStartMs = now;
-
+    st.sparkleStartMs = now;
     if (npcMode) {
       npcStage.interactWithCharacter();
     }
   }, [interactive, npcMode, npcStage]);
 
-  // Direct stage pointer tracking + head-petting stroke detector
   const webPointerHandlers = useMemo(() => {
     if (Platform.OS !== 'web' || !interactive || reduceMotion) {
       return {};
@@ -573,10 +444,10 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
         if (!rect.width || !rect.height) {
           return;
         }
-        const clientX = nativeEvt.clientX ?? rect.left + rect.width / 2;
-        const clientY = nativeEvt.clientY ?? rect.top + rect.height / 2;
-        const nx = Math.max(-1, Math.min(1, ((clientX - rect.left) / rect.width - 0.5) * 2));
-        const ny = Math.max(-1, Math.min(1, ((clientY - rect.top) / rect.height - 0.5) * 2));
+        const cx = nativeEvt.clientX ?? rect.left + rect.width / 2;
+        const cy = nativeEvt.clientY ?? rect.top + rect.height * 0.385;
+        const nx = Math.max(-1, Math.min(1, ((cx - rect.left) / rect.width - 0.5) * 2.1));
+        const ny = Math.max(-1, Math.min(1, ((cy - rect.top) / rect.height - 0.385) * 2.2));
 
         const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const st = rigRef.current;
@@ -584,16 +455,16 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
         st.targetGazeY = ny;
         st.pointerActiveUntilMs = now + 2600;
 
-        // Detect back-and-forth head petting gesture across the upper half of the character
-        if (ny < 0.05 && Math.abs(nx) < 0.55) {
+        // Head-petting stroke detector triggers sparkle joy
+        if (ny < 0.02 && Math.abs(nx) < 0.52) {
           const deltaX = Math.abs(nx - st.lastPointerX);
           st.strokeAccum = Math.min(2.5, st.strokeAccum + deltaX);
-          if (st.strokeAccum > 0.85) {
-            st.happySquintUntilMs = now + 1500;
+          if (st.strokeAccum > 0.9) {
+            st.sparkleStartMs = now;
             st.strokeAccum = 0;
           }
         } else {
-          st.strokeAccum *= 0.85;
+          st.strokeAccum *= 0.86;
         }
         st.lastPointerX = nx;
       },
@@ -607,15 +478,28 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
     ? sceneMotion.auraTintDark
     : sceneMotion.auraTintLight;
 
-  const npcLabelVi =
-    NATURAL_NPC_LABELS[npcAction] ??
-    NPC_ACTION_META[npcAction]?.labelVi ??
-    'Đang thư giãn';
-  const a11yDescription = npcMode
-    ? isStanding
-      ? `${profile?.nameVi ?? gender} · ${sceneMeta?.labelVi ?? sceneId}`
-      : `${profile?.nameVi ?? gender} · ${npcLabelVi} (${sceneMeta?.labelVi ?? sceneId}). Chạm để tương tác`
-    : `${profile?.nameVi ?? gender} · ${sceneMeta?.labelVi ?? sceneId}`;
+  const isWearingSunglasses = sceneId === 'hot_sunny';
+  const showCat = npcMode && !isStanding && npcAction === 'petting_cat';
+  const showPuppy = npcMode && !isStanding && npcAction === 'petting_puppy';
+  const showMusicNotes = npcMode && !isStanding && npcAction === 'listening_music';
+
+  // Foot-anchored pivot approximation (sole Y = 692 on 768 canvas -> +40% below center)
+  const pivotOffsetY = size * 0.4;
+  const charTransform = [
+    { translateY: frame.hopOffsetY + pivotOffsetY },
+    { rotate: `${frame.swayDeg.toFixed(2)}deg` },
+    { scaleX: frame.breathScaleX },
+    { scaleY: frame.breathScaleY },
+    { translateY: -pivotOffsetY },
+  ];
+
+  // Live 3D eye gaze shift inside 768x768 coordinate space
+  const gazeShiftX = frame.gazeX * 5.6;
+  const gazeShiftY = frame.gazeY * 4.4;
+  const eyelidCoverR = 23 * frame.blinkAmount;
+
+  const petSize = Math.round(size * 0.28);
+  const solePx = Math.round(size * (CANONICAL_CHIBI_LANDMARKS.soleY / 768));
 
   return (
     <View style={styles.rigOuterStack}>
@@ -623,71 +507,76 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
         ref={stageRef}
         style={[styles.rigCanvas, { width: size * 1.08, height: size }]}
       >
-        {/* Ambient Atmospheric Backlight Halo */}
+        {/* Soft Atmospheric Backlight Halo */}
         <View
           pointerEvents="none"
           style={[
             styles.auraOrb,
             {
-              width: size * 0.84,
-              height: size * 0.84,
-              borderRadius: size * 0.42,
+              width: size * 0.82,
+              height: size * 0.82,
+              borderRadius: size * 0.41,
               backgroundColor: auraColor,
-              opacity: 0.64 + Math.sin(frame.breathPhase) * 0.12,
+              opacity: 0.62,
               transform: [
-                { translateX: -frame.gazeX * 3 },
-                { translateY: -frame.gazeY * 2 },
-                { scale: 1 + Math.sin(frame.breathPhase) * 0.03 },
+                { translateX: -frame.gazeX * 3.5 },
+                { translateY: -frame.gazeY * 2.5 },
+                { scale: frame.breathScaleY },
               ],
             },
           ]}
         />
 
-        {/* Daytime-only Solar / Heat Shimmer Ring (NEVER on clear_night!) */}
+        {/* Subtle Daytime / Starlight Rim Ring */}
         {showAmbientProps &&
           (sceneMotion.ambientProp === 'sun_halo' ||
-            sceneMotion.ambientProp === 'heat_shimmer') && (
+            sceneMotion.ambientProp === 'heat_shimmer' ||
+            sceneMotion.ambientProp === 'starlight_aura') && (
             <View
               pointerEvents="none"
               style={[
-                styles.solarShimmerRing,
+                styles.ambientRing,
                 {
-                  width: size * 0.92,
-                  height: size * 0.92,
-                  borderRadius: size * 0.46,
+                  width: size * 0.9,
+                  height: size * 0.9,
+                  borderRadius: size * 0.45,
                   borderColor:
-                    sceneMotion.ambientProp === 'heat_shimmer'
-                      ? 'rgba(251, 146, 60, 0.32)'
-                      : 'rgba(251, 191, 36, 0.28)',
-                  opacity: 0.38 + Math.sin(frame.breathPhase) * 0.14,
+                    sceneMotion.ambientProp === 'starlight_aura'
+                      ? 'rgba(147, 197, 253, 0.22)'
+                      : sceneMotion.ambientProp === 'heat_shimmer'
+                        ? 'rgba(251, 146, 60, 0.28)'
+                        : 'rgba(251, 191, 36, 0.25)',
                 },
               ]}
             />
           )}
 
-        {/* Calm Night Starlight Ring (clear_night — zero sun rays!) */}
-        {showAmbientProps && sceneMotion.ambientProp === 'starlight_aura' && (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.solarShimmerRing,
-              {
-                width: size * 0.9,
-                height: size * 0.9,
-                borderRadius: size * 0.45,
-                borderColor: 'rgba(147, 197, 253, 0.24)',
-                opacity: 0.34 + Math.sin(frame.breathPhase) * 0.12,
-              },
-            ]}
-          />
-        )}
+        {/* Grounded Elliptical Contact Shadow right beneath Sole Y = 692 */}
+        <View
+          pointerEvents="none"
+          style={[
+            styles.contactShadow,
+            {
+              width: size * 0.42,
+              height: size * 0.068,
+              borderRadius: size * 0.21,
+              top: solePx - size * 0.026,
+              backgroundColor: palette.isDark
+                ? 'rgba(2, 6, 23, 0.56)'
+                : 'rgba(15, 23, 42, 0.14)',
+              transform: [
+                { scaleX: (1 - Math.abs(frame.hopOffsetY) * 0.014) * frame.breathScaleX },
+              ],
+            },
+          ]}
+        />
 
-        {/* Interactive Accessible Pressable Wrapping the 60fps Articulated Chibi SVG Rig */}
+        {/* Interactive 3D Pop Mart Vinyl Character + Synchronized 2.5D Live Eye Gaze & Blinking */}
         <Pressable
           disabled={!interactive}
           onPress={handleCharacterPress}
           accessibilityRole={interactive ? 'button' : 'image'}
-          accessibilityLabel={a11yDescription}
+          accessibilityLabel={`${profile?.nameVi ?? gender} · ${sceneMeta?.labelVi ?? sceneId}`}
           {...(webPointerHandlers as object)}
           style={[
             styles.pressableStage,
@@ -701,91 +590,227 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
               : null,
           ]}
         >
-          <Svg
-            width={size}
-            height={size}
-            viewBox="0 0 320 320"
+          <View
+            style={[
+              styles.characterTransformGroup,
+              {
+                width: size,
+                height: size,
+                transform: charTransform as any,
+              },
+            ]}
           >
-            <ArticulatedChibiSvg
-              gender={gender}
-              sceneId={sceneId}
-              npcAction={npcAction}
-              frame={frame}
+            <Image
+              source={spriteSource}
+              resizeMode="contain"
+              style={{ width: size, height: size }}
             />
-          </Svg>
-        </Pressable>
 
-        {/* Subtle 28px Shuffle Button (🔀) in Top-Right Stage Corner */}
-        {npcMode && interactive && (
-          <Pressable
-            onPress={npcStage.shuffleNpcAction}
-            accessibilityRole="button"
-            accessibilityLabel={`Đổi hoạt động ngẫu nhiên (${npcLabelVi})`}
-            hitSlop={8}
-            style={({ pressed }) => [
-              styles.shuffleCornerBtn,
-              WEB_NO_OUTLINE,
-              Platform.OS === 'web'
-                ? ({
-                    outlineStyle: 'none',
-                    cursor: 'pointer',
-                    WebkitTapHighlightColor: 'transparent',
-                  } as any)
-                : null,
-              {
-                backgroundColor: palette.pillIdleBg,
-                borderColor: palette.bezelOuterBorder,
-                opacity: pressed ? 0.92 : 0.82,
-                transform: [{ scale: pressed ? 0.92 : 1 }],
-              },
-            ]}
-          >
-            <Feather name="shuffle" size={12} color={palette.inkSecondary} />
-          </Pressable>
-        )}
-
-        {/* Compact Natural NPC Activity / Weather Showcase Pill in Bottom Corner */}
-        {npcMode && interactive && (
-          <Pressable
-            onPress={npcStage.shuffleNpcAction}
-            accessibilityRole="button"
-            accessibilityLabel={`Hoạt động hiện tại: ${
-              isStanding ? sceneMeta?.labelVi ?? 'Trang phục thời tiết' : npcLabelVi
-            }. Chạm để đổi hoạt động`}
-            style={({ pressed }) => [
-              styles.npcActionPill,
-              WEB_NO_OUTLINE,
-              Platform.OS === 'web'
-                ? ({
-                    outlineStyle: 'none',
-                    cursor: 'pointer',
-                    WebkitTapHighlightColor: 'transparent',
-                  } as any)
-                : null,
-              {
-                backgroundColor: palette.pillIdleBg,
-                borderColor: palette.bezelOuterBorder,
-                opacity: pressed ? 0.95 : 0.88,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              },
-            ]}
-          >
+            {/* Sub-pixel Locked 2.5D Live Eye Catchlights & 3D Eyelid Blink Overlay (768x768 space) */}
             <View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, { width: size, height: size }]}
+            >
+              <Svg width={size} height={size} viewBox="0 0 768 768">
+                <Defs>
+                  <LinearGradient id="wbSkinLid" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0%" stopColor="#F5C3AC" stopOpacity="0.98" />
+                    <Stop offset="100%" stopColor="#FAD6C4" stopOpacity="0.98" />
+                  </LinearGradient>
+                </Defs>
+
+                {!isWearingSunglasses ? (
+                  <G>
+                    {/* Live Moving Glossy Specular Catchlights inside Left (327,296) & Right (441,296) 3D Irises */}
+                    {frame.blinkAmount < 0.72 && (
+                      <G>
+                        {/* Soft espresso mask over static studio dot so the catchlight genuinely moves with gaze */}
+                        <Circle cx={320} cy={289} r={9.5} fill="#2A150E" opacity={0.76} />
+                        <Circle cx={434} cy={289} r={9.5} fill="#2A150E" opacity={0.76} />
+
+                        {/* Primary glossy Pixar specular catchlight following cursor / pet / book */}
+                        <Circle
+                          cx={321 + gazeShiftX}
+                          cy={289 + gazeShiftY}
+                          r={7.4}
+                          fill="#FFFFFF"
+                          opacity={0.96}
+                        />
+                        <Circle
+                          cx={435 + gazeShiftX}
+                          cy={289 + gazeShiftY}
+                          r={7.4}
+                          fill="#FFFFFF"
+                          opacity={0.96}
+                        />
+
+                        {/* Secondary micro rim sparkle */}
+                        <Circle
+                          cx={334 + gazeShiftX * 0.65}
+                          cy={304 + gazeShiftY * 0.65}
+                          r={3.1}
+                          fill="#FFF7ED"
+                          opacity={0.82}
+                        />
+                        <Circle
+                          cx={448 + gazeShiftX * 0.65}
+                          cy={304 + gazeShiftY * 0.65}
+                          r={3.1}
+                          fill="#FFF7ED"
+                          opacity={0.82}
+                        />
+                      </G>
+                    )}
+
+                    {/* Natural 3D Smooth Blinking Eyelids */}
+                    {frame.blinkAmount > 0.06 && (
+                      <G>
+                        <Ellipse
+                          cx={327}
+                          cy={295 - (1 - frame.blinkAmount) * 14}
+                          rx={25}
+                          ry={eyelidCoverR}
+                          fill="url(#wbSkinLid)"
+                        />
+                        <Ellipse
+                          cx={441}
+                          cy={295 - (1 - frame.blinkAmount) * 14}
+                          rx={25}
+                          ry={eyelidCoverR}
+                          fill="url(#wbSkinLid)"
+                        />
+                        {frame.blinkAmount > 0.55 && (
+                          <G>
+                            <Path
+                              d="M 303 299 Q 327 310 351 299"
+                              stroke="#432015"
+                              strokeWidth={4.5}
+                              strokeLinecap="round"
+                              fill="none"
+                            />
+                            <Path
+                              d="M 417 299 Q 441 310 465 299"
+                              stroke="#432015"
+                              strokeWidth={4.5}
+                              strokeLinecap="round"
+                              fill="none"
+                            />
+                          </G>
+                        )}
+                      </G>
+                    )}
+                  </G>
+                ) : (
+                  /* Subtle Moving Specular Sun Glint on Hot Sunny Sunglasses Lenses */
+                  <G opacity={0.55}>
+                    <Ellipse
+                      cx={316 + gazeShiftX * 1.2}
+                      cy={284 + gazeShiftY * 0.9}
+                      rx={10}
+                      ry={5.5}
+                      transform={`rotate(-22 ${316 + gazeShiftX * 1.2} ${284 + gazeShiftY * 0.9})`}
+                      fill="#FFFFFF"
+                    />
+                    <Ellipse
+                      cx={430 + gazeShiftX * 1.2}
+                      cy={284 + gazeShiftY * 0.9}
+                      rx={10}
+                      ry={5.5}
+                      transform={`rotate(-22 ${430 + gazeShiftX * 1.2} ${284 + gazeShiftY * 0.9})`}
+                      fill="#FFFFFF"
+                    />
+                  </G>
+                )}
+
+                {/* Subtle Floating Musical Notes during 5-minute `listening_music` NPC rotation */}
+                {showMusicNotes && (
+                  <G opacity={0.85}>
+                    <Circle
+                      cx={236 + Math.sin(frame.notePhase * 2.2) * 10}
+                      cy={235 - ((frame.notePhase * 26) % 55)}
+                      r={6.5}
+                      fill={palette.accent}
+                    />
+                    <Circle
+                      cx={532 + Math.cos(frame.notePhase * 2.0) * 10}
+                      cy={225 - (((frame.notePhase * 26) + 28) % 55)}
+                      r={6.5}
+                      fill="#F472B6"
+                    />
+                  </G>
+                )}
+
+                {/* Interactive Tap / Petting Joyful Sparkle Hearts */}
+                {frame.sparkleProgress >= 0 && (
+                  <G opacity={Math.max(0, 1 - frame.sparkleProgress)}>
+                    <Path
+                      d={`M 248 ${210 - frame.sparkleProgress * 36} C 248 201, 235 201, 235 210 C 235 219, 248 226, 248 231 C 248 226, 261 219, 261 210 C 261 201, 248 201, 248 ${210 - frame.sparkleProgress * 36} Z`}
+                      fill="#FB7185"
+                    />
+                    <Circle
+                      cx={526 + frame.sparkleProgress * 18}
+                      cy={196 - frame.sparkleProgress * 34}
+                      r={6.5}
+                      fill="#FBBF24"
+                    />
+                  </G>
+                )}
+              </Svg>
+            </View>
+          </View>
+
+          {/* 3D Pop Mart Ginger Kitten Trotting In Beside Character (`petting_cat`) */}
+          {showCat && (
+            <View
+              pointerEvents="none"
               style={[
-                styles.npcLiveDot,
+                styles.companionWrap,
                 {
-                  backgroundColor: isStanding ? palette.accent : '#10B981',
+                  width: petSize,
+                  height: petSize,
+                  top: solePx - petSize + Math.round(petSize * 0.05),
+                  left:
+                    size * 0.62 +
+                    (1 - frame.petProgress) * (size * 0.34),
+                  opacity: Math.min(1, frame.petProgress * 1.4),
+                  transform: [{ translateY: frame.petBobY }],
                 },
               ]}
-            />
-            <Text
-              numberOfLines={1}
-              style={[styles.npcActionPillText, { color: palette.inkPrimary }]}
             >
-              {isStanding ? sceneMeta?.labelVi ?? 'Đổi trang phục' : npcLabelVi}
-            </Text>
-          </Pressable>
-        )}
+              <Image
+                source={COMPANION_SPRITES.cat}
+                resizeMode="contain"
+                style={{ width: petSize, height: petSize }}
+              />
+            </View>
+          )}
+
+          {/* 3D Pop Mart Corgi Puppy Trotting In Beside Character (`petting_puppy`) */}
+          {showPuppy && (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.companionWrap,
+                {
+                  width: petSize,
+                  height: petSize,
+                  top: solePx - petSize + Math.round(petSize * 0.05),
+                  left:
+                    size * 0.1 -
+                    (1 - frame.petProgress) * (size * 0.34),
+                  opacity: Math.min(1, frame.petProgress * 1.4),
+                  transform: [{ translateY: frame.petBobY }],
+                },
+              ]}
+            >
+              <Image
+                source={COMPANION_SPRITES.puppy}
+                resizeMode="contain"
+                style={{ width: petSize, height: petSize }}
+              />
+            </View>
+          )}
+        </Pressable>
       </View>
     </View>
   );
@@ -801,55 +826,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
+  auraOrb: {
+    position: 'absolute',
+  },
+  ambientRing: {
+    position: 'absolute',
+    borderWidth: 1,
+  },
+  contactShadow: {
+    position: 'absolute',
+  },
   pressableStage: {
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    zIndex: 3,
   },
-  shuffleCornerBtn: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
+  characterTransformGroup: {
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 6,
+    position: 'relative',
   },
-  npcActionPill: {
+  companionWrap: {
     position: 'absolute',
-    bottom: 4,
-    right: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    zIndex: 6,
-  },
-  npcLiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  npcActionPillText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontWeight: '600',
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  auraOrb: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-  solarShimmerRing: {
-    position: 'absolute',
-    borderWidth: 1.5,
-    zIndex: 1,
   },
 });

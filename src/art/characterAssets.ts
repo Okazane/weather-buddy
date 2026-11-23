@@ -102,6 +102,11 @@ export const NPC_SPRITES: Record<Gender, Record<NpcActionId, any>> = {
   },
 };
 
+export const COMPANION_SPRITES = {
+  cat: require('../../assets/characters/companions/companion_cat.png'),
+  puppy: require('../../assets/characters/companions/companion_puppy.png'),
+} as const;
+
 export const CHARACTER_PROFILES: Record<
   Gender,
   {
