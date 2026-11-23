@@ -353,7 +353,7 @@ function getNpcSnapshot(): NpcStageSnapshot {
   return npcSnapshot;
 }
 
-export function triggerNpcCharacterInteraction(): void {
+export function triggerNpcCharacterInteraction(pinStanding = false): void {
   if (npcStandTimeout) {
     clearTimeout(npcStandTimeout);
     npcStandTimeout = null;
@@ -366,14 +366,16 @@ export function triggerNpcCharacterInteraction(): void {
   };
   emitNpcSnapshot();
 
-  npcStandTimeout = setTimeout(() => {
-    npcStandTimeout = null;
-    npcSnapshot = {
-      ...npcSnapshot,
-      isStanding: false,
-    };
-    emitNpcSnapshot();
-  }, NPC_STAND_DURATION_MS);
+  if (!pinStanding) {
+    npcStandTimeout = setTimeout(() => {
+      npcStandTimeout = null;
+      npcSnapshot = {
+        ...npcSnapshot,
+        isStanding: false,
+      };
+      emitNpcSnapshot();
+    }, NPC_STAND_DURATION_MS);
+  }
 }
 
 export function shuffleRandomNpcAction(): void {
@@ -407,7 +409,7 @@ export function useNpcStageController(): NpcStageControls {
     npcAction: snap.npcAction,
     isStanding: snap.isStanding,
     standTriggerCount: snap.standTriggerCount,
-    interactWithCharacter: triggerNpcCharacterInteraction,
+    interactWithCharacter: () => triggerNpcCharacterInteraction(false),
     shuffleNpcAction: shuffleRandomNpcAction,
   };
 }
@@ -743,6 +745,31 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
     () => evaluateCharacterDecision(activeWeather, { gender, sensitivity }),
     [activeWeather, gender, sensitivity]
   );
+
+  // Automatically showcase the weather outfit whenever weather scenario, city, or sceneId changes
+  const prevWeatherKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const weatherKey = `${activeScenarioId}|${selectedCityId}|${decision.sceneId}`;
+    if (prevWeatherKeyRef.current === null) {
+      prevWeatherKeyRef.current = weatherKey;
+      // On initial mount, if actively raining/storming, stand in rain gear instead of indoor NPC pose
+      if (
+        decision.sceneId === 'light_rain_umbrella' ||
+        decision.sceneId === 'storm_raincoat'
+      ) {
+        triggerNpcCharacterInteraction(true);
+      }
+      return;
+    }
+    if (prevWeatherKeyRef.current !== weatherKey) {
+      prevWeatherKeyRef.current = weatherKey;
+      const shouldPinStanding =
+        activeScenarioId !== 'live' ||
+        decision.sceneId === 'light_rain_umbrella' ||
+        decision.sceneId === 'storm_raincoat';
+      triggerNpcCharacterInteraction(shouldPinStanding);
+    }
+  }, [activeScenarioId, selectedCityId, decision.sceneId]);
 
   const widgetPayload: WidgetSyncPayload = useMemo(
     () => buildWidgetPayload(activeWeather, decision),

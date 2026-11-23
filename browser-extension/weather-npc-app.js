@@ -1205,10 +1205,20 @@
 
   function recomputeDecisionAndRender() {
     if (!state.weather) return;
+    const prevSceneId = state.decision ? state.decision.sceneId : null;
     state.decision = evaluateCharacterDecision(state.weather, {
       gender: state.config.gender,
       sensitivity: state.config.sensitivity,
     });
+    const isRainScene =
+      state.decision.sceneId === 'light_rain_umbrella' ||
+      state.decision.sceneId === 'storm_raincoat';
+    if (isRainScene) {
+      clearStandTimers();
+      state.isStanding = true;
+    } else if (prevSceneId !== null && prevSceneId !== state.decision.sceneId) {
+      triggerStandUpPose();
+    }
     applyVisibilityToggles();
     renderCityStrip();
     renderNpcStage();
