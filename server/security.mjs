@@ -14,9 +14,9 @@ export const DEFAULT_RATE_LIMITS = {
 export const HTML_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob:",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.open-meteo.com https://air-quality-api.open-meteo.com https://api.tomorrow.io https://api.weatherapi.com https://weather.googleapis.com https://api.bigdatacloud.net https://nominatim.openstreetmap.org",
   "object-src 'none'",
   "base-uri 'self'",
