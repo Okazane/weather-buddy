@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "WeatherBuddy - Bạn Nhỏ Thời Tiết",
+    "slug": "weather-buddy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.weatherbuddy.app",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.weatherbuddy.shared"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.weatherbuddy.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "./plugins/withWeatherBuddyWidgets"
+    ]
+  }
+}

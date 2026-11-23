@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "WeatherBuddy - Chibi NPC & Dự báo Thời tiết",
+  "short_name": "WeatherBuddy",
+  "version": "3.0.0",
+  "description": "Bạn đồng hành Chibi NPC 3D sống động trên Tab mới & Thanh công cụ. Tự động đổi 5 hành động mỗi 5 phút, báo mưa & trang phục theo thời tiết thực.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "WeatherBuddy · Chibi NPC Thời tiết",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "geolocation"
+  ],
+  "host_permissions": [
+    "https://api.open-meteo.com/*",
+    "https://air-quality-api.open-meteo.com/*",
+    "https://api.tomorrow.io/*",
+    "https://api.weatherapi.com/*",
+    "https://weather.googleapis.com/*",
+    "https://api.bigdatacloud.net/*",
+    "https://nominatim.openstreetmap.org/*",
+    "http://localhost:8787/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'self';"
+  }
+}

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="day_sunny">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trung tâm Tính năng &amp; Cài đặt · WeatherBuddy</title>
+  <link rel="icon" type="image/png" href="icons/icon32.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-mode="options">
+  <div class="sky-ambient-layer"></div>
+
+  <main class="app-shell">
+    <!-- Top Header -->
+    <nav class="top-bar">
+      <div class="brand-cluster">
+        <img src="icons/icon48.png" alt="WeatherBuddy" class="brand-logo" />
+        <div>
+          <div class="brand-name">WeatherBuddy · Trung tâm Tính năng &amp; Cài đặt Đa nền tảng</div>
+          <div class="brand-sub">Quản lý Extension Tab mới, Toolbar Popup, Widget Màn hình Windows &amp; Nguồn API</div>
+        </div>
+      </div>
+
+      <div id="city-strip" class="city-strip"></div>
+
+      <div class="top-actions">
+        <button type="button" id="btn-refresh-weather" class="action-btn">🔄 Làm mới thời tiết</button>
+        <button type="button" data-action-launch-widget="true" class="action-btn primary">🚀 Mở Widget lên Màn hình Windows</button>
+      </div>
+    </nav>
+
+    <div id="status-toast" class="status-toast" role="status" aria-live="polite"></div>
+
+    <!-- Live Interactive Preview + Full Control Panel -->
+    <section class="main-bento-grid">
+      <!-- Left: Live Interactive Chibi NPC Preview -->
+      <article class="bezel-card">
+        <div class="bezel-inner">
+          <div class="stage-top-row">
+            <span id="weather-badge-pill" class="weather-badge-pill">🌤️ Nắng đẹp</span>
+            <div class="npc-status-cluster">
+              <span id="npc-mode-pill" class="npc-mode-pill">📖 NPC · Đọc sách</span>
+              <button type="button" id="btn-shuffle-npc" class="npc-shuffle-btn" title="Đổi hành động NPC">🎲</button>
+            </div>
+          </div>
+
+          <div
+            id="character-stage-viewport"
+            class="character-stage-viewport"
+            role="button"
+            tabindex="0"
+          >
+            <div class="character-aura"></div>
+            <span id="ambient-micro-accent" class="ambient-micro-accent">📖</span>
+            <div id="character-rig-pivot" class="character-rig-pivot" data-motion="reading_book">
+              <img
+                id="character-sprite-img"
+                class="character-sprite-img"
+                src="assets/characters/npc_male_reading_book.png"
+                alt="WeatherBuddy Chibi NPC"
+              />
+            </div>
+            <div class="character-ground-shadow"></div>
+            <div id="tap-hint-pill" class="tap-hint-pill">
+              Xem trước trực tiếp · Chạm vào Chibi để đứng dậy (8.5s)
+            </div>
+          </div>
+
+          <div id="npc-action-strip" class="npc-action-strip"></div>
+          <div id="foresight-alerts" class="foresight-alerts"></div>
+
+          <div class="stage-bottom-summary">
+            <div>
+              <div class="temp-display-cluster">
+                <span id="hero-temp" class="hero-temp tabular">26°</span>
+              </div>
+              <div id="feels-like-tag" class="feels-like-tag tabular">Cảm giác 27°C · Hà Nội</div>
+            </div>
+            <div class="decision-copy-cluster">
+              <div id="decision-headline" class="decision-headline">Trời nắng dịu</div>
+              <div id="decision-outfit" class="decision-outfit">Mặc trang phục gọn nhẹ thoải mái</div>
+            </div>
+          </div>
+
+          <!-- Platform Installation Guide Cards -->
+          <div class="install-grid" style="margin-top:8px;">
+            <div class="install-card">
+              <div class="install-card-title">🌐 1. Extension Tab Mới &amp; Popup</div>
+              <div class="install-card-desc">
+                Tự động hiển thị Chibi NPC trên Tab mới và cập nhật nhiệt độ <code>27°</code> trên thanh công cụ mỗi 15 phút.
+              </div>
+            </div>
+            <div class="install-card">
+              <div class="install-card-title">🖥️ 2. Widget Màn hình Windows</div>
+              <div class="install-card-desc">
+                Neo Chibi nổi ở 4 góc màn hình Desktop (`Launch-Desktop-Widget.ps1` hoặc nút Mở Widget ở góc phải trên).
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Right: Full Customization & Installation Matrix -->
+      <aside id="control-drawer" class="control-drawer open">
+        <div class="drawer-header">
+          <div>
+            <div class="drawer-title">🎛️ Bảng Tùy chỉnh Chức năng &amp; Cài đặt</div>
+            <div class="drawer-sub">Mọi thay đổi được áp dụng tức thì cho cả Tab mới, Popup và Desktop Widget</div>
+          </div>
+        </div>
+
+        <div class="drawer-body">
+          <!-- 1. Character & Thermal Sensitivity -->
+          <section class="settings-card">
+            <div class="settings-card-title"><span>1. Nhân vật Chibi &amp; Cơ địa nhiệt</span></div>
+            <div class="field-group">
+              <label class="field-label" for="sel-gender">Nhân vật đồng hành</label>
+              <select id="sel-gender" class="field-select">
+                <option value="male">Nam · Cậu bé Mây</option>
+                <option value="female">Nữ · Cô bé Nắng</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="sel-sensitivity">Độ nhạy cảm nhiệt độ</label>
+              <select id="sel-sensitivity" class="field-select">
+                <option value="cold_sensitive">Sợ lạnh (Mặc ấm sớm hơn 3°C)</option>
+                <option value="normal">Bình thường (Chuẩn nhiệt độ cảm nhận)</option>
+                <option value="heat_sensitive">Sợ nóng (Mặc thoáng mát sớm hơn 3°C)</option>
+              </select>
+            </div>
+          </section>
+
+          <!-- 2. UI Modules -->
+          <section class="settings-card">
+            <div class="settings-card-title"><span>2. Bật / Tắt từng Module chức năng</span></div>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label-title">Giao diện WeatherBuddy trên Tab mới</div>
+                <div class="toggle-label-desc">Hiển thị bảng Chibi NPC mỗi khi mở Tab mới trên trình duyệt</div>
+              </div>
+              <input type="checkbox" id="chk-newtab-override" class="switch-input" checked />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label-title">Hiện đồng hồ lớn HH:MM &amp; Ngày tháng</div>
+                <div class="toggle-label-desc">Đồng hồ số tabular sắc nét trên Tab mới</div>
+              </div>
+              <input type="checkbox" id="chk-show-clock" class="switch-input" checked />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label-title">Hiện thanh tìm kiếm Web nhanh</div>
+                <div class="toggle-label-desc">Tìm kiếm trực tiếp qua Google hoặc DuckDuckGo</div>
+              </div>
+              <input type="checkbox" id="chk-show-search" class="switch-input" checked />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label-title">Hiện dải dự báo 12 giờ tới</div>
+                <div class="toggle-label-desc">Theo dõi nhiệt độ và xác suất mưa theo từng giờ</div>
+              </div>
+              <input type="checkbox" id="chk-show-hourly" class="switch-input" checked />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label-title">Hiện lưới 6 chỉ số khí tượng chi tiết</div>
+                <div class="toggle-label-desc">Lượng mưa, Sức gió, Độ ẩm, UV, AQI, Cơ địa</div>
+              </div>
+              <input type="checkbox" id="chk-show-telemetry" class="switch-input" checked />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label-title">Tự động đổi 5 hành động Chibi NPC mỗi 5 phút</div>
+                <div class="toggle-label-desc">Đọc sách, Chơi với mèo, Chơi với cún, Xem điện thoại, Nghe nhạc</div>
+              </div>
+              <input type="checkbox" id="chk-auto-rotate-npc" class="switch-input" checked />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label-title">Chế độ thu gọn (Compact 300×420)</div>
+                <div class="toggle-label-desc">Giao diện tinh gọn cho màn hình nhỏ</div>
+              </div>
+              <input type="checkbox" id="chk-compact-mode" class="switch-input" />
+            </label>
+            <div class="field-group">
+              <label class="field-label" for="sel-search-engine">Công cụ tìm kiếm trên Tab mới</label>
+              <select id="sel-search-engine" class="field-select">
+                <option value="google">Google Search</option>
+                <option value="duckduckgo">DuckDuckGo</option>
+              </select>
+            </div>
+          </section>
+
+          <!-- 3. Windows Desktop Screen Companion -->
+          <section class="settings-card">
+            <div class="settings-card-title"><span>3. Cấu hình Widget Nổi Màn hình Máy tính (Windows)</span></div>
+            <div class="field-group">
+              <label class="field-label" for="sel-widget-corner">Vị trí neo trên màn hình Windows</label>
+              <select id="sel-widget-corner" class="field-select">
+                <option value="BottomRight">Góc phải dưới (Bottom-Right)</option>
+                <option value="TopRight">Góc phải trên (Top-Right)</option>
+                <option value="BottomLeft">Góc trái dưới (Bottom-Left)</option>
+                <option value="TopLeft">Góc trái trên (Top-Left)</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="sel-widget-size">Kích thước Widget</label>
+              <select id="sel-widget-size" class="field-select">
+                <option value="Standard">Tiêu chuẩn (380 × 540 px)</option>
+                <option value="Compact">Gọn nhẹ (300 × 420 px)</option>
+              </select>
+            </div>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label-title">Ghim nổi trên cửa sổ khác (Always-on-Top)</div>
+                <div class="toggle-label-desc">Áp dụng khi chạy qua Desktop Widget</div>
+              </div>
+              <input type="checkbox" id="chk-always-on-top" class="switch-input" checked />
+            </label>
+            <button type="button" data-action-launch-widget="true" class="action-btn primary">
+              🚀 Mở ngay Widget lên Màn hình Windows
+            </button>
+          </section>
+
+          <!-- 4. Blank User-Supplied API Keys -->
+          <section class="settings-card">
+            <div class="settings-card-title"><span>4. API Key cá nhân (Mặc định để trống 100%)</span></div>
+            <div class="toggle-label-desc">
+              Không có bất kỳ API Key nào được gắn cứng. Khi để trống, ứng dụng tự động dùng <strong>Open-Meteo Free</strong> hoàn toàn miễn phí.
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="sel-provider">Nguồn dữ liệu thời tiết</label>
+              <select id="sel-provider" class="field-select">
+                <option value="auto">Tự động (Ưu tiên Key đã nhập, dự phòng Open-Meteo Free)</option>
+                <option value="open_meteo">Open-Meteo Free (Mặc định · Không cần Key)</option>
+                <option value="weatherapi">WeatherAPI.com</option>
+                <option value="tomorrow_io">Tomorrow.io</option>
+                <option value="google">Google Weather API</option>
+              </select>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="inp-google-key">Google Weather API Key</label>
+              <div style="display:flex;gap:6px;">
+                <input type="password" id="inp-google-key" class="field-input" style="flex:1;" placeholder="Để trống = dùng Open-Meteo Free" autocomplete="off" value="" />
+                <button type="button" class="action-btn" data-toggle-secret="inp-google-key">👁️ Hiện</button>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="inp-tomorrow-key">Tomorrow.io API Key</label>
+              <div style="display:flex;gap:6px;">
+                <input type="password" id="inp-tomorrow-key" class="field-input" style="flex:1;" placeholder="Để trống = dùng Open-Meteo Free" autocomplete="off" value="" />
+                <button type="button" class="action-btn" data-toggle-secret="inp-tomorrow-key">👁️ Hiện</button>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="inp-weatherapi-key">WeatherAPI.com Key</label>
+              <div style="display:flex;gap:6px;">
+                <input type="password" id="inp-weatherapi-key" class="field-input" style="flex:1;" placeholder="Để trống = dùng Open-Meteo Free" autocomplete="off" value="" />
+                <button type="button" class="action-btn" data-toggle-secret="inp-weatherapi-key">👁️ Hiện</button>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" id="btn-save-api-keys" class="action-btn primary">💾 Lưu API Key</button>
+              <button type="button" id="btn-clear-api-keys" class="action-btn">🗑️ Xóa trắng Key</button>
+            </div>
+          </section>
+
+          <!-- 5. Export / Import JSON -->
+          <section class="settings-card">
+            <div class="settings-card-title"><span>5. Sao lưu &amp; Khôi phục cấu hình (.json)</span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" id="btn-export-config" class="action-btn">📋 Xuất cấu hình .json</button>
+              <button type="button" id="btn-import-config" class="action-btn">📂 Nhập cấu hình .json</button>
+              <input type="file" id="inp-import-file" accept="application/json" class="hidden" />
+            </div>
+          </section>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="weather-npc-app.js"></script>
+</body>
+</html>
