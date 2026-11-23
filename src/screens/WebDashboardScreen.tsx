@@ -1,8 +1,10 @@
+/* Lucian UX/UI Prompt #095 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#095 */
+/* Lucian UX/UI Prompt #227 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#227 */
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -24,6 +26,12 @@ import {
   fetchWeatherWithBackendFallback,
   resolveBackendBaseUrl,
 } from '../hooks/useWeatherBuddy';
+import {
+  LucianLiveSortableTable,
+  LucianMorphingForecastChart,
+  useResolvedLucianDark,
+  type LucianSortableRow,
+} from '../lucian/LucianHubComponents';
 import {
   FONT_FAMILY_DISPLAY,
   FONT_FAMILY_SANS,
@@ -218,7 +226,9 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
   googleApiKey,
 }) => {
   const { width } = useWindowDimensions();
-  const isWide = width >= 900;
+  const isTwoColTables = width >= 960;
+  const isNarrowMobile = width < 440;
+  const isDark = useResolvedLucianDark(palette);
 
   const [backendOnline, setBackendOnline] = useState<boolean>(false);
   const [loadingOverview, setLoadingOverview] = useState<boolean>(false);
@@ -226,6 +236,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
   const [securityStatus, setSecurityStatus] =
     useState<SecurityStatusResponse | null>(null);
   const [selectedHourIdx, setSelectedHourIdx] = useState<number>(0);
+  const [telemetryPaused, setTelemetryPaused] = useState<boolean>(false);
   const [cityRows, setCityRows] = useState<CityComparisonRow[]>(() =>
     PRESET_CITIES.map((city) => ({ city, snapshot: null, decision: null }))
   );
@@ -249,6 +260,9 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
   }, [analytics, weather.hourly]);
 
   const fetchBackendOverview = useCallback(async () => {
+    if (telemetryPaused) {
+      return;
+    }
     setLoadingOverview(true);
     const controller =
       typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -290,7 +304,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
       }
       setLoadingOverview(false);
     }
-  }, [weather.latitude, weather.longitude, weather.locationName]);
+  }, [weather.latitude, weather.longitude, weather.locationName, telemetryPaused]);
 
   const fetchMultiCityComparison = useCallback(async () => {
     setLoadingCities(true);
@@ -338,20 +352,119 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
   const activeHourPoint: HourlyForecastPoint | null =
     chartSeries[selectedHourIdx] ?? chartSeries[0] ?? null;
 
-  const { minChartTemp, maxChartTemp } = useMemo(() => {
-    if (chartSeries.length === 0) {
-      return { minChartTemp: 20, maxChartTemp: 32 };
+  const citySortableRows: ReadonlyArray<LucianSortableRow> = useMemo(
+    () =>
+      cityRows.map(({ city, snapshot, decision: cityDec }, idx) => {
+        const tempRounded = snapshot ? Math.round(snapshot.temperatureC) : -99;
+        const rainPct = snapshot ? Math.round(snapshot.precipProbPct) : 0;
+        const humPct = snapshot ? Math.round(snapshot.humidityPct) : 0;
+        const statusColor = !snapshot
+          ? '#94A3B8'
+          : rainPct >= 50
+            ? '#38BDF8'
+            : tempRounded >= 33
+              ? '#F97316'
+              : tempRounded < 18
+                ? '#60A5FA'
+                : '#10B981';
+
+        return {
+          id: city.id,
+          primaryText: city.nameVi,
+          secondaryText: snapshot
+            ? `${city.regionVi} · Ẩm ${humPct}% · Mưa ${rainPct}%`
+            : `${city.regionVi} · Đang tải...`,
+          metricDisplay: snapshot ? `${tempRounded}°C` : '--°C',
+          metricNumeric: snapshot ? snapshot.temperatureC : -99,
+          sortTimeOrOrder: idx + 1,
+          statusText: cityDec
+            ? sanitizeCopy(cityDec.headlineVi)
+            : 'Đang đồng bộ',
+          statusColor,
+          isSelected: selectedCityId === city.id,
+        };
+      }),
+    [cityRows, selectedCityId]
+  );
+
+  const backendSortableRows: ReadonlyArray<LucianSortableRow> = useMemo(() => {
+    const logs = overview?.recentTelemetry ?? [];
+    if (backendOnline && logs.length > 0) {
+      return logs.slice(0, 6).map((entry, idx) => ({
+        id: entry.id || `log_${idx}`,
+        primaryText: `${entry.locationName} (${Math.round(entry.temperatureC)}°C)`,
+        secondaryText: `${formatTimeClock(entry.timestampIso)} · ${entry.providerUsed}`,
+        metricDisplay: entry.cacheHit ? '0 ms' : `${entry.latencyMs} ms`,
+        metricNumeric: entry.cacheHit ? 0 : entry.latencyMs,
+        sortTimeOrOrder: Date.parse(entry.timestampIso) || idx,
+        statusText: entry.cacheHit ? 'CACHE HIT 15p' : 'UPSTREAM LIVE',
+        statusColor: entry.cacheHit ? '#10B981' : '#38BDF8',
+      }));
     }
-    const vals = chartSeries.map((c) => c.temperatureC);
-    return {
-      minChartTemp: Math.min(...vals),
-      maxChartTemp: Math.max(...vals),
-    };
-  }, [chartSeries]);
+
+    return [
+      {
+        id: 'sec_zero_keys',
+        primaryText: 'Zero Hardcoded Keys',
+        secondaryText: 'Khóa API cá nhân mặc định trống 100%',
+        metricDisplay: '0 Key',
+        metricNumeric: 1,
+        sortTimeOrOrder: 1,
+        statusText: securityStatus?.keyRedaction !== false ? 'SHA-256 Redact' : 'Bảo vệ',
+        statusColor: '#10B981',
+      },
+      {
+        id: 'sec_csrf',
+        primaryText: 'CSRF & Origin Guard',
+        secondaryText: 'X-WeatherBuddy-Client + Loopback Check',
+        metricDisplay: backendOnline ? '200 OK' : 'Client',
+        metricNumeric: 2,
+        sortTimeOrOrder: 2,
+        statusText: securityStatus?.csrfProtected ? 'Đang bật :8787' : 'Sẵn sàng',
+        statusColor: '#10B981',
+      },
+      {
+        id: 'sec_ratelimit',
+        primaryText: 'Rate Limit & Body Cap',
+        secondaryText: 'Giới hạn 16KB POST & chống spam IP',
+        metricDisplay: '16 KB',
+        metricNumeric: 16,
+        sortTimeOrOrder: 3,
+        statusText: securityStatus?.rateLimitActive ? 'Đang bảo vệ' : 'Tiêu chuẩn',
+        statusColor: '#0EA5E9',
+      },
+      {
+        id: 'sec_cache',
+        primaryText: 'Bộ đệm Khí tượng 15 phút',
+        secondaryText: backendOnline
+          ? `${overview?.serverHealth?.totalRequests ?? 0} yêu cầu · Uptime ${
+              overview?.serverHealth?.uptimeSec ?? 0
+            }s`
+          : 'Đồng bộ trực tiếp Open-Meteo Free',
+        metricDisplay: backendOnline
+          ? `${overview?.serverHealth?.cacheHitRatePct ?? 0}%`
+          : '15 phút',
+        metricNumeric: overview?.serverHealth?.cacheHitRatePct ?? 15,
+        sortTimeOrOrder: 4,
+        statusText: backendOnline ? 'Backend :8787' : 'Trình duyệt',
+        statusColor: backendOnline ? '#10B981' : '#38BDF8',
+      },
+      {
+        id: 'sec_headers',
+        primaryText: 'CSP & Nosniff Headers',
+        secondaryText: "object-src 'none' · frame-ancestors 'none'",
+        metricDisplay: 'A+ Sec',
+        metricNumeric: 99,
+        sortTimeOrOrder: 5,
+        statusText: securityStatus?.headersHardened !== false ? 'Đã khóa cứng' : 'Chuẩn',
+        statusColor: '#10B981',
+      },
+    ];
+  }, [backendOnline, overview, securityStatus]);
 
   return (
     <View style={styles.dashboardStack}>
-      {/* Section 1: Backend Server & 15-Minute Sync Telemetry Header */}
+      {/* Section 1: Backend Server & 15-Minute Sync Telemetry Header + 4 KPI Cards */}
       <View
         style={[
           styles.outerBezel,
@@ -364,6 +477,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
         <View
           style={[
             styles.innerCore,
+            isNarrowMobile && styles.innerCoreCompact,
             { backgroundColor: palette.coreElevatedBg },
           ]}
         >
@@ -435,7 +549,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
                     style={[styles.coordPillText, { color: palette.inkPrimary }]}
                   >
                     {backendOnline && securityStatus?.csrfProtected
-                      ? 'Bảo mật: CSRF · Rate Limit · SHA-256 Redaction'
+                      ? 'CSRF · Rate Limit · SHA-256 Redaction'
                       : 'Bảo mật: 0 lưu khóa API trên Server'}
                   </Text>
                 </View>
@@ -449,7 +563,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
                   ? `Máy chủ bộ đệm 15 phút đang hoạt động · Tỷ lệ Cache Hit ${
                       overview?.serverHealth?.cacheHitRatePct ?? 0
                     }% (${overview?.serverHealth?.totalRequests ?? 0} yêu cầu)`
-                  : 'Phân tích trực tiếp 24 giờ trên trình duyệt · Chạy "npm run server" để bật Backend API cổng 8787'}
+                  : 'Phân tích trực tiếp 24 giờ trên trình duyệt · Tự động kết nối cổng 8787 khi chạy máy chủ'}
               </Text>
             </View>
 
@@ -457,6 +571,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
               accessibilityRole="button"
               accessibilityLabel="Làm mới dữ liệu Dashboard"
               onPress={() => {
+                setTelemetryPaused(false);
                 fetchBackendOverview();
                 fetchMultiCityComparison();
               }}
@@ -489,7 +604,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
             </Pressable>
           </View>
 
-          {/* 6 KPI Summary Cards */}
+          {/* 4 KPI Summary Bento Cards */}
           <View style={styles.kpiRow}>
             <View
               style={[
@@ -582,7 +697,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
         </View>
       </View>
 
-      {/* Section 2: 24-Hour Interactive Temperature & Rain Probability Chart */}
+      {/* Section 2: Lucian #095 Morphing Bar Chart (Temperature / Rain % / Feels-Like) */}
       <View
         style={[
           styles.outerBezel,
@@ -595,14 +710,15 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
         <View
           style={[
             styles.innerCore,
+            isNarrowMobile && styles.innerCoreCompact,
             { backgroundColor: palette.coreSurfaceBg },
           ]}
         >
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionTitleCluster}>
-              <Feather name="trending-up" size={15} color={palette.accent} />
+              <Feather name="bar-chart-2" size={15} color={palette.accent} />
               <Text style={[styles.sectionTitle, { color: palette.inkPrimary }]}>
-                Biểu đồ Nhiệt độ & Xác suất mưa theo giờ
+                Phân tích Biến thiên Nhiệt độ, Mưa & Cảm giác theo giờ
               </Text>
             </View>
 
@@ -618,348 +734,71 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
                 >
                   {formatHourShort(activeHourPoint.timeIso, selectedHourIdx)} ·{' '}
                   {Math.round(activeHourPoint.temperatureC)}°C · Mưa{' '}
-                  {Math.round(activeHourPoint.precipProbPct)}% (
-                  {Number(activeHourPoint.precipMm || 0).toFixed(1)} mm)
+                  {Math.round(activeHourPoint.precipProbPct)}%
                 </Text>
               </View>
             )}
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chartColumnsRow}
-          >
-            {chartSeries.map((pt, idx) => {
-              const isSelected = idx === selectedHourIdx;
-              const tempSpan = Math.max(1, maxChartTemp - minChartTemp);
-              const normalizedTemp =
-                (pt.temperatureC - minChartTemp) / tempSpan;
-              const tempBarHeight = Math.round(28 + normalizedTemp * 54);
-              const rainPct = Math.max(
-                0,
-                Math.min(100, Math.round(pt.precipProbPct || 0))
-              );
-              const rainBarHeight = Math.max(4, Math.round((rainPct / 100) * 52));
-
-              return (
-                <Pressable
-                  key={`${pt.timeIso}_${idx}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  onPress={() => setSelectedHourIdx(idx)}
-                  style={({ pressed }) => [
-                    styles.chartColBtn,
-                    WEB_NO_OUTLINE,
-                    isSelected && {
-                      backgroundColor: palette.coreElevatedBg,
-                      borderColor: palette.bezelOuterBorder,
-                    },
-                    pressed && { opacity: 0.85 },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chartTempTop,
-                      {
-                        color: isSelected
-                          ? palette.accent
-                          : palette.inkPrimary,
-                      },
-                    ]}
-                  >
-                    {Math.round(pt.temperatureC)}°
-                  </Text>
-
-                  <View style={styles.dualBarTrack}>
-                    {/* Temperature vertical column */}
-                    <View
-                      style={[
-                        styles.tempColumnFill,
-                        {
-                          height: tempBarHeight,
-                          backgroundColor: isSelected
-                            ? palette.accent
-                            : palette.isDark
-                              ? 'rgba(147, 197, 253, 0.48)'
-                              : 'rgba(24, 90, 219, 0.34)',
-                        },
-                      ]}
-                    />
-
-                    {/* Rain probability vertical bar */}
-                    <View
-                      style={[
-                        styles.rainColumnFill,
-                        {
-                          height: rainBarHeight,
-                          backgroundColor:
-                            rainPct >= 45
-                              ? '#38BDF8'
-                              : palette.isDark
-                                ? 'rgba(148, 163, 184, 0.25)'
-                                : 'rgba(100, 116, 139, 0.22)',
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.chartRainLabel,
-                      {
-                        color:
-                          rainPct >= 30
-                            ? palette.accent
-                            : palette.inkMuted,
-                      },
-                    ]}
-                  >
-                    {rainPct}%
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.chartHourLabel,
-                      {
-                        color: isSelected
-                          ? palette.inkPrimary
-                          : palette.inkSecondary,
-                        fontWeight: isSelected ? '700' : '600',
-                      },
-                    ]}
-                  >
-                    {formatHourShort(pt.timeIso, idx)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <LucianMorphingForecastChart
+            series={chartSeries}
+            currentFeelsLikeC={weather.feelsLikeC}
+            selectedHourIdx={selectedHourIdx}
+            onSelectHour={setSelectedHourIdx}
+            isDark={isDark}
+          />
         </View>
       </View>
 
-      {/* Section 3: Multi-City Vietnam Live Comparison Grid + 1-Tap GPS */}
+      {/* Section 3: Dual Lucian #227 Sortable Live Tables (6 Vietnam Cities + Backend :8787 Telemetry & Security) */}
       <View
         style={[
-          styles.outerBezel,
-          {
-            backgroundColor: palette.bezelOuterBg,
-            borderColor: palette.bezelOuterBorder,
-          },
+          styles.tablesSplitGrid,
+          isTwoColTables ? styles.tablesRowDesktop : styles.tablesColMobile,
         ]}
       >
-        <View
-          style={[
-            styles.innerCore,
-            { backgroundColor: palette.coreSurfaceBg },
-          ]}
-        >
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionTitleCluster}>
-              <Feather name="map" size={15} color={palette.accent} />
-              <Text style={[styles.sectionTitle, { color: palette.inkPrimary }]}>
-                So sánh Thời tiết 6 Thành phố Việt Nam & GPS
-              </Text>
-            </View>
+        <View style={styles.tableHalfCol}>
+          <LucianLiveSortableTable
+            title="So sánh 6 Thành phố Việt Nam"
+            col0Label="Thành phố"
+            col1Label="Nhiệt độ"
+            col2Label="Trạng thái"
+            rows={citySortableRows}
+            actionButtonLabel={
+              gpsLoading ? 'Đang định vị...' : '📍 GPS của tôi'
+            }
+            onPressActionButton={onRequestGps}
+            onSelectRow={onSelectPresetCity}
+            isDark={isDark}
+          />
+        </View>
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={onRequestGps}
-              style={({ pressed }) => [
-                styles.gpsCompareBtn,
-                WEB_NO_OUTLINE,
-                {
-                  backgroundColor:
-                    selectedCityId === 'gps'
-                      ? palette.pillActiveBg
-                      : palette.accentSoftBg,
-                  transform: [{ scale: pressed ? 0.97 : 1 }],
-                },
-              ]}
-            >
-              <Feather
-                name="crosshair"
-                size={12}
-                color={
-                  selectedCityId === 'gps'
-                    ? palette.pillActiveInk
-                    : palette.accent
-                }
-              />
-              <Text
-                style={[
-                  styles.gpsCompareBtnText,
-                  {
-                    color:
-                      selectedCityId === 'gps'
-                        ? palette.pillActiveInk
-                        : palette.accent,
-                  },
-                ]}
-              >
-                {gpsLoading ? 'Đang định vị...' : 'Định vị GPS của tôi'}
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.citiesComparisonGrid}>
-            {cityRows.map(({ city, snapshot, decision: cityDec }) => {
-              const isCurrent = selectedCityId === city.id;
-              return (
-                <Pressable
-                  key={city.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isCurrent }}
-                  onPress={() => onSelectPresetCity(city.id)}
-                  style={({ pressed }) => [
-                    styles.cityCompareCard,
-                    WEB_NO_OUTLINE,
-                    {
-                      width: isWide ? '31.8%' : '48%',
-                      backgroundColor: isCurrent
-                        ? palette.coreElevatedBg
-                        : palette.bezelOuterBg,
-                      borderColor: isCurrent
-                        ? palette.accent
-                        : palette.bezelOuterBorder,
-                      transform: [{ scale: pressed ? 0.98 : 1 }],
-                    },
-                  ]}
-                >
-                  <View style={styles.cityCompareTop}>
-                    <View>
-                      <Text
-                        style={[
-                          styles.cityCompareName,
-                          { color: palette.inkPrimary },
-                        ]}
-                      >
-                        {city.nameVi}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.cityCompareRegion,
-                          { color: palette.inkMuted },
-                        ]}
-                      >
-                        {city.regionVi}
-                      </Text>
-                    </View>
-
-                    <Text
-                      style={[
-                        styles.cityCompareTemp,
-                        { color: palette.inkPrimary },
-                      ]}
-                    >
-                      {snapshot ? `${Math.round(snapshot.temperatureC)}°` : '--°'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.cityCompareBottom}>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.cityCompareBadge,
-                        { color: palette.accent },
-                      ]}
-                    >
-                      {cityDec
-                        ? sanitizeCopy(cityDec.badgeVi)
-                        : 'Đang đồng bộ...'}
-                    </Text>
-                    {snapshot && (
-                      <Text
-                        style={[
-                          styles.cityCompareMeta,
-                          { color: palette.inkSecondary },
-                        ]}
-                      >
-                        Ẩm {Math.round(snapshot.humidityPct)}% · Mưa{' '}
-                        {Math.round(snapshot.precipProbPct)}%
-                      </Text>
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+        <View style={styles.tableHalfCol}>
+          <LucianLiveSortableTable
+            title={
+              backendOnline && (overview?.recentTelemetry?.length ?? 0) > 0
+                ? 'Nhật ký Đồng bộ Backend :8787'
+                : 'Hạ tầng Bảo mật & Bộ đệm :8787'
+            }
+            col0Label={
+              backendOnline && (overview?.recentTelemetry?.length ?? 0) > 0
+                ? 'Điểm đo & Nguồn'
+                : 'Lớp bảo vệ'
+            }
+            col1Label={
+              backendOnline && (overview?.recentTelemetry?.length ?? 0) > 0
+                ? 'Độ trễ'
+                : 'Thông số'
+            }
+            col2Label="Trạng thái"
+            rows={backendSortableRows}
+            actionButtonLabel={telemetryPaused ? 'Tiếp tục' : 'Tạm dừng'}
+            onPressActionButton={() => setTelemetryPaused((p) => !p)}
+            paused={telemetryPaused}
+            isDark={isDark}
+          />
         </View>
       </View>
-
-      {/* Section 4: Backend 15-Minute Sync Telemetry Log (When Backend Port 8787 is Active) */}
-      {backendOnline &&
-        overview?.recentTelemetry &&
-        overview.recentTelemetry.length > 0 && (
-          <View
-            style={[
-              styles.outerBezel,
-              {
-                backgroundColor: palette.bezelOuterBg,
-                borderColor: palette.bezelOuterBorder,
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.innerCore,
-                { backgroundColor: palette.coreSurfaceBg },
-              ]}
-            >
-              <View style={styles.sectionTitleCluster}>
-                <Feather name="server" size={15} color={palette.accent} />
-                <Text
-                  style={[styles.sectionTitle, { color: palette.inkPrimary }]}
-                >
-                  Nhật ký Đồng bộ Backend (Bộ đệm 15 phút)
-                </Text>
-              </View>
-
-              <View style={styles.telemetryList}>
-                {overview.recentTelemetry.slice(0, 6).map((entry) => (
-                  <View
-                    key={entry.id}
-                    style={[
-                      styles.telemetryRow,
-                      { borderBottomColor: palette.hairline },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.telemetryTime,
-                        { color: palette.inkMuted },
-                      ]}
-                    >
-                      {formatTimeClock(entry.timestampIso)}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.telemetryCity,
-                        { color: palette.inkPrimary },
-                      ]}
-                    >
-                      {entry.locationName} ({Math.round(entry.temperatureC)}°C)
-                    </Text>
-                    <Text
-                      style={[
-                        styles.telemetryMeta,
-                        {
-                          color: entry.cacheHit
-                            ? '#10B981'
-                            : palette.inkSecondary,
-                        },
-                      ]}
-                    >
-                      {entry.providerUsed} ·{' '}
-                      {entry.cacheHit ? 'CACHE HIT' : `${entry.latencyMs}ms`}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
     </View>
   );
 };
@@ -967,6 +806,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
 const styles = StyleSheet.create({
   dashboardStack: {
     width: '100%',
+    minWidth: 0,
     gap: 18,
     paddingBottom: 36,
   },
@@ -974,11 +814,17 @@ const styles = StyleSheet.create({
     padding: 5,
     borderRadius: 28,
     borderWidth: 1,
+    minWidth: 0,
   },
   innerCore: {
     borderRadius: 23,
     padding: 20,
     gap: 16,
+    minWidth: 0,
+  },
+  innerCoreCompact: {
+    padding: 14,
+    gap: 13,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -989,7 +835,7 @@ const styles = StyleSheet.create({
   },
   headerTitleCol: {
     flex: 1,
-    minWidth: 240,
+    minWidth: 210,
     gap: 6,
   },
   statusPillRow: {
@@ -1035,6 +881,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 19,
     fontWeight: '700',
+    letterSpacing: -0.3,
   },
   dashboardSub: {
     fontFamily: FONT_FAMILY_SANS,
@@ -1061,10 +908,10 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     flex: 1,
-    minWidth: 170,
+    minWidth: 145,
     borderRadius: 18,
     borderWidth: 1,
-    padding: 14,
+    padding: 13,
     gap: 4,
   },
   kpiLabel: {
@@ -1074,20 +921,20 @@ const styles = StyleSheet.create({
   },
   kpiValue: {
     fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 23,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 27,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   kpiValueSmall: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15.5,
+    lineHeight: 21,
     fontWeight: '700',
   },
   kpiSub: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
@@ -1102,11 +949,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    minWidth: 0,
+    flexShrink: 1,
   },
   sectionTitle: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 15,
     fontWeight: '700',
+    flexShrink: 1,
   },
   selectedHourBadge: {
     paddingHorizontal: 12,
@@ -1119,149 +969,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
-  chartColumnsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-    paddingVertical: 4,
-    paddingRight: 8,
+  tablesSplitGrid: {
+    width: '100%',
+    minWidth: 0,
+    gap: 18,
   },
-  chartColBtn: {
-    minWidth: 56,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    gap: 7,
-  },
-  chartTempTop: {
-    fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 14.5,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  dualBarTrack: {
-    height: 86,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  tempColumnFill: {
-    width: 11,
-    borderRadius: 6,
-  },
-  rainColumnFill: {
-    width: 7,
-    borderRadius: 4,
-  },
-  chartRainLabel: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  chartHourLabel: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11.5,
-    fontVariant: ['tabular-nums'],
-  },
-  gpsCompareBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 999,
-  },
-  gpsCompareBtnText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  citiesComparisonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  cityCompareCard: {
-    flexGrow: 1,
-    minWidth: 210,
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 15,
-    gap: 10,
-  },
-  cityCompareTop: {
+  tablesRowDesktop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
   },
-  cityCompareName: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 15,
-    fontWeight: '700',
+  tablesColMobile: {
+    flexDirection: 'column',
   },
-  cityCompareRegion: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  cityCompareTemp: {
-    fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  cityCompareBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  cityCompareBadge: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  cityCompareMeta: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
-    fontWeight: '500',
-    fontVariant: ['tabular-nums'],
-  },
-  telemetryList: {
-    gap: 6,
-  },
-  telemetryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    gap: 10,
-  },
-  telemetryTime: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  telemetryCity: {
+  tableHalfCol: {
     flex: 1,
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  telemetryMeta: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    width: '100%',
+    minWidth: 0,
   },
 });

@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -17,14 +15,23 @@ import {
   type WeatherSnapshot,
 } from '../core';
 import {
+  LucianCityListbox,
+  LucianSlidingPillSwitch,
+  LucianViewTabs,
+  type LucianPillOption,
+  type LucianTabOption,
+} from '../lucian/LucianNavComponents';
+import { injectLucianElementCss } from '../lucian/lucianTokens';
+import {
   FONT_FAMILY_SANS,
   WEB_NO_OUTLINE,
+  type AppThemeMode,
   type AtmosphericPalette,
 } from './themeTokens';
 
 export type ActiveAppTab = 'stage' | 'hub' | 'widgets' | 'dashboard';
 
-interface TopControlBarProps {
+export interface TopControlBarProps {
   palette: AtmosphericPalette;
   activeTab: ActiveAppTab;
   onSelectTab: (tab: ActiveAppTab) => void;
@@ -39,7 +46,41 @@ interface TopControlBarProps {
   onRequestGps: () => void;
   onRefreshLive: () => void;
   onOpenSettings: () => void;
+  themeMode?: AppThemeMode;
+  onSelectThemeMode?: (mode: AppThemeMode) => void;
 }
+
+const TOP_BAR_WEB_CSS_ID = 'weather-buddy-top-control-css';
+const TOP_BAR_WEB_CSS = `
+.wb-gps-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:0;border-radius:999px;background:var(--ux-surface);color:var(--ux-ink);font-size:12.5px;font-weight:700;white-space:nowrap;box-shadow:0 0 0 1px var(--ux-line),0 4px 12px -8px var(--ux-shadow);transition:transform .3s var(--ux-spring),background-color .25s,color .25s,box-shadow .25s}
+.wb-gps-btn:hover{box-shadow:0 0 0 1.5px var(--ux-line-2),0 6px 14px -8px var(--ux-shadow)}
+.wb-gps-btn:active{transform:scale(.96)}
+.wb-gps-btn[aria-pressed="true"]{background:var(--ux-ink);color:var(--ux-page);box-shadow:0 8px 18px -10px var(--ux-shadow-strong)}
+.wb-gps-btn:focus-visible{outline:2px solid var(--ux-accent);outline-offset:2px}
+.wb-prov-pill{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 11px;border-radius:999px;background:var(--ux-surface-2);color:var(--ux-ink-2);font-size:11.5px;font-weight:680;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:inset 0 0 0 1px var(--ux-line)}
+.wb-prov-dot{width:6.5px;height:6.5px;border-radius:50%;background:var(--ux-mint);flex:none}
+.wb-prov-dot.is-demo{background:var(--ux-accent)}
+.wb-icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:0;border-radius:12px;background:var(--ux-surface);color:var(--ux-ink);box-shadow:0 0 0 1px var(--ux-line),0 4px 12px -8px var(--ux-shadow);transition:transform .3s var(--ux-spring),box-shadow .25s,color .25s}
+.wb-icon-btn:hover{box-shadow:0 0 0 1.5px var(--ux-line-2),0 6px 14px -8px var(--ux-shadow)}
+.wb-icon-btn:active{transform:scale(.94)}
+.wb-icon-btn:focus-visible{outline:2px solid var(--ux-accent);outline-offset:2px}
+.wb-icon-btn.is-busy{color:var(--ux-accent)}
+@keyframes wb-spin{to{transform:rotate(360deg)}}
+.wb-icon-btn.is-busy svg{animation:wb-spin .9s linear infinite}
+@media (max-width:440px){
+  .wb-gps-btn{height:34px;padding:0 10.5px;font-size:12px}
+  .wb-prov-pill{height:30px;padding:0 9.5px;font-size:11px}
+  .wb-icon-btn{width:36px;height:36px;border-radius:11px}
+}
+@media (prefers-reduced-motion:reduce){
+  .wb-icon-btn.is-busy svg{animation:none!important}
+}
+`;
+
+const GENDER_OPTIONS: ReadonlyArray<LucianPillOption<Gender>> = [
+  { id: 'male', label: '👦 Nam', ariaLabel: 'Nhân vật Nam' },
+  { id: 'female', label: '👧 Nữ', ariaLabel: 'Nhân vật Nữ' },
+];
 
 export const TopControlBar: React.FC<TopControlBarProps> = ({
   palette,
@@ -56,11 +97,19 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
   onRequestGps,
   onRefreshLive,
   onOpenSettings,
+  themeMode = 'auto',
+  onSelectThemeMode,
 }) => {
-  const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const { width } = useWindowDimensions();
-  const isCompact = width < 880;
-  const isNarrowMobile = width < 480;
+  const isCompactTabs = width < 720;
+  const isMobileStack = width < 640;
+  const isVeryNarrow = width < 410;
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      injectLucianElementCss(TOP_BAR_WEB_CSS_ID, TOP_BAR_WEB_CSS);
+    }
+  }, []);
 
   const isGpsActive = selectedCityId === 'gps' && isLiveMode;
 
@@ -74,770 +123,503 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
           ? 'Google · 15p'
           : 'Open-Meteo · 15p';
 
+  const navOptions = useMemo<ReadonlyArray<LucianTabOption<ActiveAppTab>>>(
+    () => [
+      {
+        id: 'stage',
+        label: 'Thời tiết',
+        compactLabel: 'Thời tiết',
+        featherIcon: palette.isDark ? 'moon' : 'sun',
+      },
+      {
+        id: 'dashboard',
+        label: 'Dashboard Web',
+        compactLabel: 'Dashboard',
+        featherIcon: 'bar-chart-2',
+      },
+      {
+        id: 'hub',
+        label: 'Tiện ích & Cài đặt',
+        compactLabel: 'Tiện ích',
+        featherIcon: 'grid',
+      },
+      {
+        id: 'widgets',
+        label: 'Widget Màn hình khóa',
+        compactLabel: 'Widget',
+        featherIcon: 'smartphone',
+      },
+    ],
+    [palette.isDark]
+  );
+
+  const themeOptions = useMemo<ReadonlyArray<LucianPillOption<AppThemeMode>>>(
+    () => [
+      {
+        id: 'auto',
+        label: isVeryNarrow ? 'Tự động' : '🌤️ Tự động',
+        ariaLabel: 'Giao diện tự động theo bầu trời',
+      },
+      {
+        id: 'light',
+        label: '☀️ Sáng',
+        ariaLabel: 'Giao diện Sáng',
+      },
+      {
+        id: 'dark',
+        label: '🌙 Tối',
+        ariaLabel: 'Giao diện Tối',
+      },
+    ],
+    [isVeryNarrow]
+  );
+
+  const gpsText = gpsLoading
+    ? 'Đang định vị...'
+    : isVeryNarrow
+      ? '📍 Vị trí'
+      : '📍 Vị trí hiện tại';
+
   return (
-    <View style={styles.headerWrap}>
-      {/* Top Row: City Selector + 1-Tap Current Location GPS + Gender Switch + Refresh + Settings */}
-      <View style={[styles.topRow, isCompact && styles.topRowCompact]}>
-        <View style={styles.leftCluster}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Chọn thành phố"
-            onPress={() => setCityPickerOpen(true)}
-            style={({ pressed }) => [
-              styles.bezelPillOuter,
-              WEB_NO_OUTLINE,
-              {
-                backgroundColor: palette.bezelOuterBg,
-                borderColor: palette.bezelOuterBorder,
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.cityPillInner,
-                { backgroundColor: palette.coreElevatedBg },
-              ]}
-            >
-              <Feather
-                name={isGpsActive ? 'navigation' : 'map-pin'}
-                size={14}
-                color={palette.accent}
-              />
-              <Text
-                numberOfLines={1}
-                style={[styles.cityLabelText, { color: palette.inkPrimary }]}
-              >
-                {activeWeather.locationName}
-              </Text>
-              <View
-                style={[
-                  styles.iconChipCircle,
-                  { backgroundColor: palette.accentSoftBg },
-                ]}
-              >
-                <Feather name="chevron-down" size={13} color={palette.accent} />
-              </View>
-            </View>
-          </Pressable>
-
-          {/* Direct 1-Tap High-Accuracy Current Location Pill Button */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: isGpsActive, busy: gpsLoading }}
-            accessibilityLabel="Định vị vị trí hiện tại"
-            onPress={onRequestGps}
-            style={({ pressed }) => [
-              styles.gpsQuickPill,
-              WEB_NO_OUTLINE,
-              {
-                backgroundColor: isGpsActive
-                  ? palette.pillActiveBg
-                  : palette.coreElevatedBg,
-                borderColor: isGpsActive
-                  ? palette.pillActiveBg
-                  : palette.bezelOuterBorder,
-                transform: [{ scale: pressed ? 0.97 : 1 }],
-              },
-            ]}
-          >
-            {gpsLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={isGpsActive ? palette.pillActiveInk : palette.accent}
-              />
-            ) : (
-              <Feather
-                name="crosshair"
-                size={13}
-                color={isGpsActive ? palette.pillActiveInk : palette.accent}
-              />
-            )}
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.gpsQuickText,
-                {
-                  color: isGpsActive
-                    ? palette.pillActiveInk
-                    : palette.inkPrimary,
-                },
-              ]}
-            >
-              {gpsLoading ? 'Đang định vị...' : 'Vị trí hiện tại'}
-            </Text>
-          </Pressable>
-
-          <View
-            style={[
-              styles.providerBadge,
-              {
-                backgroundColor: palette.pillIdleBg,
-                borderColor: palette.bezelOuterBorder,
-              },
-            ]}
-          >
-            <Feather
-              name={
-                !isLiveMode
-                  ? 'sliders'
-                  : activeWeather.provider === 'google' ||
-                      activeWeather.provider === 'tomorrow_io' ||
-                      activeWeather.provider === 'weatherapi'
-                    ? 'zap'
-                    : 'cloud'
-              }
-              size={12}
-              color={palette.inkSecondary}
-            />
-            <Text style={[styles.providerText, { color: palette.inkSecondary }]}>
-              {providerBadgeLabel}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.rightCluster}>
-          <View
-            style={[
-              styles.segmentedShell,
-              {
-                backgroundColor: palette.bezelOuterBg,
-                borderColor: palette.bezelOuterBorder,
-              },
-            ]}
-          >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: gender === 'male' }}
-              accessibilityLabel="Nhân vật Nam"
-              onPress={() => onSelectGender('male')}
-              style={({ pressed }) => [
-                styles.genderSegmentBtn,
-                WEB_NO_OUTLINE,
-                gender === 'male' && {
-                  backgroundColor: palette.pillActiveBg,
-                },
-                pressed && { opacity: 0.88 },
-              ]}
-            >
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.genderSegmentText,
-                  {
-                    color:
-                      gender === 'male'
-                        ? palette.pillActiveInk
-                        : palette.inkPrimary,
-                  },
-                ]}
-              >
-                👦 Nam
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: gender === 'female' }}
-              accessibilityLabel="Nhân vật Nữ"
-              onPress={() => onSelectGender('female')}
-              style={({ pressed }) => [
-                styles.genderSegmentBtn,
-                WEB_NO_OUTLINE,
-                gender === 'female' && {
-                  backgroundColor: palette.pillActiveBg,
-                },
-                pressed && { opacity: 0.88 },
-              ]}
-            >
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.genderSegmentText,
-                  {
-                    color:
-                      gender === 'female'
-                        ? palette.pillActiveInk
-                        : palette.inkPrimary,
-                  },
-                ]}
-              >
-                👧 Nữ
-              </Text>
-            </Pressable>
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Làm mới thời tiết"
-            onPress={onRefreshLive}
-            style={({ pressed }) => [
-              styles.iconActionBtn,
-              WEB_NO_OUTLINE,
-              {
-                backgroundColor: palette.coreElevatedBg,
-                borderColor: palette.bezelOuterBorder,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              },
-            ]}
-          >
-            <Feather
-              name="refresh-cw"
-              size={15}
-              color={isLoadingLive ? palette.accent : palette.inkPrimary}
-            />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Mở cài đặt"
-            onPress={onOpenSettings}
-            style={({ pressed }) => [
-              styles.iconActionBtn,
-              WEB_NO_OUTLINE,
-              {
-                backgroundColor: palette.coreElevatedBg,
-                borderColor: palette.bezelOuterBorder,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              },
-            ]}
-          >
-            <Feather name="settings" size={16} color={palette.inkPrimary} />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Navigation Segmented Bar */}
-      <View style={styles.tabRow}>
+    <View
+      style={[
+        styles.headerShell,
+        isMobileStack && styles.headerShellMobile,
+        {
+          backgroundColor: palette.coreSurfaceBg,
+          borderColor: palette.bezelOuterBorder,
+        },
+      ]}
+    >
+      {/* Row 1: City Listbox (#031) + 1-Tap GPS + Provider 15p + Gender (#039) + Theme (#039) + Actions */}
+      <View style={[styles.topDeck, isMobileStack && styles.topDeckMobile]}>
         <View
           style={[
-            styles.tabSegmentedShell,
-            isNarrowMobile && styles.tabSegmentedShellMobile,
-            {
-              backgroundColor: palette.bezelOuterBg,
-              borderColor: palette.bezelOuterBorder,
-            },
+            styles.locationCluster,
+            isMobileStack && styles.locationClusterMobile,
           ]}
         >
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'stage' }}
-            onPress={() => onSelectTab('stage')}
-            style={({ pressed }) => [
-              styles.tabItem,
-              WEB_NO_OUTLINE,
-              isNarrowMobile && styles.tabItemMobile,
-              activeTab === 'stage' && {
-                backgroundColor: palette.coreElevatedBg,
-              },
-              pressed && { opacity: 0.9 },
+          <View
+            style={[
+              styles.cityBoxSlot,
+              isMobileStack && styles.cityBoxSlotMobile,
             ]}
           >
-            <Feather
-              name={palette.isDark ? 'moon' : 'sun'}
-              size={14}
-              color={
-                activeTab === 'stage' ? palette.accent : palette.inkSecondary
-              }
+            <LucianCityListbox
+              cities={PRESET_CITIES}
+              selectedCityId={selectedCityId}
+              locationLabel={activeWeather.locationName}
+              isLiveMode={isLiveMode}
+              isGpsActive={isGpsActive}
+              onSelectCity={onSelectPresetCity}
+              onRequestGps={onRequestGps}
+              gpsLoading={gpsLoading}
+              palette={palette}
             />
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.tabItemText,
-                isNarrowMobile && styles.tabItemTextMobile,
-                {
-                  color:
-                    activeTab === 'stage'
-                      ? palette.inkPrimary
-                      : palette.inkSecondary,
-                  fontWeight: activeTab === 'stage' ? '700' : '500',
-                },
-              ]}
-            >
-              Thời tiết
-            </Text>
-          </Pressable>
+          </View>
 
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'hub' }}
-            onPress={() => onSelectTab('hub')}
-            style={({ pressed }) => [
-              styles.tabItem,
-              WEB_NO_OUTLINE,
-              isNarrowMobile && styles.tabItemMobile,
-              activeTab === 'hub' && {
-                backgroundColor: palette.coreElevatedBg,
-              },
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <Feather
-              name="grid"
-              size={14}
-              color={
-                activeTab === 'hub' ? palette.accent : palette.inkSecondary
-              }
-            />
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.tabItemText,
-                isNarrowMobile && styles.tabItemTextMobile,
-                {
-                  color:
-                    activeTab === 'hub'
-                      ? palette.inkPrimary
-                      : palette.inkSecondary,
-                  fontWeight: activeTab === 'hub' ? '700' : '500',
-                },
-              ]}
-            >
-              {isNarrowMobile ? '🧩 Tiện ích' : '🧩 Tiện ích & Cài đặt'}
-            </Text>
-          </Pressable>
+          {isMobileStack && (
+            <View style={styles.mobileQuickActions}>
+              {Platform.OS === 'web' ? (
+                <div className="ux" style={{ display: 'inline-flex', gap: 6 }}>
+                  <button
+                    type="button"
+                    className={`wb-icon-btn${isLoadingLive ? ' is-busy' : ''}`}
+                    aria-label="Làm mới thời tiết"
+                    title="Làm mới thời tiết"
+                    onClick={onRefreshLive}
+                  >
+                    <Feather name="refresh-cw" size={15} color="currentColor" />
+                  </button>
+                  <button
+                    type="button"
+                    className="wb-icon-btn"
+                    aria-label="Mở cài đặt"
+                    title="Cài đặt nguồn thời tiết & độ nhạy nhiệt"
+                    onClick={onOpenSettings}
+                  >
+                    <Feather name="settings" size={15} color="currentColor" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Làm mới thời tiết"
+                    onPress={onRefreshLive}
+                    style={[
+                      styles.nativeIconBtn,
+                      WEB_NO_OUTLINE,
+                      {
+                        backgroundColor: palette.coreElevatedBg,
+                        borderColor: palette.bezelOuterBorder,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name="refresh-cw"
+                      size={15}
+                      color={isLoadingLive ? palette.accent : palette.inkPrimary}
+                    />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Mở cài đặt"
+                    onPress={onOpenSettings}
+                    style={[
+                      styles.nativeIconBtn,
+                      WEB_NO_OUTLINE,
+                      {
+                        backgroundColor: palette.coreElevatedBg,
+                        borderColor: palette.bezelOuterBorder,
+                      },
+                    ]}
+                  >
+                    <Feather name="settings" size={15} color={palette.inkPrimary} />
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
 
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'widgets' }}
-            onPress={() => onSelectTab('widgets')}
-            style={({ pressed }) => [
-              styles.tabItem,
-              WEB_NO_OUTLINE,
-              isNarrowMobile && styles.tabItemMobile,
-              activeTab === 'widgets' && {
-                backgroundColor: palette.coreElevatedBg,
-              },
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <Feather
-              name="smartphone"
-              size={14}
-              color={
-                activeTab === 'widgets' ? palette.accent : palette.inkSecondary
-              }
-            />
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.tabItemText,
-                isNarrowMobile && styles.tabItemTextMobile,
-                {
-                  color:
-                    activeTab === 'widgets'
-                      ? palette.inkPrimary
-                      : palette.inkSecondary,
-                  fontWeight: activeTab === 'widgets' ? '700' : '500',
-                },
-              ]}
+          {/* Direct 1-Tap High-Accuracy GPS Pill + Provider 15p Status Pill */}
+          {Platform.OS === 'web' ? (
+            <div
+              className="ux"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 8,
+                maxWidth: '100%',
+              }}
             >
-              {isNarrowMobile ? 'Widget' : 'Widget Màn hình khóa'}
-            </Text>
-          </Pressable>
+              <button
+                type="button"
+                className="wb-gps-btn"
+                aria-pressed={isGpsActive}
+                aria-busy={gpsLoading}
+                aria-label="Định vị vị trí hiện tại"
+                onClick={onRequestGps}
+              >
+                {gpsLoading ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={isGpsActive ? palette.pillActiveInk : palette.accent}
+                  />
+                ) : (
+                  <Feather
+                    name="crosshair"
+                    size={13}
+                    color="currentColor"
+                  />
+                )}
+                <span>{gpsText}</span>
+              </button>
 
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'dashboard' }}
-            onPress={() => onSelectTab('dashboard')}
-            style={({ pressed }) => [
-              styles.tabItem,
-              WEB_NO_OUTLINE,
-              isNarrowMobile && styles.tabItemMobile,
-              activeTab === 'dashboard' && {
-                backgroundColor: palette.coreElevatedBg,
-              },
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <Feather
-              name="bar-chart-2"
-              size={14}
-              color={
-                activeTab === 'dashboard' ? palette.accent : palette.inkSecondary
-              }
+              <span className="wb-prov-pill" title="Chu kỳ đồng bộ dữ liệu thời tiết">
+                <span
+                  className={`wb-prov-dot${isLiveMode ? '' : ' is-demo'}`}
+                  aria-hidden="true"
+                />
+                <span>{providerBadgeLabel}</span>
+              </span>
+            </div>
+          ) : (
+            <View style={styles.nativeMetaRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: isGpsActive, busy: gpsLoading }}
+                accessibilityLabel="Định vị vị trí hiện tại"
+                onPress={onRequestGps}
+                style={[
+                  styles.nativeGpsPill,
+                  WEB_NO_OUTLINE,
+                  {
+                    backgroundColor: isGpsActive
+                      ? palette.pillActiveBg
+                      : palette.coreElevatedBg,
+                    borderColor: isGpsActive
+                      ? palette.pillActiveBg
+                      : palette.bezelOuterBorder,
+                  },
+                ]}
+              >
+                {gpsLoading ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={isGpsActive ? palette.pillActiveInk : palette.accent}
+                  />
+                ) : (
+                  <Feather
+                    name="crosshair"
+                    size={13}
+                    color={isGpsActive ? palette.pillActiveInk : palette.accent}
+                  />
+                )}
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.nativeGpsText,
+                    {
+                      color: isGpsActive
+                        ? palette.pillActiveInk
+                        : palette.inkPrimary,
+                    },
+                  ]}
+                >
+                  {gpsText}
+                </Text>
+              </Pressable>
+
+              <View
+                style={[
+                  styles.nativeProvBadge,
+                  {
+                    backgroundColor: palette.pillIdleBg,
+                    borderColor: palette.bezelOuterBorder,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.nativeProvText,
+                    { color: palette.inkSecondary },
+                  ]}
+                >
+                  {providerBadgeLabel}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Right Controls: Gender (#039) + Explicit Theme Switcher (#039) + Refresh + Settings */}
+        <View
+          style={[
+            styles.controlsCluster,
+            isMobileStack && styles.controlsClusterMobile,
+          ]}
+        >
+          <LucianSlidingPillSwitch
+            options={GENDER_OPTIONS}
+            value={gender}
+            onChange={onSelectGender}
+            ariaLabel="Chọn nhân vật Nam hoặc Nữ"
+            palette={palette}
+          />
+
+          {onSelectThemeMode && (
+            <LucianSlidingPillSwitch
+              options={themeOptions}
+              value={themeMode}
+              onChange={onSelectThemeMode}
+              ariaLabel="Chế độ giao diện Tự động, Sáng hoặc Tối"
+              palette={palette}
             />
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.tabItemText,
-                isNarrowMobile && styles.tabItemTextMobile,
-                {
-                  color:
-                    activeTab === 'dashboard'
-                      ? palette.inkPrimary
-                      : palette.inkSecondary,
-                  fontWeight: activeTab === 'dashboard' ? '700' : '500',
-                },
-              ]}
-            >
-              {isNarrowMobile ? '📊 Dashboard' : '📊 Dashboard Web'}
-            </Text>
-          </Pressable>
+          )}
+
+          {!isMobileStack && (
+            Platform.OS === 'web' ? (
+              <div className="ux" style={{ display: 'inline-flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className={`wb-icon-btn${isLoadingLive ? ' is-busy' : ''}`}
+                  aria-label="Làm mới thời tiết"
+                  title="Làm mới thời tiết"
+                  onClick={onRefreshLive}
+                >
+                  <Feather name="refresh-cw" size={15} color="currentColor" />
+                </button>
+                <button
+                  type="button"
+                  className="wb-icon-btn"
+                  aria-label="Mở cài đặt"
+                  title="Cài đặt nguồn thời tiết & độ nhạy nhiệt"
+                  onClick={onOpenSettings}
+                >
+                  <Feather name="settings" size={16} color="currentColor" />
+                </button>
+              </div>
+            ) : (
+              <View style={styles.desktopActionRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Làm mới thời tiết"
+                  onPress={onRefreshLive}
+                  style={[
+                    styles.nativeIconBtn,
+                    WEB_NO_OUTLINE,
+                    {
+                      backgroundColor: palette.coreElevatedBg,
+                      borderColor: palette.bezelOuterBorder,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name="refresh-cw"
+                    size={15}
+                    color={isLoadingLive ? palette.accent : palette.inkPrimary}
+                  />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Mở cài đặt"
+                  onPress={onOpenSettings}
+                  style={[
+                    styles.nativeIconBtn,
+                    WEB_NO_OUTLINE,
+                    {
+                      backgroundColor: palette.coreElevatedBg,
+                      borderColor: palette.bezelOuterBorder,
+                    },
+                  ]}
+                >
+                  <Feather name="settings" size={16} color={palette.inkPrimary} />
+                </Pressable>
+              </View>
+            )
+          )}
         </View>
       </View>
 
-      {/* City Picker Modal */}
-      <Modal
-        visible={cityPickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCityPickerOpen(false)}
-      >
-        <Pressable
-          style={[styles.modalBackdrop, WEB_NO_OUTLINE]}
-          onPress={() => setCityPickerOpen(false)}
-        >
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={[styles.cityModalOuter, WEB_NO_OUTLINE]}
-          >
-            <View style={styles.cityModalCore}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Khu vực</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Đóng"
-                  onPress={() => setCityPickerOpen(false)}
-                  style={[styles.closeCircle, WEB_NO_OUTLINE]}
-                >
-                  <Feather name="x" size={16} color="#1E293B" />
-                </Pressable>
-              </View>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  onRequestGps();
-                  setCityPickerOpen(false);
-                }}
-                style={({ pressed }) => [
-                  styles.gpsButton,
-                  WEB_NO_OUTLINE,
-                  pressed && { transform: [{ scale: 0.99 }] },
-                ]}
-              >
-                <Text style={styles.gpsButtonText}>
-                  {gpsLoading
-                    ? '📍 Đang định vị GPS chính xác...'
-                    : '📍 Vị trí hiện tại (GPS độ chính xác cao)'}
-                </Text>
-                <View style={styles.gpsTrailingCircle}>
-                  <Feather name="crosshair" size={15} color="#0F172A" />
-                </View>
-              </Pressable>
-
-              <ScrollView
-                style={styles.cityGridScroll}
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.cityGrid}>
-                  {PRESET_CITIES.map((city) => {
-                    const isSelected =
-                      selectedCityId === city.id && isLiveMode;
-                    return (
-                      <Pressable
-                        key={city.id}
-                        accessibilityRole="button"
-                        onPress={() => {
-                          onSelectPresetCity(city.id);
-                          setCityPickerOpen(false);
-                        }}
-                        style={({ pressed }) => [
-                          styles.cityOptionCard,
-                          WEB_NO_OUTLINE,
-                          isSelected && styles.cityOptionCardActive,
-                          pressed && { transform: [{ scale: 0.98 }] },
-                        ]}
-                      >
-                        <View style={styles.cityOptionRow}>
-                          <Text
-                            style={[
-                              styles.cityOptionName,
-                              isSelected && styles.cityOptionNameActive,
-                            ]}
-                          >
-                            {city.nameVi}
-                          </Text>
-                          {isSelected && (
-                            <Feather name="check" size={15} color="#F8FAFC" />
-                          )}
-                        </View>
-                        <Text
-                          style={[
-                            styles.cityOptionRegion,
-                            isSelected && styles.cityOptionRegionActive,
-                          ]}
-                        >
-                          {city.regionVi}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* Row 2: 4-View Jelly Segmented Navigation Tabs (#416) */}
+      <View style={styles.navDeck}>
+        <LucianViewTabs
+          options={navOptions}
+          value={activeTab}
+          onChange={onSelectTab}
+          ariaLabel="Điều hướng màn hình chính WeatherBuddy"
+          isCompactLabels={isCompactTabs}
+          palette={palette}
+        />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  headerWrap: {
+  headerShell: {
     width: '100%',
-    gap: 12,
-    paddingBottom: 4,
+    maxWidth: '100%',
+    minWidth: 0,
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    overflow: 'visible',
+    zIndex: 60,
+    ...(Platform.OS === 'web'
+      ? ({
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+          boxShadow: '0 14px 34px -22px var(--ux-shadow-strong)',
+        } as any)
+      : null),
   },
-  topRow: {
+  headerShellMobile: {
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 9,
+  },
+  topDeck: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: 10,
+    overflow: 'visible',
+    zIndex: 80,
   },
-  topRowCompact: {
+  topDeckMobile: {
     gap: 8,
   },
-  leftCluster: {
+  locationCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    minWidth: 0,
+    overflow: 'visible',
+    zIndex: 90,
+  },
+  locationClusterMobile: {
+    width: '100%',
+  },
+  cityBoxSlot: {
+    overflow: 'visible',
+    zIndex: 100,
+  },
+  cityBoxSlotMobile: {
+    flex: 1,
+    minWidth: 168,
+  },
+  mobileQuickActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  controlsCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    minWidth: 0,
+    zIndex: 30,
+  },
+  controlsClusterMobile: {
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  desktopActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  navDeck: {
+    width: '100%',
+    minWidth: 0,
+    zIndex: 10,
+  },
+  nativeMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
   },
-  rightCluster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  bezelPillOuter: {
-    padding: 3,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  cityPillInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingLeft: 12,
-    paddingRight: 6,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  cityLabelText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 14,
-    fontWeight: '700',
-    maxWidth: 195,
-  },
-  iconChipCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gpsQuickPill: {
+  nativeGpsPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  gpsQuickText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  providerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
   },
-  providerText: {
+  nativeGpsText: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  nativeProvBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  nativeProvText: {
+    fontFamily: FONT_FAMILY_SANS,
+    fontSize: 11.5,
     fontWeight: '600',
   },
-  segmentedShell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 3,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  genderSegmentBtn: {
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 999,
-  },
-  genderSegmentText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  iconActionBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  nativeIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tabRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-  },
-  tabSegmentedShell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    maxWidth: '100%',
-    width: Platform.OS === 'web' ? undefined : '100%',
-    flexWrap: 'nowrap',
-  },
-  tabSegmentedShellMobile: {
-    width: '100%',
-  },
-  tabItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    flexShrink: 1,
-  },
-  tabItemMobile: {
-    flex: 1,
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  tabItemText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 13,
-  },
-  tabItemTextMobile: {
-    fontSize: 12.5,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(11, 19, 32, 0.56)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 18,
-  },
-  cityModalOuter: {
-    width: '100%',
-    maxWidth: 460,
-    padding: 6,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.45)',
-  },
-  cityModalCore: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 24,
-    padding: 20,
-    gap: 14,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  modalTitle: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  closeCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gpsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#0F172A',
-    paddingLeft: 16,
-    paddingRight: 8,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  gpsButtonText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    flexShrink: 1,
-  },
-  gpsTrailingCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  cityGridScroll: {
-    maxHeight: 300,
-  },
-  cityGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  cityOptionCard: {
-    width: '48%',
-    flexGrow: 1,
-    backgroundColor: '#EEF2F6',
-    borderRadius: 16,
-    padding: 13,
-    gap: 3,
-  },
-  cityOptionCardActive: {
-    backgroundColor: '#185ADB',
-  },
-  cityOptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cityOptionName: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  cityOptionNameActive: {
-    color: '#F8FAFC',
-  },
-  cityOptionRegion: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
-    color: '#475569',
-  },
-  cityOptionRegionActive: {
-    color: 'rgba(248, 250, 252, 0.82)',
   },
 });

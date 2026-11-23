@@ -1,3 +1,7 @@
+/* Lucian UX/UI Prompt #094 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#094 */
+/* Lucian UX/UI Prompt #228 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#228 */
+/* Lucian UX/UI Prompt #047 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#047 */
+
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type {
@@ -41,7 +45,8 @@ export const MainStageScreen: React.FC<MainStageScreenProps> = ({
   liveError,
   reduceMotion,
 }) => {
-  const bannerMessage = gpsError || (activeScenarioId === 'live' ? liveError : null);
+  const bannerMessage =
+    gpsError || (activeScenarioId === 'live' ? liveError : null);
 
   return (
     <View style={styles.screenStack}>
@@ -68,7 +73,7 @@ export const MainStageScreen: React.FC<MainStageScreenProps> = ({
         onSelectScenario={onSelectScenario}
       />
 
-      {/* Centerpiece 2.5D Character + Oversized Temperature + Speech Capsule */}
+      {/* Row 1: Asymmetric 2-Column Editorial Hero Grid (Left: 76px Temp + Integrated 12h Timeline + Lucian #047 · Right: Flagship 60fps Chibi Stage Pedestal) */}
       <CharacterStageCard
         palette={palette}
         weather={weather}
@@ -78,11 +83,12 @@ export const MainStageScreen: React.FC<MainStageScreenProps> = ({
         reduceMotion={reduceMotion}
       />
 
-      {/* 12-Hour Forecast + 6-Metric Hairline Bento */}
+      {/* Row 2: Lucian #094 Interactive 24h Sky Scrubber + Lucian #228 Cursor-Lit 6-Metric Weather Telemetry Bento */}
       <WeatherBentoTelemetry
         palette={palette}
         weather={weather}
         decision={decision}
+        reduceMotion={reduceMotion}
       />
     </View>
   );
@@ -91,7 +97,8 @@ export const MainStageScreen: React.FC<MainStageScreenProps> = ({
 const styles = StyleSheet.create({
   screenStack: {
     width: '100%',
-    gap: 20,
+    maxWidth: '100%',
+    gap: 18,
     paddingBottom: 32,
   },
   noticeBanner: {

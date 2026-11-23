@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+/* Lucian UX/UI Prompt #044 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#044 */
+
+import React, { useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -20,6 +22,11 @@ import {
 } from '../widgets/widgetBridge';
 import type { ScenarioSelection } from '../hooks/useWeatherBuddy';
 import { ScenarioStrip } from '../components/ScenarioStrip';
+import {
+  LucianFaqAccordion,
+  useResolvedLucianDark,
+  type LucianAccordionSection,
+} from '../lucian/LucianHubComponents';
 import {
   FONT_FAMILY_DISPLAY,
   FONT_FAMILY_SANS,
@@ -66,6 +73,8 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isTwoColumn = width >= 960;
+  const isNarrowMobile = width < 440;
+  const isDark = useResolvedLucianDark(palette);
 
   const [standByMode, setStandByMode] = useState<boolean>(false);
   const [expandedGuideId, setExpandedGuideId] = useState<string>(
@@ -105,6 +114,24 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
           ? 'moon'
           : 'sun';
 
+  const accordionSections: ReadonlyArray<LucianAccordionSection> = useMemo(
+    () =>
+      WIDGET_SETUP_GUIDE_VI.sections.map((sec: WidgetSetupSectionVi) => ({
+        id: sec.id,
+        tag: sec.platform,
+        title: sec.titleVi,
+        subtitle: sec.subtitleVi,
+        steps: sec.stepsVi,
+      })),
+    []
+  );
+
+  const androidSurfaceBg = isDark ? '#162438' : '#EFF4FA';
+  const androidPillBg = isDark ? '#213654' : '#D8E6F8';
+  const androidInkPrimary = isDark ? '#F1F5FB' : '#0F172A';
+  const androidInkSecondary = isDark ? '#B6C6D9' : '#334155';
+  const androidCircleBg = isDark ? '#1D304B' : '#DCE8F7';
+
   return (
     <View style={styles.studioStack}>
       <ScenarioStrip
@@ -126,6 +153,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
         <View
           style={[
             styles.studioHeaderCore,
+            isNarrowMobile && styles.studioHeaderCoreCompact,
             { backgroundColor: palette.coreElevatedBg },
           ]}
         >
@@ -202,7 +230,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
         </View>
       </View>
 
-      {/* Main Preview Grid (Standing Weather-Outfit Sprites for Immediate Glanceability) */}
+      {/* Main Preview Grid */}
       <View
         style={[
           styles.previewMainGrid,
@@ -210,7 +238,12 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
         ]}
       >
         {/* Column 1: iPhone Lock Screen OR StandBy */}
-        <View style={styles.deviceColumn}>
+        <View
+          style={[
+            styles.deviceColumn,
+            isTwoColumn ? styles.deviceColumnDesktop : styles.deviceColumnMobile,
+          ]}
+        >
           <Text style={[styles.frameCaption, { color: palette.inkSecondary }]}>
             {standByMode ? 'iPhone StandBy (iOS 17+)' : 'iPhone Màn hình khóa'}
           </Text>
@@ -279,7 +312,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     gender={genderKey}
                     sceneId={sceneKey}
                     palette={SKY_PALETTES.night}
-                    size={130}
+                    size={128}
                     interactive={false}
                     showAmbientProps={false}
                     npcMode={false}
@@ -328,7 +361,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     gender={genderKey}
                     sceneId={sceneKey}
                     palette={SKY_PALETTES.night}
-                    size={110}
+                    size={104}
                     interactive={false}
                     showAmbientProps={false}
                     npcMode={false}
@@ -346,9 +379,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
         <View style={styles.homeWidgetsColumn}>
           {/* Card A: iOS systemMedium */}
           <View style={styles.widgetShowcaseBlock}>
-            <Text
-              style={[styles.frameCaption, { color: palette.inkSecondary }]}
-            >
+            <Text style={[styles.frameCaption, { color: palette.inkSecondary }]}>
               iOS Màn hình chính (Medium)
             </Text>
 
@@ -369,7 +400,10 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                 ]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.iosSystemMediumCard}
+                style={[
+                  styles.iosSystemMediumCard,
+                  isNarrowMobile && styles.widgetCardCompact,
+                ]}
               >
                 <View style={styles.mediumTopRow}>
                   <View style={styles.mediumLeftInfo}>
@@ -471,7 +505,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     gender={genderKey}
                     sceneId={sceneKey}
                     palette={widgetPalette}
-                    size={116}
+                    size={isNarrowMobile ? 96 : 114}
                     interactive={false}
                     showAmbientProps={false}
                     npcMode={false}
@@ -527,10 +561,8 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
 
           {/* Card B: Android 12+ Jetpack Glance */}
           <View style={styles.widgetShowcaseBlock}>
-            <Text
-              style={[styles.frameCaption, { color: palette.inkSecondary }]}
-            >
-              Android 12+ Glance
+            <Text style={[styles.frameCaption, { color: palette.inkSecondary }]}>
+              Android 12+ Jetpack Glance
             </Text>
 
             <View
@@ -542,12 +574,28 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                 },
               ]}
             >
-              <View style={styles.androidGlanceCard}>
+              <View
+                style={[
+                  styles.androidGlanceCard,
+                  isNarrowMobile && styles.widgetCardCompact,
+                  { backgroundColor: androidSurfaceBg },
+                ]}
+              >
                 <View style={styles.glanceTopRow}>
                   <View style={styles.glanceTextCol}>
                     <View style={styles.glanceHeaderPills}>
-                      <View style={styles.glanceLocationPill}>
-                        <Text style={styles.glanceLocationText}>
+                      <View
+                        style={[
+                          styles.glanceLocationPill,
+                          { backgroundColor: androidPillBg },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.glanceLocationText,
+                            { color: androidInkPrimary },
+                          ]}
+                        >
                           {payload.locationName} · {payload.temperatureC}°C
                         </Text>
                       </View>
@@ -577,21 +625,38 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                       )}
                     </View>
 
-                    <Text numberOfLines={2} style={styles.glanceHeadline}>
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.glanceHeadline,
+                        { color: androidInkPrimary },
+                      ]}
+                    >
                       {sanitizeCopy(payload.headlineVi)}
                     </Text>
 
-                    <Text numberOfLines={2} style={styles.glanceAdvice}>
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.glanceAdvice,
+                        { color: androidInkSecondary },
+                      ]}
+                    >
                       {sanitizeCopy(payload.outfitAdviceVi)}
                     </Text>
                   </View>
 
-                  <View style={styles.glanceSpriteCircle}>
+                  <View
+                    style={[
+                      styles.glanceSpriteCircle,
+                      { backgroundColor: androidCircleBg },
+                    ]}
+                  >
                     <LivingCharacterRig
                       gender={genderKey}
                       sceneId={sceneKey}
-                      palette={SKY_PALETTES.day_sunny}
-                      size={94}
+                      palette={isDark ? SKY_PALETTES.night : SKY_PALETTES.day_sunny}
+                      size={isNarrowMobile ? 84 : 94}
                       interactive={false}
                       showAmbientProps={false}
                       npcMode={false}
@@ -599,9 +664,30 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                   </View>
                 </View>
 
-                <View style={styles.glanceFooterRow}>
-                  <Text style={styles.glanceFooterMeta}>Tự làm mới 15 phút</Text>
-                  <Text style={styles.glanceFooterMeta}>
+                <View
+                  style={[
+                    styles.glanceFooterRow,
+                    {
+                      borderTopColor: isDark
+                        ? 'rgba(255, 255, 255, 0.10)'
+                        : 'rgba(15, 23, 42, 0.08)',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.glanceFooterMeta,
+                      { color: androidInkSecondary },
+                    ]}
+                  >
+                    Tự làm mới 15 phút
+                  </Text>
+                  <Text
+                    style={[
+                      styles.glanceFooterMeta,
+                      { color: androidInkSecondary },
+                    ]}
+                  >
                     Cảm giác {payload.feelsLikeC}°C
                   </Text>
                 </View>
@@ -611,7 +697,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
         </View>
       </View>
 
-      {/* Expandable Setup & Native Build Guide */}
+      {/* Expandable Setup & Native Build Guide — Lucian #044 FAQ Accordion */}
       <View
         style={[
           styles.guideOuterBezel,
@@ -624,6 +710,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
         <View
           style={[
             styles.guideInnerCore,
+            isNarrowMobile && styles.studioHeaderCoreCompact,
             { backgroundColor: palette.coreElevatedBg },
           ]}
         >
@@ -631,116 +718,17 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
             <Text style={[styles.guideMainTitle, { color: palette.inkPrimary }]}>
               {sanitizeCopy(WIDGET_SETUP_GUIDE_VI.titleVi)}
             </Text>
-            <Text
-              style={[styles.guideSummary, { color: palette.inkSecondary }]}
-            >
+            <Text style={[styles.guideSummary, { color: palette.inkSecondary }]}>
               {sanitizeCopy(WIDGET_SETUP_GUIDE_VI.summaryVi)}
             </Text>
           </View>
 
-          <View style={styles.accordionList}>
-            {WIDGET_SETUP_GUIDE_VI.sections.map(
-              (sec: WidgetSetupSectionVi) => {
-                const isOpen = expandedGuideId === sec.id;
-                return (
-                  <View
-                    key={sec.id}
-                    style={[
-                      styles.accordionItem,
-                      {
-                        borderColor: palette.hairline,
-                        backgroundColor: isOpen
-                          ? palette.coreSurfaceBg
-                          : 'transparent',
-                      },
-                    ]}
-                  >
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ expanded: isOpen }}
-                      onPress={() =>
-                        setExpandedGuideId(isOpen ? '' : sec.id)
-                      }
-                      style={[styles.accordionTrigger, WEB_NO_OUTLINE]}
-                    >
-                      <View style={styles.accordionTitleCluster}>
-                        <View
-                          style={[
-                            styles.platformTag,
-                            { backgroundColor: palette.accentSoftBg },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.platformTagText,
-                              { color: palette.accent },
-                            ]}
-                          >
-                            {sec.platform}
-                          </Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.accordionTitleText,
-                            { color: palette.inkPrimary },
-                          ]}
-                        >
-                          {sanitizeCopy(sec.titleVi)}
-                        </Text>
-                      </View>
-                      <Feather
-                        name={isOpen ? 'chevron-up' : 'chevron-down'}
-                        size={17}
-                        color={palette.inkSecondary}
-                      />
-                    </Pressable>
-
-                    {isOpen && (
-                      <View style={styles.accordionBody}>
-                        <Text
-                          style={[
-                            styles.accordionSub,
-                            { color: palette.inkSecondary },
-                          ]}
-                        >
-                          {sanitizeCopy(sec.subtitleVi)}
-                        </Text>
-                        <View style={styles.stepsStack}>
-                          {sec.stepsVi.map((step, idx) => (
-                            <View key={idx} style={styles.stepRow}>
-                              <View
-                                style={[
-                                  styles.stepNumBadge,
-                                  { backgroundColor: palette.accentSoftBg },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.stepNumText,
-                                    { color: palette.accent },
-                                  ]}
-                                >
-                                  {idx + 1}
-                                </Text>
-                              </View>
-                              <Text
-                                style={[
-                                  styles.stepText,
-                                  { color: palette.inkPrimary },
-                                ]}
-                              >
-                                {sanitizeCopy(step.trim())}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                );
-              }
-            )}
-          </View>
+          <LucianFaqAccordion
+            sections={accordionSections}
+            openId={expandedGuideId}
+            onChangeOpenId={setExpandedGuideId}
+            isDark={isDark}
+          />
         </View>
       </View>
     </View>
@@ -750,6 +738,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
 const styles = StyleSheet.create({
   studioStack: {
     width: '100%',
+    minWidth: 0,
     gap: 20,
     paddingBottom: 36,
   },
@@ -757,6 +746,7 @@ const styles = StyleSheet.create({
     padding: 5,
     borderRadius: 28,
     borderWidth: 1,
+    minWidth: 0,
   },
   studioHeaderCore: {
     borderRadius: 23,
@@ -767,15 +757,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 14,
   },
+  studioHeaderCoreCompact: {
+    padding: 14,
+  },
   studioTitleBlock: {
     flex: 1,
-    minWidth: 240,
+    minWidth: 200,
     gap: 4,
   },
   studioTitle: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 18,
     fontWeight: '700',
+    letterSpacing: -0.3,
   },
   studioSub: {
     fontFamily: FONT_FAMILY_SANS,
@@ -816,7 +810,8 @@ const styles = StyleSheet.create({
   },
   previewMainGrid: {
     width: '100%',
-    gap: 24,
+    minWidth: 0,
+    gap: 22,
   },
   previewRowDesktop: {
     flexDirection: 'row',
@@ -828,16 +823,24 @@ const styles = StyleSheet.create({
   deviceColumn: {
     alignItems: 'center',
     gap: 10,
-    minWidth: 320,
+    minWidth: 0,
+  },
+  deviceColumnDesktop: {
+    width: 356,
+  },
+  deviceColumnMobile: {
+    width: '100%',
   },
   homeWidgetsColumn: {
     flex: 1,
+    minWidth: 0,
     gap: 20,
     width: '100%',
   },
   widgetShowcaseBlock: {
     gap: 10,
     width: '100%',
+    minWidth: 0,
   },
   frameCaption: {
     fontFamily: FONT_FAMILY_SANS,
@@ -845,20 +848,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   iphoneTitaniumShell: {
-    width: 344,
-    maxWidth: '100%',
+    width: '100%',
+    maxWidth: 344,
     padding: 9,
-    borderRadius: 50,
+    borderRadius: 48,
     backgroundColor: '#1E2633',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   iphoneScreenInner: {
-    borderRadius: 41,
-    paddingHorizontal: 18,
+    borderRadius: 39,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    minHeight: 462,
+    minHeight: 456,
     justifyContent: 'space-between',
     alignItems: 'center',
     overflow: 'hidden',
@@ -887,8 +890,8 @@ const styles = StyleSheet.create({
   },
   lockTimeText: {
     fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 62,
-    lineHeight: 66,
+    fontSize: 58,
+    lineHeight: 62,
     fontWeight: '700',
     letterSpacing: -2,
     color: '#F8FAFC',
@@ -903,9 +906,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   accessoryCircular: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.30)',
@@ -913,32 +916,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   circularGaugeRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     borderWidth: 2.5,
     borderColor: 'rgba(248, 250, 252, 0.72)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   circularEmoji: {
-    fontSize: 15,
+    fontSize: 14,
   },
   circularTempText: {
     fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#F8FAFC',
     fontVariant: ['tabular-nums'],
   },
   accessoryRectangular: {
     flex: 1,
-    minHeight: 68,
+    minWidth: 0,
+    minHeight: 66,
     borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.30)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
     paddingVertical: 8,
     justifyContent: 'center',
     gap: 2,
@@ -963,7 +967,7 @@ const styles = StyleSheet.create({
   rectAlertLine: {
     flex: 1,
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#BAE6FD',
   },
@@ -983,7 +987,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
     paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: 'rgba(9, 16, 29, 0.44)',
@@ -1010,47 +1014,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   homeIndicatorBar: {
-    width: 108,
+    width: 100,
     height: 4,
     borderRadius: 2,
     backgroundColor: 'rgba(248, 250, 252, 0.82)',
     marginBottom: 4,
   },
   standByHardwareShell: {
-    width: 380,
-    maxWidth: '100%',
+    width: '100%',
+    maxWidth: 380,
     padding: 8,
-    borderRadius: 38,
+    borderRadius: 36,
     backgroundColor: '#1B2330',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.22)',
   },
   standByScreenCore: {
     backgroundColor: '#090E17',
-    borderRadius: 30,
-    padding: 20,
+    borderRadius: 28,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 14,
-    minHeight: 210,
+    gap: 12,
+    minHeight: 200,
   },
   standByLeftClockCol: {
     flex: 1,
+    minWidth: 0,
     gap: 6,
   },
   standByTime: {
     fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 52,
-    lineHeight: 56,
+    fontSize: 46,
+    lineHeight: 50,
     fontWeight: '700',
     color: '#FDBA74',
-    letterSpacing: -1.8,
+    letterSpacing: -1.6,
     fontVariant: ['tabular-nums'],
   },
   standByLocation: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#F8FAFC',
   },
@@ -1062,19 +1067,19 @@ const styles = StyleSheet.create({
   standByStatus: {
     flex: 1,
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#93C5FD',
   },
   standByRightWidgetCol: {
-    width: 142,
+    width: 128,
     alignItems: 'center',
     gap: 6,
   },
   standByAdvice: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 10.5,
+    lineHeight: 14,
     color: '#CBD5E1',
     textAlign: 'center',
   },
@@ -1082,20 +1087,25 @@ const styles = StyleSheet.create({
     padding: 5,
     borderRadius: 30,
     borderWidth: 1,
+    minWidth: 0,
   },
   iosSystemMediumCard: {
     borderRadius: 25,
     padding: 18,
     gap: 12,
   },
+  widgetCardCompact: {
+    padding: 13,
+  },
   mediumTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
   },
   mediumLeftInfo: {
     flex: 1,
+    minWidth: 0,
     gap: 5,
   },
   mediumLocRow: {
@@ -1104,6 +1114,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   mediumLocText: {
+    flex: 1,
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 13,
     fontWeight: '700',
@@ -1115,13 +1126,15 @@ const styles = StyleSheet.create({
   },
   mediumBigTemp: {
     fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 44,
-    lineHeight: 48,
+    fontSize: 42,
+    lineHeight: 46,
     fontWeight: '700',
     letterSpacing: -1.5,
     fontVariant: ['tabular-nums'],
   },
   mediumTempSubCol: {
+    flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   mediumBuddyTag: {
@@ -1137,6 +1150,7 @@ const styles = StyleSheet.create({
   },
   mediumAlertChip: {
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -1145,6 +1159,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   mediumAlertChipText: {
+    flexShrink: 1,
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 11.5,
     fontWeight: '700',
@@ -1185,7 +1200,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   androidGlanceCard: {
-    backgroundColor: '#EFF4FA',
     borderRadius: 25,
     padding: 18,
     gap: 12,
@@ -1194,10 +1208,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 14,
+    gap: 12,
   },
   glanceTextCol: {
     flex: 1,
+    minWidth: 0,
     gap: 6,
   },
   glanceHeaderPills: {
@@ -1207,7 +1222,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   glanceLocationPill: {
-    backgroundColor: '#D8E6F8',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
@@ -1216,7 +1230,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 12,
     fontWeight: '700',
-    color: '#102A43',
     fontVariant: ['tabular-nums'],
   },
   glanceAlertChip: {
@@ -1245,19 +1258,16 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     lineHeight: 20,
     fontWeight: '700',
-    color: '#0F172A',
   },
   glanceAdvice: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 12.5,
     lineHeight: 18,
-    color: '#334155',
   },
   glanceSpriteCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 28,
-    backgroundColor: '#DCE8F7',
+    width: 98,
+    height: 98,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -1267,24 +1277,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(15, 23, 42, 0.08)',
     paddingTop: 10,
   },
   glanceFooterMeta: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#475569',
   },
   guideOuterBezel: {
     padding: 5,
     borderRadius: 28,
     borderWidth: 1,
+    minWidth: 0,
   },
   guideInnerCore: {
     borderRadius: 23,
-    padding: 22,
-    gap: 16,
+    padding: 20,
+    gap: 14,
   },
   guideHeaderBlock: {
     gap: 6,
@@ -1293,85 +1302,9 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.3,
   },
   guideSummary: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 13.5,
-    lineHeight: 20,
-  },
-  accordionList: {
-    gap: 10,
-  },
-  accordionItem: {
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  accordionTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 10,
-  },
-  accordionTitleCluster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    flex: 1,
-  },
-  platformTag: {
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  platformTagText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
-  accordionTitleText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 14,
-    fontWeight: '700',
-    flexShrink: 1,
-  },
-  accordionBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 10,
-  },
-  accordionSub: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  stepsStack: {
-    gap: 8,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  stepNumBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  stepNumText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11.5,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  stepText: {
-    flex: 1,
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 13.5,
     lineHeight: 20,

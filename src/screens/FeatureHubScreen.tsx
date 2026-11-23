@@ -1,4 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+/* Lucian UX/UI Prompt #015 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#015 */
+/* Lucian UX/UI Prompt #023 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#023 */
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -18,6 +21,13 @@ import type {
 } from '../core';
 import { LivingCharacterRig } from '../components/LivingCharacterRig';
 import { resolveBackendBaseUrl } from '../hooks/useWeatherBuddy';
+import {
+  LucianFeatureSettingsCard,
+  LucianPlanRadioCards,
+  useResolvedLucianDark,
+  type LucianFeatureSwitchRow,
+  type LucianRadioOption,
+} from '../lucian/LucianHubComponents';
 import {
   FONT_FAMILY_DISPLAY,
   FONT_FAMILY_SANS,
@@ -131,98 +141,91 @@ interface FeatureHubScreenProps {
   onJumpToMobileWidgets: () => void;
 }
 
-const PLATFORM_CARDS: Array<{
-  id: PlatformInstallTarget;
-  icon: React.ComponentProps<typeof Feather>['name'];
-  tagVi: string;
-  titleVi: string;
-  descVi: string;
-}> = [
+const PLATFORM_RADIO_CARDS: ReadonlyArray<LucianRadioOption<PlatformInstallTarget>> = [
   {
     id: 'browser_newtab',
+    title: 'Tab Mới Extension',
+    subtitle: 'Chibi NPC sống động, đồng hồ HH:MM, thanh tìm kiếm & dự báo 12h',
+    badge: 'Chrome · Edge',
+    metaPrimary: 'MV3',
+    metaSecondary: 'New Tab',
     icon: 'layout',
-    tagVi: 'Chrome · Edge · Cốc Cốc',
-    titleVi: '🌐 Extension Tab Mới Trình duyệt',
-    descVi: 'Mở tab mới hiện Chibi NPC, đồng hồ HH:MM, thanh tìm kiếm và dự báo 12h',
+    gradient: 'linear-gradient(140deg,#2F8FE0,#185ADB)',
   },
   {
     id: 'browser_popup',
+    title: 'Popup Thanh công cụ',
+    subtitle: 'Ghim nhiệt độ trực tiếp lên toolbar, bấm mở nhanh khung 380×560',
+    badge: 'Badge 15p',
+    metaPrimary: '380×560',
+    metaSecondary: 'Popup',
     icon: 'bookmark',
-    tagVi: 'Toolbar Badge 15p',
-    titleVi: '📌 Popup Thanh công cụ Trình duyệt',
-    descVi: 'Ghim nhiệt độ trực tiếp lên thanh công cụ, bấm mở nhanh khung 380×560',
+    gradient: 'linear-gradient(140deg,#22C3A6,#0EA5E9)',
   },
   {
     id: 'desktop_widget',
+    title: 'Widget Màn hình Windows',
+    subtitle: 'Neo nhân vật Chibi NPC nổi ở 4 góc màn hình làm việc PC',
+    badge: 'Always-on-Top',
+    metaPrimary: 'PC Suite',
+    metaSecondary: 'Windows',
     icon: 'monitor',
-    tagVi: 'Windows Desktop · Always-on-Top',
-    titleVi: '🖥️ Widget Nổi Màn hình Máy tính',
-    descVi: 'Đặt nhân vật Chibi NPC nổi ở góc màn hình PC Windows hoặc chạy Electron',
+    gradient: 'linear-gradient(140deg,#0EA5E9,#0369A1)',
   },
   {
     id: 'mobile_lockscreen',
+    title: 'Widget Màn hình khóa Mobile',
+    subtitle: 'Đồng bộ App Group WidgetKit trên iPhone & Jetpack Glance Android',
+    badge: 'iOS · Android',
+    metaPrimary: '15p',
+    metaSecondary: 'Lock Screen',
     icon: 'smartphone',
-    tagVi: 'iOS 16+ & Android 12+',
-    titleVi: '📱 Widget Màn hình khóa Điện thoại',
-    descVi: 'Đồng bộ App Group WidgetKit trên iPhone và Jetpack Glance trên Android',
+    gradient: 'linear-gradient(140deg,#14B8A6,#0F766E)',
   },
 ];
 
-const CORNER_OPTIONS: Array<{
-  id: DesktopCornerPosition;
-  labelVi: string;
-}> = [
-  { id: 'BottomRight', labelVi: 'Góc phải dưới' },
-  { id: 'TopRight', labelVi: 'Góc phải trên' },
-  { id: 'BottomLeft', labelVi: 'Góc trái dưới' },
-  { id: 'TopLeft', labelVi: 'Góc trái trên' },
+const SENSITIVITY_RADIO_CARDS: ReadonlyArray<LucianRadioOption<ThermalSensitivity>> = [
+  {
+    id: 'cold_sensitive',
+    title: 'Sợ lạnh',
+    subtitle: '-3°C cảm nhận',
+    icon: 'snowflake',
+    gradient: 'linear-gradient(140deg,#38BDF8,#185ADB)',
+  },
+  {
+    id: 'normal',
+    title: 'Bình thường',
+    subtitle: 'Chuẩn mặc định',
+    icon: 'sun',
+    gradient: 'linear-gradient(140deg,#22C3A6,#0EA5E9)',
+  },
+  {
+    id: 'heat_sensitive',
+    title: 'Sợ nóng',
+    subtitle: '+3°C cảm nhận',
+    icon: 'flame',
+    gradient: 'linear-gradient(140deg,#FB923C,#EA580C)',
+  },
 ];
 
-const SIZE_OPTIONS: Array<{
+const CORNER_OPTIONS: ReadonlyArray<{
+  id: DesktopCornerPosition;
+  labelVi: string;
+  shortVi: string;
+}> = [
+  { id: 'BottomRight', labelVi: 'Góc phải dưới', shortVi: 'Phải dưới' },
+  { id: 'TopRight', labelVi: 'Góc phải trên', shortVi: 'Phải trên' },
+  { id: 'BottomLeft', labelVi: 'Góc trái dưới', shortVi: 'Trái dưới' },
+  { id: 'TopLeft', labelVi: 'Góc trái trên', shortVi: 'Trái trên' },
+];
+
+const SIZE_OPTIONS: ReadonlyArray<{
   id: DesktopWidgetSize;
   labelVi: string;
   dimLabel: string;
 }> = [
   { id: 'Compact', labelVi: 'Gọn nhẹ', dimLabel: '300×420' },
   { id: 'Standard', labelVi: 'Tiêu chuẩn', dimLabel: '380×540' },
-];
-
-const MODULE_ROWS: Array<{
-  key: keyof FeatureModuleToggles;
-  icon: React.ComponentProps<typeof Feather>['name'];
-  labelVi: string;
-  subVi: string;
-}> = [
-  {
-    key: 'showBigClock',
-    icon: 'clock',
-    labelVi: 'Đồng hồ lớn HH:MM trên Tab mới',
-    subVi: 'Hiển thị giờ và ngày tháng chữ số bảng rõ nét',
-  },
-  {
-    key: 'showSearchBar',
-    icon: 'search',
-    labelVi: 'Thanh tìm kiếm nhanh',
-    subVi: 'Tìm nhanh trên Google hoặc DuckDuckGo ngay tại Tab mới',
-  },
-  {
-    key: 'autoRotateNpc5m',
-    icon: 'shuffle',
-    labelVi: 'Tự động đổi 5 hành động Chibi NPC mỗi 5 phút',
-    subVi: 'Đọc sách, chơi với mèo, chơi với cún, xem điện thoại, nghe nhạc',
-  },
-  {
-    key: 'alwaysOnTop',
-    icon: 'layers',
-    labelVi: 'Ghim nổi trên cửa sổ khác (Always-on-Top)',
-    subVi: 'Giữ Widget máy tính luôn hiển thị trên màn hình làm việc',
-  },
-  {
-    key: 'autoRefresh15m',
-    icon: 'refresh-cw',
-    labelVi: 'Tự cập nhật thời tiết mỗi 15 phút',
-    subVi: 'Đồng bộ nền qua Chrome Alarms, WorkManager và Backend Cache',
-  },
 ];
 
 export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
@@ -238,6 +241,8 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isTwoCol = width >= 920;
+  const isNarrowMobile = width < 440;
+  const isDark = useResolvedLucianDark(palette);
 
   const [config, setConfig] = useState<PersistedHubConfig>(() => loadHubConfig());
   const [suiteStatus, setSuiteStatus] = useState<{
@@ -307,12 +312,16 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
     setActionToast(null);
   };
 
-  const toggleModule = (key: keyof FeatureModuleToggles) => {
+  const handleToggleModule = (key: string, explicitNext?: boolean) => {
+    const modKey = key as keyof FeatureModuleToggles;
     setConfig((prev) => ({
       ...prev,
       modules: {
         ...prev.modules,
-        [key]: !prev.modules[key],
+        [modKey]:
+          typeof explicitNext === 'boolean'
+            ? explicitNext
+            : !prev.modules[modKey],
       },
     }));
     setActionToast(null);
@@ -410,7 +419,9 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setActionToast('Đã xuất file cấu hình weather-buddy-config.json (0 chứa khóa API).');
+      setActionToast(
+        'Đã xuất file cấu hình weather-buddy-config.json (0 chứa khóa API).'
+      );
     } else {
       setActionToast('Đã lưu cấu hình cá nhân trên thiết bị.');
     }
@@ -424,16 +435,77 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
 
   const cornerAlignmentStyle =
     config.corner === 'BottomRight'
-      ? { bottom: 14, right: 14 }
+      ? { bottom: 12, right: 12 }
       : config.corner === 'TopRight'
-        ? { top: 14, right: 14 }
+        ? { top: 12, right: 12 }
         : config.corner === 'BottomLeft'
-          ? { bottom: 14, left: 14 }
-          : { top: 14, left: 14 };
+          ? { bottom: 12, left: 12 }
+          : { top: 12, left: 12 };
+
+  const lucianSwitchRows: ReadonlyArray<LucianFeatureSwitchRow> = useMemo(
+    () => [
+      {
+        key: 'showBigClock',
+        title: 'Đồng hồ lớn HH:MM trên Tab mới',
+        subtitle: 'Hiển thị giờ và ngày tháng chữ số bảng rõ nét',
+        enabled: config.modules.showBigClock,
+        icon: 'clock',
+        gradient: 'linear-gradient(140deg,#3B82F6,#1D4ED8)',
+      },
+      {
+        key: 'showSearchBar',
+        title: 'Thanh tìm kiếm nhanh',
+        subtitle: 'Tìm nhanh trên Google hoặc DuckDuckGo ngay tại Tab mới',
+        enabled: config.modules.showSearchBar,
+        icon: 'search',
+        gradient: 'linear-gradient(140deg,#0EA5E9,#0284C7)',
+      },
+      {
+        key: 'autoRotateNpc5m',
+        title: 'Xoay vòng 5 hành động Chibi NPC mỗi 5 phút',
+        subtitle: 'Đọc sách, xoa đầu mèo, chơi với cún, điện thoại, nghe nhạc',
+        enabled: config.modules.autoRotateNpc5m,
+        icon: 'shuffle',
+        gradient: 'linear-gradient(140deg,#22C3A6,#119C72)',
+      },
+      {
+        key: 'alwaysOnTop',
+        title: 'Ghim nổi trên cửa sổ khác (Always-on-Top)',
+        subtitle: config.modules.alwaysOnTop
+          ? `Đang neo tại ${cornerLabelVi}`
+          : 'Tắt ghim nổi cửa sổ máy tính',
+        enabled: config.modules.alwaysOnTop,
+        icon: 'layers',
+        gradient: 'linear-gradient(140deg,#F59E0B,#D97706)',
+        subOptions: {
+          ariaLabel: 'Vị trí góc màn hình máy tính',
+          choices: CORNER_OPTIONS.map((c) => ({
+            id: c.id,
+            label: c.shortVi,
+          })),
+          selectedId: config.corner,
+          onSelect: (id) => updateCorner(id as DesktopCornerPosition),
+        },
+      },
+      {
+        key: 'autoRefresh15m',
+        title: 'Tự cập nhật thời tiết mỗi 15 phút',
+        subtitle: 'Đồng bộ nền qua Chrome Alarms, WorkManager và Backend Cache',
+        enabled: config.modules.autoRefresh15m,
+        icon: 'refresh',
+        gradient: 'linear-gradient(140deg,#14B8A6,#0F766E)',
+      },
+    ],
+    [config.modules, config.corner, cornerLabelVi]
+  );
+
+  const selectedPlatformCard =
+    PLATFORM_RADIO_CARDS.find((c) => c.id === config.target) ??
+    PLATFORM_RADIO_CARDS[2];
 
   return (
     <View style={styles.hubStack}>
-      {/* Header Banner */}
+      {/* Header Banner + Lucian #015 Platform Mode Selector Cards */}
       <View
         style={[
           styles.outerBezel,
@@ -446,6 +518,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
         <View
           style={[
             styles.innerCore,
+            isNarrowMobile && styles.innerCoreCompact,
             { backgroundColor: palette.coreElevatedBg },
           ]}
         >
@@ -460,381 +533,202 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                 >
                   <Feather name="package" size={12} color={palette.accent} />
                   <Text style={[styles.readyPillText, { color: palette.accent }]}>
-                    Đa nền tảng · Web · Extension · Windows PC · iOS/Android
+                    Đa nền tảng · Web · Extension · Windows PC · Mobile
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.readyPill,
+                    {
+                      backgroundColor: suiteStatus.backendOnline
+                        ? 'rgba(16, 185, 129, 0.16)'
+                        : palette.pillIdleBg,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name={suiteStatus.backendOnline ? 'check-circle' : 'cpu'}
+                    size={12}
+                    color={suiteStatus.backendOnline ? '#10B981' : palette.inkSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.readyPillText,
+                      {
+                        color: suiteStatus.backendOnline
+                          ? '#10B981'
+                          : palette.inkSecondary,
+                      },
+                    ]}
+                  >
+                    {suiteStatus.backendOnline
+                      ? 'PC Suite Server :8787 sẵn sàng'
+                      : 'Tải gói .zip trực tiếp'}
                   </Text>
                 </View>
               </View>
 
               <Text style={[styles.hubTitle, { color: palette.inkPrimary }]}>
-                🎛️ Trung tâm Tính năng & Cài đặt Đa nền tảng
+                Trung tâm Tính năng & Cài đặt Đa nền tảng
               </Text>
               <Text style={[styles.hubSub, { color: palette.inkSecondary }]}>
-                Chọn kiểu hiển thị yêu thích, tùy chỉnh vị trí neo, bật/tắt các module chức năng và tải gói cài đặt hoàn chỉnh cho trình duyệt hoặc màn hình máy tính.
+                Chọn nền tảng hiển thị, bật/tắt từng module chức năng trực quan và tải gói cài đặt hoàn chỉnh cho trình duyệt hoặc màn hình máy tính.
               </Text>
             </View>
           </View>
 
-          {/* 4 Platform Mode Selector Cards */}
-          <View style={styles.platformGrid}>
-            {PLATFORM_CARDS.map((card) => {
-              const isSelected = config.target === card.id;
-              return (
-                <Pressable
-                  key={card.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  onPress={() => updateTarget(card.id)}
-                  style={({ pressed }) => [
-                    styles.platformCard,
-                    WEB_NO_OUTLINE,
-                    {
-                      width: isTwoCol ? '23.8%' : '48%',
-                      backgroundColor: isSelected
-                        ? palette.coreSurfaceBg
-                        : palette.bezelOuterBg,
-                      borderColor: isSelected
-                        ? palette.accent
-                        : palette.bezelOuterBorder,
-                      borderWidth: isSelected ? 1.5 : 1,
-                      transform: [{ scale: pressed ? 0.98 : 1 }],
-                    },
-                  ]}
-                >
-                  <View style={styles.platformCardTop}>
-                    <View
-                      style={[
-                        styles.platformIconCircle,
-                        {
-                          backgroundColor: isSelected
-                            ? palette.pillActiveBg
-                            : palette.accentSoftBg,
-                        },
-                      ]}
-                    >
-                      <Feather
-                        name={card.icon}
-                        size={15}
-                        color={
-                          isSelected ? palette.pillActiveInk : palette.accent
-                        }
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.platformTagText,
-                        { color: palette.accent },
-                      ]}
-                    >
-                      {card.tagVi}
-                    </Text>
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.platformCardTitle,
-                      { color: palette.inkPrimary },
-                    ]}
-                  >
-                    {card.titleVi}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.platformCardDesc,
-                      { color: palette.inkSecondary },
-                    ]}
-                  >
-                    {card.descVi}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <LucianPlanRadioCards
+            ariaLabel="Chọn chế độ nền tảng"
+            options={PLATFORM_RADIO_CARDS}
+            value={config.target}
+            onChange={updateTarget}
+            columns={2}
+            summaryLeft={`Đang cấu hình: ${selectedPlatformCard.title}`}
+            summaryRight={`${cornerLabelVi} · ${sizeMeta.dimLabel}`}
+            isDark={isDark}
+          />
         </View>
       </View>
 
-      {/* Main Split: Left = Interactive Customization Matrix, Right = Live Mini-Preview + Action Bar */}
+      {/* Main Split: Left = Lucian #023 Interactive Customization Matrix + #015 Thermal Sensitivity | Right = Live Mini-Preview + Action Center */}
       <View
         style={[
           styles.mainSplitGrid,
           isTwoCol ? styles.splitRowDesktop : styles.splitColMobile,
         ]}
       >
-        {/* Left Column: Interactive Customization Matrix */}
-        <View
-          style={[
-            styles.outerBezel,
-            styles.matrixCol,
-            {
-              backgroundColor: palette.bezelOuterBg,
-              borderColor: palette.bezelOuterBorder,
-            },
-          ]}
-        >
+        {/* Left Column: Customization Controls */}
+        <View style={styles.matrixCol}>
+          <LucianFeatureSettingsCard
+            title="Bảng tùy chỉnh Module trực quan"
+            rows={lucianSwitchRows}
+            onToggleRow={handleToggleModule}
+            isDark={isDark}
+          />
+
+          {/* Persona, Size & Sensitivity Card */}
           <View
             style={[
-              styles.innerCore,
-              { backgroundColor: palette.coreSurfaceBg },
+              styles.outerBezel,
+              {
+                backgroundColor: palette.bezelOuterBg,
+                borderColor: palette.bezelOuterBorder,
+              },
             ]}
           >
-            <View style={styles.sectionHeaderCluster}>
-              <Feather name="sliders" size={15} color={palette.accent} />
-              <Text style={[styles.sectionTitle, { color: palette.inkPrimary }]}>
-                Bảng tùy chỉnh chức năng trực quan
-              </Text>
-            </View>
-
-            {/* 1. Desktop Corner Anchor Position */}
-            <View style={styles.controlBlock}>
-              <Text style={[styles.controlLabel, { color: palette.inkPrimary }]}>
-                Vị trí neo trên màn hình máy tính
-              </Text>
-              <View style={styles.pillsWrapRow}>
-                {CORNER_OPTIONS.map((c) => {
-                  const active = config.corner === c.id;
-                  return (
-                    <Pressable
-                      key={c.id}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      onPress={() => updateCorner(c.id)}
-                      style={({ pressed }) => [
-                        styles.optionPill,
-                        WEB_NO_OUTLINE,
-                        {
-                          backgroundColor: active
-                            ? palette.pillActiveBg
-                            : palette.pillIdleBg,
-                          borderColor: active
-                            ? palette.pillActiveBg
-                            : palette.bezelOuterBorder,
-                          transform: [{ scale: pressed ? 0.97 : 1 }],
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.optionPillText,
-                          {
-                            color: active
-                              ? palette.pillActiveInk
-                              : palette.inkPrimary,
-                          },
-                        ]}
-                      >
-                        {c.labelVi}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* 2. Widget Size + Character Gender Quick Selector */}
-            <View style={styles.dualControlsRow}>
-              <View style={styles.halfControlCol}>
-                <Text
-                  style={[styles.controlLabel, { color: palette.inkPrimary }]}
-                >
-                  Kích thước Widget
-                </Text>
-                <View style={styles.pillsWrapRow}>
-                  {SIZE_OPTIONS.map((s) => {
-                    const active = config.size === s.id;
-                    return (
-                      <Pressable
-                        key={s.id}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        onPress={() => updateSize(s.id)}
-                        style={({ pressed }) => [
-                          styles.optionPill,
-                          WEB_NO_OUTLINE,
-                          {
-                            backgroundColor: active
-                              ? palette.pillActiveBg
-                              : palette.pillIdleBg,
-                            borderColor: active
-                              ? palette.pillActiveBg
-                              : palette.bezelOuterBorder,
-                            transform: [{ scale: pressed ? 0.97 : 1 }],
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionPillText,
+            <View
+              style={[
+                styles.innerCore,
+                isNarrowMobile && styles.innerCoreCompact,
+                { backgroundColor: palette.coreSurfaceBg },
+              ]}
+            >
+              <View style={styles.dualControlsRow}>
+                <View style={styles.halfControlCol}>
+                  <Text style={[styles.controlLabel, { color: palette.inkPrimary }]}>
+                    Kích thước cửa sổ Widget
+                  </Text>
+                  <View style={styles.pillsWrapRow}>
+                    {SIZE_OPTIONS.map((s) => {
+                      const active = config.size === s.id;
+                      return (
+                        <Pressable
+                          key={s.id}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          onPress={() => updateSize(s.id)}
+                          style={({ pressed }) => [
+                            styles.optionPill,
+                            WEB_NO_OUTLINE,
                             {
-                              color: active
-                                ? palette.pillActiveInk
-                                : palette.inkPrimary,
+                              backgroundColor: active
+                                ? palette.pillActiveBg
+                                : palette.pillIdleBg,
+                              borderColor: active
+                                ? palette.pillActiveBg
+                                : palette.bezelOuterBorder,
+                              transform: [{ scale: pressed ? 0.97 : 1 }],
                             },
                           ]}
                         >
-                          {s.labelVi} ({s.dimLabel})
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                          <Text
+                            style={[
+                              styles.optionPillText,
+                              {
+                                color: active
+                                  ? palette.pillActiveInk
+                                  : palette.inkPrimary,
+                              },
+                            ]}
+                          >
+                            {s.labelVi} ({s.dimLabel})
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
 
-              <View style={styles.halfControlCol}>
-                <Text
-                  style={[styles.controlLabel, { color: palette.inkPrimary }]}
-                >
-                  Nhân vật & Độ nhạy nhiệt
-                </Text>
-                <View style={styles.pillsWrapRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() =>
-                      onSelectGender(gender === 'male' ? 'female' : 'male')
-                    }
-                    style={[
-                      styles.optionPill,
-                      WEB_NO_OUTLINE,
-                      {
-                        backgroundColor: palette.coreElevatedBg,
-                        borderColor: palette.bezelOuterBorder,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.optionPillText,
-                        { color: palette.inkPrimary },
-                      ]}
-                    >
-                      {gender === 'male'
-                        ? '👦 Nam (Cậu bé Mây)'
-                        : '👧 Nữ (Cô bé Nắng)'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() =>
-                      onSelectSensitivity(
-                        sensitivity === 'normal'
-                          ? 'cold_sensitive'
-                          : sensitivity === 'cold_sensitive'
-                            ? 'heat_sensitive'
-                            : 'normal'
-                      )
-                    }
-                    style={[
-                      styles.optionPill,
-                      WEB_NO_OUTLINE,
-                      {
-                        backgroundColor: palette.coreElevatedBg,
-                        borderColor: palette.bezelOuterBorder,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.optionPillText,
-                        { color: palette.inkPrimary },
-                      ]}
-                    >
-                      {sensitivity === 'cold_sensitive'
-                        ? 'Sợ lạnh (-3°C)'
-                        : sensitivity === 'heat_sensitive'
-                          ? 'Sợ nóng (+3°C)'
-                          : 'Nhiệt độ chuẩn'}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-
-            {/* 3. Module Toggle Switches */}
-            <View style={styles.controlBlock}>
-              <Text style={[styles.controlLabel, { color: palette.inkPrimary }]}>
-                Bật / Tắt từng Module chức năng
-              </Text>
-
-              <View style={styles.modulesList}>
-                {MODULE_ROWS.map((mod) => {
-                  const enabled = config.modules[mod.key];
-                  return (
-                    <Pressable
-                      key={mod.key}
-                      accessibilityRole="switch"
-                      accessibilityState={{ checked: enabled }}
-                      onPress={() => toggleModule(mod.key)}
-                      style={({ pressed }) => [
-                        styles.moduleRowCard,
-                        WEB_NO_OUTLINE,
-                        {
-                          backgroundColor: enabled
-                            ? palette.coreElevatedBg
-                            : palette.bezelOuterBg,
-                          borderColor: enabled
-                            ? palette.bezelOuterBorder
-                            : palette.hairline,
-                          opacity: pressed ? 0.92 : 1,
-                        },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.moduleIconBox,
-                          {
-                            backgroundColor: enabled
-                              ? palette.accentSoftBg
-                              : palette.pillIdleBg,
-                          },
-                        ]}
-                      >
-                        <Feather
-                          name={mod.icon}
-                          size={14}
-                          color={enabled ? palette.accent : palette.inkMuted}
-                        />
-                      </View>
-
-                      <View style={styles.moduleTextCol}>
-                        <Text
-                          style={[
-                            styles.moduleTitle,
-                            { color: palette.inkPrimary },
-                          ]}
-                        >
-                          {mod.labelVi}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.moduleSub,
-                            { color: palette.inkSecondary },
-                          ]}
-                        >
-                          {mod.subVi}
-                        </Text>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.toggleTrack,
-                          {
-                            backgroundColor: enabled
-                              ? palette.accent
-                              : palette.hairline,
-                          },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.toggleThumb,
+                <View style={styles.halfControlCol}>
+                  <Text style={[styles.controlLabel, { color: palette.inkPrimary }]}>
+                    Nhân vật đồng hành
+                  </Text>
+                  <View style={styles.pillsWrapRow}>
+                    {(['male', 'female'] as const).map((g) => {
+                      const active = gender === g;
+                      return (
+                        <Pressable
+                          key={g}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          onPress={() => onSelectGender(g)}
+                          style={({ pressed }) => [
+                            styles.optionPill,
+                            WEB_NO_OUTLINE,
                             {
-                              transform: [{ translateX: enabled ? 16 : 2 }],
+                              backgroundColor: active
+                                ? palette.pillActiveBg
+                                : palette.pillIdleBg,
+                              borderColor: active
+                                ? palette.pillActiveBg
+                                : palette.bezelOuterBorder,
+                              transform: [{ scale: pressed ? 0.97 : 1 }],
                             },
                           ]}
-                        />
-                      </View>
-                    </Pressable>
-                  );
-                })}
+                        >
+                          <Text
+                            style={[
+                              styles.optionPillText,
+                              {
+                                color: active
+                                  ? palette.pillActiveInk
+                                  : palette.inkPrimary,
+                              },
+                            ]}
+                          >
+                            {g === 'male' ? '👦 Cậu bé Mây' : '👧 Cô bé Nắng'}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.controlBlock}>
+                <Text style={[styles.controlLabel, { color: palette.inkPrimary }]}>
+                  Độ nhạy cảm nhiệt độ cá nhân
+                </Text>
+                <LucianPlanRadioCards
+                  ariaLabel="Độ nhạy nhiệt độ"
+                  options={SENSITIVITY_RADIO_CARDS}
+                  value={sensitivity}
+                  onChange={onSelectSensitivity}
+                  columns={3}
+                  compact
+                  isDark={isDark}
+                />
               </View>
             </View>
           </View>
@@ -855,15 +749,14 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
             <View
               style={[
                 styles.innerCore,
+                isNarrowMobile && styles.innerCoreCompact,
                 { backgroundColor: palette.coreElevatedBg },
               ]}
             >
               <View style={styles.previewHeaderRow}>
                 <View style={styles.sectionHeaderCluster}>
                   <Feather name="eye" size={15} color={palette.accent} />
-                  <Text
-                    style={[styles.sectionTitle, { color: palette.inkPrimary }]}
-                  >
+                  <Text style={[styles.sectionTitle, { color: palette.inkPrimary }]}>
                     Xem trước Trực tiếp ({cornerLabelVi} · {sizeMeta.dimLabel})
                   </Text>
                 </View>
@@ -871,7 +764,6 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
 
               {/* Simulated 16:10 PC Monitor / Browser Tab Canvas */}
               <View style={styles.pcMonitorFrame}>
-                {/* Browser / Desktop Top Chrome Bar */}
                 <View style={styles.pcMonitorTopBar}>
                   <View style={styles.windowDotsRow}>
                     <View
@@ -884,14 +776,14 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                       style={[styles.winDot, { backgroundColor: '#34D399' }]}
                     />
                   </View>
-                  <Text style={styles.pcMonitorUrlText}>
+                  <Text numberOfLines={1} style={styles.pcMonitorUrlText}>
                     {config.target === 'browser_newtab'
-                      ? 'chrome://newtab · WeatherBuddy Chibi NPC'
+                      ? 'chrome://newtab · WeatherBuddy NPC'
                       : config.target === 'browser_popup'
-                        ? 'Toolbar Popup · Badge 15 phút'
+                        ? 'Toolbar Popup · Badge 15p'
                         : config.target === 'mobile_lockscreen'
-                          ? 'iOS 16+ WidgetKit & Android Glance'
-                          : `Windows Desktop · ${cornerLabelVi} (${
+                          ? 'iOS WidgetKit & Android Glance'
+                          : `Windows · ${cornerLabelVi} (${
                               config.modules.alwaysOnTop
                                 ? 'Always-on-Top'
                                 : 'Thường'
@@ -904,13 +796,11 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Monitor Wallpaper Workspace */}
                 <View style={styles.pcMonitorCanvas}>
-                  {/* Optional New-Tab Big Clock & Quick Search Bar */}
                   {config.modules.showBigClock && (
                     <View style={styles.previewClockBlock}>
                       <Text style={styles.previewClockTime}>09:41</Text>
-                      <Text style={styles.previewClockDate}>
+                      <Text numberOfLines={1} style={styles.previewClockDate}>
                         {weather.locationName} · Cảm giác{' '}
                         {Math.round(weather.feelsLikeC)}°C
                       </Text>
@@ -920,8 +810,11 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                   {config.modules.showSearchBar && (
                     <View style={styles.previewSearchBar}>
                       <Feather name="search" size={12} color="#94A3B8" />
-                      <Text style={styles.previewSearchPlaceholder}>
-                        Tìm kiếm nhanh trên Google...
+                      <Text
+                        numberOfLines={1}
+                        style={styles.previewSearchPlaceholder}
+                      >
+                        Tìm kiếm nhanh...
                       </Text>
                     </View>
                   )}
@@ -931,7 +824,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                     style={[
                       styles.floatingCornerWidget,
                       cornerAlignmentStyle,
-                      config.size === 'Compact'
+                      config.size === 'Compact' || isNarrowMobile
                         ? styles.floatingWidgetCompact
                         : styles.floatingWidgetStandard,
                     ]}
@@ -952,7 +845,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                       gender={gender}
                       sceneId={decision.sceneId}
                       palette={palette}
-                      size={config.size === 'Compact' ? 86 : 104}
+                      size={config.size === 'Compact' || isNarrowMobile ? 82 : 100}
                       reduceMotion={reduceMotion}
                       interactive
                       showAmbientProps={false}
@@ -968,15 +861,14 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Windows Taskbar Strip */}
                 <View style={styles.pcTaskbar}>
-                  <Text style={styles.pcTaskbarText}>
+                  <Text numberOfLines={1} style={styles.pcTaskbarText}>
                     {config.modules.autoRotateNpc5m
-                      ? 'NPC tự đổi 5 hành động / 5p · Chạm để đứng dậy'
-                      : 'Chế độ Đứng báo thời tiết cố định'}
+                      ? 'NPC đổi 5 hành động / 5p · Chạm để vẫy tay'
+                      : 'Chế độ Đứng báo thời tiết'}
                   </Text>
                   <Text style={styles.pcTaskbarText}>
-                    {config.modules.autoRefresh15m ? 'Đồng bộ 15p' : 'Thủ công'}
+                    {config.modules.autoRefresh15m ? '15p' : 'Thủ công'}
                   </Text>
                 </View>
               </View>
@@ -996,14 +888,13 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
             <View
               style={[
                 styles.innerCore,
+                isNarrowMobile && styles.innerCoreCompact,
                 { backgroundColor: palette.coreElevatedBg },
               ]}
             >
               <View style={styles.sectionHeaderCluster}>
                 <Feather name="download-cloud" size={15} color={palette.accent} />
-                <Text
-                  style={[styles.sectionTitle, { color: palette.inkPrimary }]}
-                >
+                <Text style={[styles.sectionTitle, { color: palette.inkPrimary }]}>
                   Tải gói Cài đặt & Mở nhanh lên Máy tính
                 </Text>
               </View>
@@ -1038,7 +929,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                         { color: palette.pillActiveInk },
                       ]}
                     >
-                      ⬇️ Tải Extension Trình duyệt (.zip)
+                      Tải Extension (.zip)
                     </Text>
                   </Pressable>
 
@@ -1059,14 +950,18 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                       },
                     ]}
                   >
-                    <Feather name="monitor" size={14} color="#F8FAFC" />
+                    <Feather
+                      name="monitor"
+                      size={14}
+                      color={palette.accentContrastInk}
+                    />
                     <Text
                       style={[
                         styles.primaryDownloadText,
-                        { color: '#F8FAFC' },
+                        { color: palette.accentContrastInk },
                       ]}
                     >
-                      ⬇️ Tải Widget Máy tính (.zip)
+                      Tải Widget PC (.zip)
                     </Text>
                   </Pressable>
                 </View>
@@ -1088,7 +983,11 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                     {launchingWidget ? (
                       <ActivityIndicator size="small" color={palette.accent} />
                     ) : (
-                      <Feather name="external-link" size={14} color={palette.accent} />
+                      <Feather
+                        name="external-link"
+                        size={14}
+                        color={palette.accent}
+                      />
                     )}
                     <Text
                       style={[
@@ -1096,7 +995,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                         { color: palette.accent },
                       ]}
                     >
-                      🚀 Mở ngay Widget lên Màn hình Windows
+                      Mở ngay Widget Windows
                     </Text>
                   </Pressable>
 
@@ -1124,7 +1023,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                         { color: palette.inkPrimary },
                       ]}
                     >
-                      📋 Xuất cấu hình cá nhân (.json)
+                      Xuất cấu hình (.json)
                     </Text>
                   </Pressable>
                 </View>
@@ -1154,7 +1053,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                         { color: palette.accent },
                       ]}
                     >
-                      Xem khung mô phỏng iPhone Lock Screen & Android Glance
+                      Mở Studio Mô phỏng iPhone Lock Screen & Android Glance
                     </Text>
                   </Pressable>
                 )}
@@ -1171,9 +1070,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                   ]}
                 >
                   <Feather name="info" size={13} color={palette.accent} />
-                  <Text
-                    style={[styles.toastText, { color: palette.inkPrimary }]}
-                  >
+                  <Text style={[styles.toastText, { color: palette.inkPrimary }]}>
                     {actionToast}
                   </Text>
                 </View>
@@ -1189,34 +1086,29 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
                   },
                 ]}
               >
-                <Text
-                  style={[styles.guideBoxTitle, { color: palette.inkPrimary }]}
-                >
+                <Text style={[styles.guideBoxTitle, { color: palette.inkPrimary }]}>
                   Hướng dẫn cài đặt nhanh (3 bước):
                 </Text>
                 <Text
                   style={[styles.guideStepLine, { color: palette.inkSecondary }]}
                 >
                   1. <Text style={styles.boldText}>Extension Trình duyệt</Text>: Giải nén{' '}
-                  <Text style={styles.boldText}>weather-buddy-extension.zip</Text> (hoặc chọn thư mục{' '}
-                  <Text style={styles.boldText}>browser-extension/</Text>), mở{' '}
-                  <Text style={styles.boldText}>chrome://extensions</Text> hoặc{' '}
-                  <Text style={styles.boldText}>edge://extensions</Text>, bật{' '}
-                  <Text style={styles.boldText}>Developer mode</Text> → bấm{' '}
+                  <Text style={styles.boldText}>weather-buddy-extension.zip</Text>, mở{' '}
+                  <Text style={styles.boldText}>chrome://extensions</Text>, bật{' '}
+                  <Text style={styles.boldText}>Developer mode</Text> rồi chọn{' '}
                   <Text style={styles.boldText}>Load unpacked</Text>.
                 </Text>
                 <Text
                   style={[styles.guideStepLine, { color: palette.inkSecondary }]}
                 >
-                  2. <Text style={styles.boldText}>Widget Màn hình Windows</Text>: Bấm nút{' '}
-                  <Text style={styles.boldText}>🚀 Mở ngay Widget</Text> ở trên, hoặc mở{' '}
-                  <Text style={styles.boldText}>desktop-widget/WeatherBuddy-Desktop.bat</Text> (chạy{' '}
-                  <Text style={styles.boldText}>Install-Shortcut.ps1</Text> để ghim ra Desktop & khởi động cùng Windows).
+                  2. <Text style={styles.boldText}>Widget Màn hình Windows</Text>: Bấm{' '}
+                  <Text style={styles.boldText}>Mở ngay Widget Windows</Text> hoặc chạy{' '}
+                  <Text style={styles.boldText}>WeatherBuddy-Desktop.bat</Text>.
                 </Text>
                 <Text
                   style={[styles.guideStepLine, { color: palette.inkSecondary }]}
                 >
-                  3. <Text style={styles.boldText}>Khóa API cá nhân</Text>: Tất cả nền tảng mặc định để trống khóa API (tự dùng Open-Meteo miễn phí). Khi cần, mở Cài đặt để dán Google Weather / Tomorrow.io / WeatherAPI Key của riêng bạn.
+                  3. <Text style={styles.boldText}>Khóa API cá nhân</Text>: Mặc định để trống 100% (tự dùng Open-Meteo miễn phí).
                 </Text>
               </View>
             </View>
@@ -1230,6 +1122,7 @@ export const FeatureHubScreen: React.FC<FeatureHubScreenProps> = ({
 const styles = StyleSheet.create({
   hubStack: {
     width: '100%',
+    minWidth: 0,
     gap: 18,
     paddingBottom: 36,
   },
@@ -1237,11 +1130,17 @@ const styles = StyleSheet.create({
     padding: 5,
     borderRadius: 28,
     borderWidth: 1,
+    minWidth: 0,
   },
   innerCore: {
     borderRadius: 23,
     padding: 20,
     gap: 16,
+    minWidth: 0,
+  },
+  innerCoreCompact: {
+    padding: 14,
+    gap: 13,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -1251,6 +1150,7 @@ const styles = StyleSheet.create({
   },
   headerTextCol: {
     flex: 1,
+    minWidth: 0,
     gap: 6,
   },
   badgeCluster: {
@@ -1269,61 +1169,23 @@ const styles = StyleSheet.create({
   },
   readyPillText: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
   },
   hubTitle: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 20,
     fontWeight: '700',
+    letterSpacing: -0.3,
   },
   hubSub: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 13.5,
     lineHeight: 20,
   },
-  platformGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  platformCard: {
-    flexGrow: 1,
-    minWidth: 200,
-    borderRadius: 18,
-    padding: 15,
-    gap: 8,
-  },
-  platformCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  platformIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  platformTagText: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  platformCardTitle: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 14.5,
-    fontWeight: '700',
-  },
-  platformCardDesc: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 12,
-    lineHeight: 17,
-  },
   mainSplitGrid: {
     width: '100%',
+    minWidth: 0,
     gap: 18,
   },
   splitRowDesktop: {
@@ -1334,22 +1196,27 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   matrixCol: {
-    flex: 1.08,
+    flex: 1.06,
     width: '100%',
+    minWidth: 0,
+    gap: 18,
   },
   previewAndActionsCol: {
     flex: 1,
     width: '100%',
+    minWidth: 0,
     gap: 18,
   },
   sectionHeaderCluster: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    minWidth: 0,
   },
   sectionTitle: {
+    flex: 1,
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 15.5,
+    fontSize: 15,
     fontWeight: '700',
   },
   controlBlock: {
@@ -1362,7 +1229,7 @@ const styles = StyleSheet.create({
   },
   halfControlCol: {
     flex: 1,
-    minWidth: 210,
+    minWidth: 180,
     gap: 8,
   },
   controlLabel: {
@@ -1376,7 +1243,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   optionPill: {
-    paddingHorizontal: 13,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
@@ -1385,50 +1252,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 12.5,
     fontWeight: '600',
-  },
-  modulesList: {
-    gap: 8,
-  },
-  moduleRowCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  moduleIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moduleTextCol: {
-    flex: 1,
-    gap: 2,
-  },
-  moduleTitle: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-  moduleSub: {
-    fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11.5,
-    lineHeight: 16,
-  },
-  toggleTrack: {
-    width: 38,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-  },
-  toggleThumb: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#FFFFFF',
   },
   previewHeaderRow: {
     flexDirection: 'row',
@@ -1446,6 +1269,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: '#131F33',
@@ -1463,6 +1287,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   pcMonitorUrlText: {
+    flex: 1,
+    textAlign: 'center',
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 11,
     fontWeight: '600',
@@ -1482,89 +1308,91 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   pcMonitorCanvas: {
-    height: 274,
+    height: 268,
     position: 'relative',
-    padding: 16,
+    padding: 14,
     backgroundColor: '#0F1A2E',
   },
   previewClockBlock: {
     gap: 2,
+    maxWidth: '58%',
   },
   previewClockTime: {
     fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: '700',
     color: '#F8FAFC',
-    letterSpacing: -1.2,
+    letterSpacing: -1.1,
     fontVariant: ['tabular-nums'],
   },
   previewClockDate: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
     color: '#94A3B8',
   },
   previewSearchBar: {
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    maxWidth: 220,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    gap: 6,
+    maxWidth: 175,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 999,
     backgroundColor: 'rgba(255, 255, 255, 0.09)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
   },
   previewSearchPlaceholder: {
+    flex: 1,
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#94A3B8',
   },
   floatingCornerWidget: {
     position: 'absolute',
-    borderRadius: 20,
+    borderRadius: 18,
     backgroundColor: 'rgba(19, 32, 54, 0.92)',
     borderWidth: 1,
     borderColor: 'rgba(147, 197, 253, 0.35)',
-    padding: 10,
+    padding: 9,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   floatingWidgetCompact: {
-    width: 152,
-    minHeight: 168,
+    width: 140,
+    minHeight: 156,
   },
   floatingWidgetStandard: {
-    width: 176,
-    minHeight: 194,
+    width: 168,
+    minHeight: 186,
   },
   floatingWidgetHeader: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 6,
+    gap: 4,
   },
   floatingWidgetCity: {
     flex: 1,
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#E2E8F0',
   },
   floatingWidgetTemp: {
     fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#60A5FA',
     fontVariant: ['tabular-nums'],
   },
   floatingWidgetAdvice: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '600',
     color: '#CBD5E1',
     textAlign: 'center',
@@ -1573,6 +1401,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 7,
     backgroundColor: '#080D17',
@@ -1580,6 +1409,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   pcTaskbarText: {
+    flexShrink: 1,
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 10.5,
     fontWeight: '600',
@@ -1595,7 +1425,7 @@ const styles = StyleSheet.create({
   },
   primaryDownloadBtn: {
     flex: 1,
-    minWidth: 205,
+    minWidth: 160,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1611,7 +1441,7 @@ const styles = StyleSheet.create({
   },
   secondaryActionBtn: {
     flex: 1,
-    minWidth: 205,
+    minWidth: 160,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

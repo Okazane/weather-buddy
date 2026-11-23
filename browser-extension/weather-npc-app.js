@@ -22,7 +22,9 @@
   const CACHE_KEY = 'weatherbuddy_pc_weather_cache_v3';
   const NPC_ROTATION_INTERVAL_MS = 5 * 60 * 1000;
   const NPC_STAND_DURATION_MS = 8500;
+  const NPC_OUTFIT_SHOWCASE_MS = 5500;
   const WEATHER_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
 
   const PRESET_CITIES = [
     { id: 'ha_noi', nameVi: 'Hà Nội', regionVi: 'Miền Bắc', latitude: 21.0285, longitude: 105.8542 },
@@ -739,9 +741,1463 @@
     return 'standing_calm';
   }
 
-  // ============================================================================
-  // MAIN APPLICATION CONTROLLER
-  // ============================================================================
+  function svgEl(tag, attrs, children) {
+    const node = document.createElementNS(SVG_NS, tag);
+    if (attrs) {
+      Object.keys(attrs).forEach((k) => {
+        const val = attrs[k];
+        if (val !== undefined && val !== null) {
+          node.setAttribute(k, String(val));
+        }
+      });
+    }
+    if (Array.isArray(children)) {
+      children.forEach((c) => {
+        if (c) node.appendChild(c);
+      });
+    }
+    return node;
+  }
+
+  function getCanonicalOutfitSpec(gender, sceneId) {
+    const isFemale = gender === 'female';
+    switch (sceneId) {
+      case 'storm_raincoat':
+        return {
+          topLight: '#FFF078',
+          topMid: '#FACC15',
+          topDark: '#CA8A04',
+          collarColor: '#FEF08A',
+          accentColor: '#EA580C',
+          bottomLight: '#334155',
+          bottomDark: '#1E293B',
+          shoeMain: '#FACC15',
+          shoeAccent: '#A16207',
+          isDress: false,
+          isRaincoat: true,
+          isPuffer: false,
+          isCardigan: false,
+          hasSunglasses: false,
+          hasSunVisor: false,
+          hasEarmuffs: false,
+          hasScarf: false,
+          hasUmbrella: false,
+          umbrellaColor: '#93C5FD',
+          hasNightStarBadge: false,
+        };
+      case 'light_rain_umbrella':
+        return isFemale
+          ? {
+              topLight: '#FFE0EC',
+              topMid: '#F9A8C9',
+              topDark: '#DB709B',
+              collarColor: '#FFF1F5',
+              accentColor: '#F43F5E',
+              bottomLight: '#FFFBEB',
+              bottomDark: '#FDE68A',
+              shoeMain: '#F472B6',
+              shoeAccent: '#FFF1F5',
+              isDress: true,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: false,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: true,
+              umbrellaColor: '#F9A8D4',
+              hasNightStarBadge: false,
+            }
+          : {
+              topLight: '#D1FAE5',
+              topMid: '#6EE7B7',
+              topDark: '#059669',
+              collarColor: '#ECFEFF',
+              accentColor: '#0D9488',
+              bottomLight: '#334155',
+              bottomDark: '#1E293B',
+              shoeMain: '#34D399',
+              shoeAccent: '#ECFDF5',
+              isDress: false,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: false,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: true,
+              umbrellaColor: '#6EE7B7',
+              hasNightStarBadge: false,
+            };
+      case 'hot_sunny':
+        return isFemale
+          ? {
+              topLight: '#FFE4E6',
+              topMid: '#FDA4AF',
+              topDark: '#F43F5E',
+              collarColor: '#FFF1F2',
+              accentColor: '#FB7185',
+              bottomLight: '#FFE4E6',
+              bottomDark: '#FB7185',
+              shoeMain: '#FFF1F2',
+              shoeAccent: '#F43F5E',
+              isDress: true,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: false,
+              hasSunglasses: true,
+              hasSunVisor: true,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: false,
+              umbrellaColor: '#FDA4AF',
+              hasNightStarBadge: false,
+            }
+          : {
+              topLight: '#FFEDD5',
+              topMid: '#FB923C',
+              topDark: '#EA580C',
+              collarColor: '#FFFFFF',
+              accentColor: '#F97316',
+              bottomLight: '#FDE68A',
+              bottomDark: '#D97706',
+              shoeMain: '#FFFFFF',
+              shoeAccent: '#FB923C',
+              isDress: false,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: false,
+              hasSunglasses: true,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: false,
+              umbrellaColor: '#93C5FD',
+              hasNightStarBadge: false,
+            };
+      case 'clear_night':
+        return isFemale
+          ? {
+              topLight: '#EDE9FE',
+              topMid: '#C4B5FD',
+              topDark: '#7C3AED',
+              collarColor: '#F5F3FF',
+              accentColor: '#FDE047',
+              bottomLight: '#EDE9FE',
+              bottomDark: '#A78BFA',
+              shoeMain: '#F5F3FF',
+              shoeAccent: '#8B5CF6',
+              isDress: true,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: false,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: false,
+              umbrellaColor: '#C4B5FD',
+              hasNightStarBadge: true,
+            }
+          : {
+              topLight: '#DBEAFE',
+              topMid: '#93C5FD',
+              topDark: '#2563EB',
+              collarColor: '#EFF6FF',
+              accentColor: '#FDE047',
+              bottomLight: '#475569',
+              bottomDark: '#334155',
+              shoeMain: '#F1F5F9',
+              shoeAccent: '#60A5FA',
+              isDress: false,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: false,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: false,
+              umbrellaColor: '#93C5FD',
+              hasNightStarBadge: true,
+            };
+      case 'chilly_cozy':
+        return isFemale
+          ? {
+              topLight: '#FFF1F2',
+              topMid: '#FDA4AF',
+              topDark: '#E11D48',
+              collarColor: '#FFFBEB',
+              accentColor: '#9F1239',
+              bottomLight: '#D97706',
+              bottomDark: '#92400E',
+              shoeMain: '#92400E',
+              shoeAccent: '#FDE68A',
+              isDress: true,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: true,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: false,
+              umbrellaColor: '#FECDD3',
+              hasNightStarBadge: false,
+            }
+          : {
+              topLight: '#FEF9C3',
+              topMid: '#FDE047',
+              topDark: '#CA8A04',
+              collarColor: '#E0F2FE',
+              accentColor: '#854D0E',
+              bottomLight: '#B45309',
+              bottomDark: '#78350F',
+              shoeMain: '#78350F',
+              shoeAccent: '#FDE68A',
+              isDress: false,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: true,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: false,
+              umbrellaColor: '#93C5FD',
+              hasNightStarBadge: false,
+            };
+      case 'freezing_puffer':
+        return isFemale
+          ? {
+              topLight: '#F3E8FF',
+              topMid: '#D8B4FE',
+              topDark: '#9333EA',
+              collarColor: '#FFFBEB',
+              accentColor: '#7E22CE',
+              bottomLight: '#334155',
+              bottomDark: '#1E293B',
+              shoeMain: '#78350F',
+              shoeAccent: '#FFFBEB',
+              isDress: false,
+              isRaincoat: false,
+              isPuffer: true,
+              isCardigan: false,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: true,
+              hasScarf: true,
+              hasUmbrella: false,
+              umbrellaColor: '#D8B4FE',
+              hasNightStarBadge: false,
+            }
+          : {
+              topLight: '#E0F2FE',
+              topMid: '#7DD3FC',
+              topDark: '#0284C7',
+              collarColor: '#FFFBEB',
+              accentColor: '#E11D48',
+              bottomLight: '#1E293B',
+              bottomDark: '#0F172A',
+              shoeMain: '#475569',
+              shoeAccent: '#E2E8F0',
+              isDress: false,
+              isRaincoat: false,
+              isPuffer: true,
+              isCardigan: false,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: true,
+              hasScarf: true,
+              hasUmbrella: false,
+              umbrellaColor: '#7DD3FC',
+              hasNightStarBadge: false,
+            };
+      case 'pleasant_sunny':
+      default:
+        return isFemale
+          ? {
+              topLight: '#FEF9C3',
+              topMid: '#FDE047',
+              topDark: '#EAB308',
+              collarColor: '#FFFFFF',
+              accentColor: '#F59E0B',
+              bottomLight: '#FEF08A',
+              bottomDark: '#CA8A04',
+              shoeMain: '#FFFFFF',
+              shoeAccent: '#FACC15',
+              isDress: true,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: false,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: false,
+              umbrellaColor: '#FDE047',
+              hasNightStarBadge: false,
+            }
+          : {
+              topLight: '#E0F2FE',
+              topMid: '#7DD3FC',
+              topDark: '#0284C7',
+              collarColor: '#FFFFFF',
+              accentColor: '#0EA5E9',
+              bottomLight: '#64748B',
+              bottomDark: '#334155',
+              shoeMain: '#FFFFFF',
+              shoeAccent: '#38BDF8',
+              isDress: false,
+              isRaincoat: false,
+              isPuffer: false,
+              isCardigan: false,
+              hasSunglasses: false,
+              hasSunVisor: false,
+              hasEarmuffs: false,
+              hasScarf: false,
+              hasUmbrella: false,
+              umbrellaColor: '#7DD3FC',
+              hasNightStarBadge: false,
+            };
+    }
+  }
+
+  /**
+   * Builds a pure-DOM Canonical Articulated Chibi SVG Rig (ZERO innerHTML!) with:
+   * - Strict mathematical anatomy landmarks locked across male & female & all 7 weather scenes:
+   *   Crown Y = 63, Eye Axis Y = 127, Chin Y = 172, Shoulders (128, 184) & (192, 184),
+   *   Hip Baseline Y = 234, Boot Sole Bottom Y = 281.
+   * - Signature hairstyles (Cậu bé Mây's chestnut bangs + cowlick; Cô bé Nắng's wispy bangs + twin-buns)
+   *   ALWAYS visible across all 7 weather states (including storm_raincoat hood pouches, visor, earmuffs).
+   * - Modular weather outfit ALWAYS worn in both Standing and all 5 NPC activities.
+   */
+  function buildCanonicalChibiRigDom(gender, sceneId, npcAction) {
+    const isFemale = gender === 'female';
+    const outfit = getCanonicalOutfitSpec(gender, sceneId);
+
+    const defs = svgEl('defs', null, [
+      svgEl('radialGradient', { id: 'wbSkinGrad', cx: '50%', cy: '40%', r: '62%' }, [
+        svgEl('stop', { offset: '0%', 'stop-color': '#FFF3EB' }),
+        svgEl('stop', { offset: '72%', 'stop-color': '#FDE1D3' }),
+        svgEl('stop', { offset: '100%', 'stop-color': '#F5C4B0' }),
+      ]),
+      svgEl('linearGradient', { id: 'wbHairGrad', x1: '0%', y1: '0%', x2: '0%', y2: '100%' }, [
+        svgEl('stop', { offset: '0%', 'stop-color': isFemale ? '#9C5B3C' : '#7C4A2D' }),
+        svgEl('stop', { offset: '100%', 'stop-color': isFemale ? '#61341F' : '#4A2816' }),
+      ]),
+      svgEl('radialGradient', { id: 'wbIrisGrad', cx: '50%', cy: '35%', r: '65%' }, [
+        svgEl('stop', { offset: '0%', 'stop-color': '#5C3422' }),
+        svgEl('stop', { offset: '65%', 'stop-color': '#3A1E13' }),
+        svgEl('stop', { offset: '100%', 'stop-color': '#21100A' }),
+      ]),
+      svgEl('radialGradient', { id: 'wbCheekGrad', cx: '50%', cy: '50%', r: '50%' }, [
+        svgEl('stop', { offset: '0%', 'stop-color': '#FB7185', 'stop-opacity': '0.48' }),
+        svgEl('stop', { offset: '100%', 'stop-color': '#FB7185', 'stop-opacity': '0' }),
+      ]),
+      svgEl('linearGradient', { id: 'wbTopGrad', x1: '0%', y1: '0%', x2: '0%', y2: '100%' }, [
+        svgEl('stop', { offset: '0%', 'stop-color': outfit.topLight }),
+        svgEl('stop', { offset: '52%', 'stop-color': outfit.topMid }),
+        svgEl('stop', { offset: '100%', 'stop-color': outfit.topDark }),
+      ]),
+      svgEl('linearGradient', { id: 'wbBotGrad', x1: '0%', y1: '0%', x2: '0%', y2: '100%' }, [
+        svgEl('stop', { offset: '0%', 'stop-color': outfit.bottomLight }),
+        svgEl('stop', { offset: '100%', 'stop-color': outfit.bottomDark }),
+      ]),
+    ]);
+
+    const groundShadow = svgEl('ellipse', {
+      cx: 160,
+      cy: 284,
+      rx: 46,
+      ry: 8.5,
+      fill: '#0F172A',
+      opacity: 0.18,
+    });
+
+    // Ambient sun/moon charm
+    let skyCharmG = null;
+    if (sceneId === 'pleasant_sunny' || sceneId === 'hot_sunny') {
+      const rays = [0, 45, 90, 135, 180, 225, 270, 315].map((deg) =>
+        svgEl('line', {
+          x1: 0,
+          y1: -12.5,
+          x2: 0,
+          y2: -16,
+          stroke: '#FACC15',
+          'stroke-width': 2.3,
+          'stroke-linecap': 'round',
+          transform: `rotate(${deg})`,
+        })
+      );
+      skyCharmG = svgEl('g', { transform: `translate(${isFemale ? 236 : 84}, 72)` }, [
+        svgEl('circle', { cx: 0, cy: 0, r: 14, fill: '#FDE047', opacity: 0.3 }),
+        svgEl('circle', { cx: 0, cy: 0, r: 9.2, fill: '#FACC15' }),
+        ...rays,
+      ]);
+    } else if (sceneId === 'clear_night') {
+      skyCharmG = svgEl('g', { transform: `translate(${isFemale ? 234 : 86}, 74)` }, [
+        svgEl('path', {
+          d: 'M 4 -10 A 11 11 0 1 0 12 8 A 8.5 8.5 0 1 1 4 -10 Z',
+          fill: '#FDE047',
+        }),
+        svgEl('circle', { cx: -9, cy: -8, r: 2, fill: '#FEF08A' }),
+      ]);
+    }
+
+    // Umbrella canopy (behind body in light_rain_umbrella)
+    let umbrellaG = null;
+    if (outfit.hasUmbrella) {
+      umbrellaG = svgEl('g', { transform: 'translate(168, 84) rotate(8)' }, [
+        svgEl('line', {
+          x1: 0,
+          y1: -18,
+          x2: -6,
+          y2: 96,
+          stroke: '#94A3B8',
+          'stroke-width': 3.2,
+          'stroke-linecap': 'round',
+        }),
+        svgEl('path', {
+          d: 'M -6 96 Q -6 104 -14 104 Q -20 104 -20 97',
+          stroke: outfit.topDark,
+          'stroke-width': 3.8,
+          'stroke-linecap': 'round',
+          fill: 'none',
+        }),
+        svgEl('path', {
+          d: 'M -76 16 C -72 -42, 72 -42, 76 16 Q 50 6 25 16 Q 0 6 -25 16 Q -50 6 -76 16 Z',
+          fill: outfit.umbrellaColor,
+          'fill-opacity': 0.8,
+          stroke: '#FFFFFF',
+          'stroke-width': 2,
+        }),
+        svgEl('circle', { cx: 0, cy: -30, r: 3.5, fill: '#FFFFFF' }),
+      ]);
+    }
+
+    // Female Twin-Buns (ALWAYS visible — framed by yellow hood pouches in storm_raincoat!)
+    let twinBunsRootG = null;
+    let bunLeftG = null;
+    let bunRightG = null;
+    if (isFemale) {
+      bunLeftG = svgEl('g', { transform: 'translate(-45, -38)' }, [
+        outfit.isRaincoat
+          ? svgEl('circle', {
+              cx: -1,
+              cy: -1,
+              r: 24.5,
+              fill: '#FACC15',
+              stroke: '#CA8A04',
+              'stroke-width': 1.5,
+            })
+          : null,
+        svgEl('circle', { cx: 0, cy: 0, r: 20.5, fill: 'url(#wbHairGrad)' }),
+        svgEl('circle', { cx: -5, cy: -6, r: 6, fill: '#C68660', opacity: 0.36 }),
+        svgEl('circle', { cx: 12, cy: 9, r: 4.4, fill: '#FDE047' }),
+      ]);
+      bunRightG = svgEl('g', { transform: 'translate(45, -38)' }, [
+        outfit.isRaincoat
+          ? svgEl('circle', {
+              cx: 1,
+              cy: -1,
+              r: 24.5,
+              fill: '#FACC15',
+              stroke: '#CA8A04',
+              'stroke-width': 1.5,
+            })
+          : null,
+        svgEl('circle', { cx: 0, cy: 0, r: 20.5, fill: 'url(#wbHairGrad)' }),
+        svgEl('circle', { cx: -5, cy: -6, r: 6, fill: '#C68660', opacity: 0.36 }),
+        svgEl('circle', { cx: -12, cy: 9, r: 4.4, fill: '#FDA4AF' }),
+      ]);
+      twinBunsRootG = svgEl('g', { transform: 'translate(160, 118)' }, [bunLeftG, bunRightG]);
+    }
+
+    // Standing Legs: Hip Baseline Y = 234, Sole Bottom Y = 234 + 47 = 281 (exact lock!)
+    const standLeftLeg = svgEl('g', { transform: 'translate(145, 234)' }, [
+      svgEl('rect', { x: -9.5, y: 0, width: 19, height: 38, rx: 9.5, fill: 'url(#wbSkinGrad)' }),
+      !outfit.isDress
+        ? svgEl('rect', { x: -11, y: -2, width: 22, height: 24, rx: 8, fill: 'url(#wbBotGrad)' })
+        : null,
+      svgEl('rect', { x: -9.6, y: 24, width: 19.2, height: 7, rx: 3, fill: '#FFFFFF' }),
+      svgEl('path', {
+        d: 'M -12 29 L 11 29 Q 15 29 15 40 Q 15 47 0 47 L -10 47 Q -15 47 -15 39 Z',
+        fill: outfit.shoeMain,
+      }),
+      svgEl('rect', { x: -13, y: 42, width: 27, height: 5, rx: 2.5, fill: outfit.shoeAccent }),
+    ]);
+
+    const standRightLeg = svgEl('g', { transform: 'translate(175, 234)' }, [
+      svgEl('rect', { x: -9.5, y: 0, width: 19, height: 38, rx: 9.5, fill: 'url(#wbSkinGrad)' }),
+      !outfit.isDress
+        ? svgEl('rect', { x: -11, y: -2, width: 22, height: 24, rx: 8, fill: 'url(#wbBotGrad)' })
+        : null,
+      svgEl('rect', { x: -9.6, y: 24, width: 19.2, height: 7, rx: 3, fill: '#FFFFFF' }),
+      svgEl('path', {
+        d: 'M -11 29 L 12 29 Q 16 29 16 40 Q 16 47 2 47 L -9 47 Q -14 47 -14 39 Z',
+        fill: outfit.shoeMain,
+      }),
+      svgEl('rect', { x: -12, y: 42, width: 27, height: 5, rx: 2.5, fill: outfit.shoeAccent }),
+    ]);
+    const standLegsG = svgEl('g', null, [standLeftLeg, standRightLeg]);
+
+    // Seated NPC Legs
+    const sitShoeL = svgEl('g', { transform: 'translate(132, 270) rotate(-8)' }, [
+      svgEl('ellipse', {
+        cx: 0,
+        cy: 0,
+        rx: 14,
+        ry: 9.2,
+        fill: outfit.shoeMain,
+        stroke: outfit.shoeAccent,
+        'stroke-width': 2,
+      }),
+    ]);
+    const sitShoeR = svgEl('g', { transform: 'translate(188, 270) rotate(8)' }, [
+      svgEl('ellipse', {
+        cx: 0,
+        cy: 0,
+        rx: 14,
+        ry: 9.2,
+        fill: outfit.shoeMain,
+        stroke: outfit.shoeAccent,
+        'stroke-width': 2,
+      }),
+    ]);
+    const sitLegsG = svgEl('g', { display: 'none' }, [
+      svgEl('path', {
+        d: 'M 132 238 Q 114 248 119 264 Q 127 273 152 268',
+        stroke: 'url(#wbBotGrad)',
+        'stroke-width': 18.5,
+        'stroke-linecap': 'round',
+        fill: 'none',
+      }),
+      svgEl('path', {
+        d: 'M 188 238 Q 206 248 201 264 Q 193 273 168 268',
+        stroke: 'url(#wbBotGrad)',
+        'stroke-width': 18.5,
+        'stroke-linecap': 'round',
+        fill: 'none',
+      }),
+      sitShoeL,
+      sitShoeR,
+    ]);
+
+    // Helper for Articulated Arm at Canonical Shoulder Joint (128, 184) & (192, 184)
+    function makeArm(side) {
+      const sx = side === 'left' ? 128 : 192;
+      const sleeveFill = outfit.isRaincoat
+        ? '#FACC15'
+        : outfit.isPuffer
+          ? outfit.topMid
+          : 'url(#wbTopGrad)';
+      return svgEl('g', { transform: `translate(${sx}, 184) rotate(0)` }, [
+        svgEl('circle', { cx: 0, cy: 0, r: 9.5, fill: sleeveFill }),
+        svgEl('rect', { x: -8.5, y: 0, width: 17, height: 30, rx: 8.5, fill: sleeveFill }),
+        svgEl('circle', {
+          cx: 0,
+          cy: 33,
+          r: 7.5,
+          fill: outfit.isPuffer ? outfit.accentColor : 'url(#wbSkinGrad)',
+        }),
+      ]);
+    }
+
+    const leftArmG = makeArm('left');
+    const rightArmG = makeArm('right');
+
+    // Canonical Calibrated Torso Silhouette (tight ±3–5px garment thickness, y = 173..238)
+    const torsoChildren = [];
+    if (outfit.isRaincoat) {
+      torsoChildren.push(
+        svgEl('path', {
+          d: 'M 125 173 Q 160 167 195 173 L 203 239 Q 160 246 117 239 Z',
+          fill: 'url(#wbTopGrad)',
+        }),
+        svgEl('path', {
+          d: 'M 120 233 Q 160 240 200 233',
+          stroke: '#FEF08A',
+          'stroke-width': 4,
+          'stroke-linecap': 'round',
+          fill: 'none',
+        }),
+        svgEl('line', { x1: 160, y1: 175, x2: 160, y2: 240, stroke: '#CA8A04', 'stroke-width': 1.8 }),
+        svgEl('rect', { x: 154, y: 193, width: 12, height: 4.5, rx: 2.2, fill: '#FFFBEB', stroke: '#B45309', 'stroke-width': 1 }),
+        svgEl('rect', { x: 154, y: 211, width: 12, height: 4.5, rx: 2.2, fill: '#FFFBEB', stroke: '#B45309', 'stroke-width': 1 })
+      );
+    } else if (outfit.isPuffer) {
+      torsoChildren.push(
+        svgEl('rect', { x: 123, y: 173, width: 74, height: 65, rx: 24, fill: 'url(#wbTopGrad)' }),
+        svgEl('path', {
+          d: 'M 135 174 Q 160 184 185 174',
+          stroke: '#FFFBEB',
+          'stroke-width': 6.5,
+          'stroke-linecap': 'round',
+          fill: 'none',
+        }),
+        svgEl('line', { x1: 160, y1: 178, x2: 160, y2: 237, stroke: '#FFFFFF', 'stroke-opacity': 0.6, 'stroke-width': 1.8 }),
+        svgEl('path', {
+          d: 'M 126 195 Q 160 201 194 195 M 125 216 Q 160 222 195 216',
+          stroke: '#FFFFFF',
+          'stroke-opacity': 0.52,
+          'stroke-width': 2,
+          fill: 'none',
+        })
+      );
+    } else if (outfit.isDress) {
+      torsoChildren.push(
+        svgEl('path', {
+          d: 'M 126 173 Q 160 168 194 173 L 202 239 Q 160 246 118 239 Z',
+          fill: 'url(#wbTopGrad)',
+        }),
+        svgEl('path', {
+          d: 'M 121 233 Q 160 240 199 233',
+          stroke: outfit.collarColor,
+          'stroke-opacity': 0.75,
+          'stroke-width': 2.3,
+          'stroke-linecap': 'round',
+          fill: 'none',
+        }),
+        outfit.isCardigan
+          ? svgEl('path', { d: 'M 149 174 L 146 239 L 174 239 L 171 174 Z', fill: outfit.collarColor })
+          : null,
+        svgEl('path', {
+          d: 'M 143 174 Q 151 185 160 178 Q 169 185 177 174',
+          stroke: outfit.collarColor,
+          'stroke-width': 4.6,
+          'stroke-linecap': 'round',
+          fill: 'none',
+        }),
+        svgEl('circle', { cx: 160, cy: 182, r: 3.4, fill: outfit.accentColor })
+      );
+    } else {
+      torsoChildren.push(
+        svgEl('rect', { x: 126, y: 173, width: 68, height: 64, rx: 20, fill: 'url(#wbTopGrad)' }),
+        outfit.isCardigan
+          ? svgEl('path', { d: 'M 148 174 L 160 200 L 172 174 Z', fill: outfit.collarColor })
+          : svgEl('path', {
+              d: 'M 144 174 Q 160 185 176 174',
+              stroke: outfit.collarColor,
+              'stroke-width': 4.6,
+              'stroke-linecap': 'round',
+              fill: 'none',
+            }),
+        outfit.hasNightStarBadge
+          ? svgEl('circle', { cx: 173, cy: 198, r: 4.2, fill: '#FDE047' })
+          : svgEl('circle', { cx: 173, cy: 198, r: 3.8, fill: '#FFFFFF', opacity: 0.8 })
+      );
+    }
+
+    let scarfTailG = null;
+    if (outfit.hasScarf) {
+      scarfTailG = svgEl('g', { transform: 'translate(16, 4) rotate(-14)' }, [
+        svgEl('rect', {
+          x: -7,
+          y: 0,
+          width: 14.5,
+          height: 31,
+          rx: 5.5,
+          fill: isFemale ? '#FEF3C7' : '#FB7185',
+        }),
+      ]);
+      torsoChildren.push(
+        svgEl('g', { transform: 'translate(160, 174)' }, [
+          svgEl('rect', {
+            x: -29,
+            y: -6.5,
+            width: 58,
+            height: 17.5,
+            rx: 8.8,
+            fill: isFemale ? '#FFFBEB' : '#F43F5E',
+            stroke: isFemale ? '#FDE68A' : '#BE123C',
+            'stroke-width': 1.2,
+          }),
+          scarfTailG,
+        ])
+      );
+    }
+    const torsoG = svgEl('g', null, torsoChildren);
+
+    // Held NPC Center Prop (Book / Phone)
+    const propG = svgEl('g', { display: 'none' });
+    if (npcAction === 'reading_book') {
+      propG.appendChild(
+        svgEl('g', { transform: 'translate(160, 224)' }, [
+          svgEl('path', {
+            d: 'M -26 -8 Q -13 -13 0 -6 Q 13 -13 26 -8 L 24 14 Q 12 9 0 15 Q -12 9 -24 14 Z',
+            fill: '#FFFBEB',
+            stroke: '#D97706',
+            'stroke-width': 2.2,
+          }),
+          svgEl('line', { x1: 0, y1: -6, x2: 0, y2: 15, stroke: '#B45309', 'stroke-width': 1.8 }),
+        ])
+      );
+    } else if (npcAction === 'scrolling_phone') {
+      propG.appendChild(
+        svgEl('g', { transform: 'translate(160, 220) rotate(-8)' }, [
+          svgEl('rect', {
+            x: -11,
+            y: -16,
+            width: 22,
+            height: 32,
+            rx: 5,
+            fill: '#1E293B',
+            stroke: '#94A3B8',
+            'stroke-width': 1.6,
+          }),
+          svgEl('rect', { x: -8.5, y: -12, width: 17, height: 24, rx: 3, fill: '#38BDF8', opacity: 0.85 }),
+        ])
+      );
+    }
+
+    // Canonical Head & Living Gaze Eyes (Centered at 160, 122 -> Crown 63, Eyes 127, Chin 172)
+    const browL = svgEl('path', {
+      d: 'M -31 -11 Q -22 -15.5 -13 -11',
+      stroke: '#5A331F',
+      'stroke-width': 2.5,
+      'stroke-linecap': 'round',
+      fill: 'none',
+    });
+    const browR = svgEl('path', {
+      d: 'M 13 -11 Q 22 -15.5 31 -11',
+      stroke: '#5A331F',
+      'stroke-width': 2.5,
+      'stroke-linecap': 'round',
+      fill: 'none',
+    });
+
+    const squintL = svgEl('path', {
+      d: 'M -32 6 Q -22 10.5 -12 6',
+      stroke: '#2B160F',
+      'stroke-width': 3.5,
+      'stroke-linecap': 'round',
+      fill: 'none',
+    });
+    const squintR = svgEl('path', {
+      d: 'M 12 6 Q 22 10.5 32 6',
+      stroke: '#2B160F',
+      'stroke-width': 3.5,
+      'stroke-linecap': 'round',
+      fill: 'none',
+    });
+    const squintEyesG = svgEl('g', { display: 'none' }, [squintL, squintR]);
+
+    const pupilLG = svgEl('g', null, [
+      svgEl('ellipse', { cx: -21.5, cy: 5.5, rx: 8.8, ry: 9.8, fill: 'url(#wbIrisGrad)' }),
+      svgEl('path', {
+        d: 'M -27 9 Q -21.5 14 -16 9',
+        stroke: '#F59E0B',
+        'stroke-opacity': 0.55,
+        'stroke-width': 2.4,
+        'stroke-linecap': 'round',
+        fill: 'none',
+      }),
+      svgEl('circle', { cx: -21.5, cy: 5.5, r: 4.5, fill: '#1C0D08' }),
+      svgEl('circle', { cx: -25, cy: 1.6, r: 3.3, fill: '#FFFFFF' }),
+      svgEl('circle', { cx: -18, cy: 9.4, r: 1.6, fill: '#FFFFFF', opacity: 0.92 }),
+    ]);
+
+    const pupilRG = svgEl('g', null, [
+      svgEl('ellipse', { cx: 21.5, cy: 5.5, rx: 8.8, ry: 9.8, fill: 'url(#wbIrisGrad)' }),
+      svgEl('path', {
+        d: 'M 16 9 Q 21.5 14 27 9',
+        stroke: '#F59E0B',
+        'stroke-opacity': 0.55,
+        'stroke-width': 2.4,
+        'stroke-linecap': 'round',
+        fill: 'none',
+      }),
+      svgEl('circle', { cx: 21.5, cy: 5.5, r: 4.5, fill: '#1C0D08' }),
+      svgEl('circle', { cx: 18, cy: 1.6, r: 3.3, fill: '#FFFFFF' }),
+      svgEl('circle', { cx: 25, cy: 9.4, r: 1.6, fill: '#FFFFFF', opacity: 0.92 }),
+    ]);
+
+    const openEyesG = svgEl('g', null, [
+      svgEl('ellipse', { cx: -22, cy: 5, rx: 11.8, ry: 12.8, fill: '#FFFFFF' }),
+      pupilLG,
+      svgEl('path', {
+        d: isFemale ? 'M -34 3 Q -22 -9.5 -11 2 L -36.5 0.8' : 'M -33.5 3 Q -22 -8.5 -11 3',
+        stroke: '#2A150E',
+        'stroke-width': 3.3,
+        'stroke-linecap': 'round',
+        fill: 'none',
+      }),
+      svgEl('ellipse', { cx: 22, cy: 5, rx: 11.8, ry: 12.8, fill: '#FFFFFF' }),
+      pupilRG,
+      svgEl('path', {
+        d: isFemale ? 'M 11 2 Q 22 -9.5 34 3 L 36.5 0.8' : 'M 11 3 Q 22 -8.5 33.5 3',
+        stroke: '#2A150E',
+        'stroke-width': 3.3,
+        'stroke-linecap': 'round',
+        fill: 'none',
+      }),
+    ]);
+
+    const mouthHappyG = svgEl('g', { display: 'none' }, [
+      svgEl('path', {
+        d: 'M -8.5 22 Q 0 33.5 8.5 22 Z',
+        fill: '#F43F5E',
+        stroke: '#7F1D1D',
+        'stroke-width': 1.5,
+      }),
+      svgEl('ellipse', { cx: 0, cy: 26.5, rx: 4.5, ry: 2.4, fill: '#FDA4AF' }),
+    ]);
+    const mouthCalmPath = svgEl('path', {
+      d: 'M -6.5 23 Q 0 28.8 6.5 23',
+      stroke: '#6D3724',
+      'stroke-width': 2.3,
+      'stroke-linecap': 'round',
+      fill: 'none',
+    });
+
+    const faceShiftG = svgEl('g', { transform: 'translate(0, 0)' }, [
+      svgEl('ellipse', { cx: -31, cy: 19, rx: 13.5, ry: 8.8, fill: 'url(#wbCheekGrad)' }),
+      svgEl('ellipse', { cx: 31, cy: 19, rx: 13.5, ry: 8.8, fill: 'url(#wbCheekGrad)' }),
+      svgEl('circle', { cx: -34, cy: 17.5, r: 1.8, fill: '#FFFFFF', opacity: 0.45 }),
+      svgEl('circle', { cx: 34, cy: 17.5, r: 1.8, fill: '#FFFFFF', opacity: 0.45 }),
+      browL,
+      browR,
+      squintEyesG,
+      openEyesG,
+      svgEl('ellipse', { cx: 0, cy: 14.5, rx: 2.9, ry: 2, fill: '#EAA08C' }),
+      svgEl('circle', { cx: -0.8, cy: 13.9, r: 0.9, fill: '#FFF5EE', opacity: 0.75 }),
+      mouthHappyG,
+      mouthCalmPath,
+      outfit.hasSunglasses
+        ? svgEl('g', { transform: 'translate(0, 7)' }, [
+            svgEl('circle', {
+              cx: -22,
+              cy: 0,
+              r: 14.2,
+              fill: '#1E1B18',
+              'fill-opacity': 0.42,
+              stroke: isFemale ? '#FDA4AF' : '#D97706',
+              'stroke-width': 2.8,
+            }),
+            svgEl('path', {
+              d: 'M -29 -6 L -19 4',
+              stroke: '#FFFFFF',
+              'stroke-opacity': 0.45,
+              'stroke-width': 2.4,
+              'stroke-linecap': 'round',
+            }),
+            svgEl('circle', {
+              cx: 22,
+              cy: 0,
+              r: 14.2,
+              fill: '#1E1B18',
+              'fill-opacity': 0.42,
+              stroke: isFemale ? '#FDA4AF' : '#D97706',
+              'stroke-width': 2.8,
+            }),
+            svgEl('path', {
+              d: 'M 15 -6 L 25 4',
+              stroke: '#FFFFFF',
+              'stroke-opacity': 0.45,
+              'stroke-width': 2.4,
+              'stroke-linecap': 'round',
+            }),
+            svgEl('path', {
+              d: 'M -7.8 0 Q 0 -3.2 7.8 0',
+              stroke: isFemale ? '#FDA4AF' : '#D97706',
+              'stroke-width': 2.6,
+              fill: 'none',
+            }),
+          ])
+        : null,
+    ]);
+
+    // Signature Bangs & Cowlick ALWAYS visible!
+    const cowlickPath = !isFemale
+      ? svgEl('path', {
+          d: 'M 2 -54 Q 12 -72 22 -59 Q 14 -50 6 -52 Z',
+          fill: '#7C4A2D',
+        })
+      : null;
+
+    const bangsG = svgEl('g', null, [
+      svgEl('path', {
+        d: 'M -52 -12 C -42 -42, 42 -42, 52 -12 C 36 -22, 22 -6, 12 -18 C 2 -4, -10 -4, -20 -18 C -30 -6, -42 -20, -52 -12 Z',
+        fill: 'url(#wbHairGrad)',
+      }),
+      svgEl('path', {
+        d: 'M -33 -30 Q 0 -38.5 33 -30',
+        stroke: '#D4956E',
+        'stroke-width': 3.4,
+        'stroke-linecap': 'round',
+        opacity: 0.48,
+        fill: 'none',
+      }),
+      cowlickPath,
+    ]);
+
+    const headphonesG = svgEl('g', { display: 'none' }, [
+      svgEl('path', {
+        d: 'M -58 4 C -58 -58, 58 -58, 58 4',
+        stroke: isFemale ? '#F9A8D4' : '#7DD3FC',
+        'stroke-width': 6,
+        'stroke-linecap': 'round',
+        fill: 'none',
+      }),
+      svgEl('rect', {
+        x: -66,
+        y: -8,
+        width: 14,
+        height: 26,
+        rx: 7,
+        fill: isFemale ? '#F472B6' : '#38BDF8',
+        stroke: '#FFFFFF',
+        'stroke-width': 2,
+      }),
+      svgEl('rect', {
+        x: 52,
+        y: -8,
+        width: 14,
+        height: 26,
+        rx: 7,
+        fill: isFemale ? '#F472B6' : '#38BDF8',
+        stroke: '#FFFFFF',
+        'stroke-width': 2,
+      }),
+    ]);
+
+    const headG = svgEl('g', { transform: 'translate(160, 122) rotate(0)' }, [
+      outfit.isRaincoat
+        ? svgEl('g', null, [
+            svgEl('ellipse', { cx: 0, cy: -4, rx: 64, ry: 58, fill: '#CA8A04' }),
+            svgEl('ellipse', { cx: 0, cy: -5, rx: 61, ry: 55, fill: 'url(#wbTopGrad)' }),
+          ])
+        : null,
+      svgEl('circle', { cx: -56, cy: 8, r: 11.5, fill: 'url(#wbSkinGrad)' }),
+      svgEl('circle', { cx: -55, cy: 8, r: 5.5, fill: '#F5A996', opacity: 0.48 }),
+      svgEl('circle', { cx: 56, cy: 8, r: 11.5, fill: 'url(#wbSkinGrad)' }),
+      svgEl('circle', { cx: 55, cy: 8, r: 5.5, fill: '#F5A996', opacity: 0.48 }),
+      // Canonical Plump Squircle Head (Crown 63, Chin 172)
+      svgEl('path', {
+        d: 'M 0 -52 C 38 -52, 56 -28, 56 4 C 58 34, 40 50, 0 50 C -40 50, -58 34, -56 4 C -56 -28, -38 -52, 0 -52 Z',
+        fill: 'url(#wbSkinGrad)',
+      }),
+      // Canonical Crown Hair Volume ( ALWAYS rendered at exact y = -59 -> global y = 63! )
+      svgEl('path', {
+        d: 'M -57 -2 C -60 -38, -34 -59, 0 -59 C 34 -59, 60 -38, 57 -2 C 48 -24, -48 -24, -57 -2 Z',
+        fill: 'url(#wbHairGrad)',
+      }),
+      // Signature Side Locks
+      isFemale
+        ? svgEl('g', null, [
+            svgEl('path', {
+              d: 'M -54 0 Q -59 24 -46 39',
+              stroke: 'url(#wbHairGrad)',
+              'stroke-width': 8.5,
+              'stroke-linecap': 'round',
+              fill: 'none',
+            }),
+            svgEl('path', {
+              d: 'M 54 0 Q 59 24 46 39',
+              stroke: 'url(#wbHairGrad)',
+              'stroke-width': 8.5,
+              'stroke-linecap': 'round',
+              fill: 'none',
+            }),
+          ])
+        : null,
+      faceShiftG,
+      bangsG,
+      outfit.isRaincoat
+        ? svgEl('path', {
+            d: 'M -58 -16 C -48 -58, 48 -58, 58 -16 C 44 -46, -44 -46, -58 -16 Z',
+            fill: '#FDE047',
+            stroke: '#EAB308',
+            'stroke-width': 1.2,
+          })
+        : null,
+      outfit.hasSunVisor
+        ? svgEl('g', null, [
+            svgEl('path', {
+              d: 'M -54 -23 Q 0 -42 54 -23 Q 0 -14 -54 -23 Z',
+              fill: '#FDE68A',
+              stroke: '#D97706',
+              'stroke-width': 1.7,
+            }),
+            svgEl('path', {
+              d: 'M -40 -25 Q 0 -33 40 -25',
+              stroke: '#FB7185',
+              'stroke-width': 2.5,
+              'stroke-linecap': 'round',
+              fill: 'none',
+            }),
+          ])
+        : null,
+      outfit.hasEarmuffs
+        ? svgEl('g', null, [
+            svgEl('path', {
+              d: 'M -56 2 C -56 -56, 56 -56, 56 2',
+              stroke: '#F8FAFC',
+              'stroke-width': 5,
+              fill: 'none',
+            }),
+            svgEl('ellipse', { cx: -58, cy: 6, rx: 11, ry: 14, fill: '#FFFBEB', stroke: '#E2E8F0', 'stroke-width': 1.4 }),
+            svgEl('ellipse', { cx: 58, cy: 6, rx: 11, ry: 14, fill: '#FFFBEB', stroke: '#E2E8F0', 'stroke-width': 1.4 }),
+          ])
+        : null,
+      headphonesG,
+    ]);
+
+    const bodyRootG = svgEl('g', { transform: 'translate(0, 0)' }, [
+      umbrellaG,
+      twinBunsRootG,
+      standLegsG,
+      sitLegsG,
+      torsoG,
+      propG,
+      leftArmG,
+      rightArmG,
+      headG,
+    ]);
+
+    // Walking Pet Companion (Kitten for petting_cat, Corgi Puppy for petting_puppy)
+    let petRootG = null;
+    let petTailG = null;
+    let petPawA = null;
+    let petPawB = null;
+    if (npcAction === 'petting_cat' || npcAction === 'petting_puppy') {
+      const isCat = npcAction === 'petting_cat';
+      const furMain = isCat ? '#FDBA74' : '#F59E0B';
+      const furBelly = '#FFFBEB';
+      petTailG = svgEl('path', {
+        d: isCat ? 'M 14 -6 Q 24 -18 20 -26' : 'M -15 -7 Q -22 -15 -18 -20',
+        stroke: furMain,
+        'stroke-width': 5,
+        'stroke-linecap': 'round',
+        fill: 'none',
+      });
+      petPawA = svgEl('ellipse', { cx: -8, cy: 8, rx: 4.2, ry: 3.2, fill: furBelly });
+      petPawB = svgEl('ellipse', { cx: 8, cy: 8, rx: 4.2, ry: 3.2, fill: furBelly });
+      petRootG = svgEl('g', { display: 'none', transform: `translate(${isCat ? 214 : 106}, 272)` }, [
+        svgEl('ellipse', { cx: 0, cy: 10, rx: 18, ry: 4.5, fill: '#0F172A', opacity: 0.16 }),
+        petTailG,
+        svgEl('ellipse', { cx: 0, cy: -1, rx: 15, ry: 10.5, fill: furMain }),
+        svgEl('ellipse', { cx: isCat ? -4 : 4, cy: 1, rx: 9, ry: 6.5, fill: furBelly }),
+        petPawA,
+        petPawB,
+        svgEl('g', { transform: `translate(${isCat ? -10 : 10}, -11)` }, [
+          svgEl('path', {
+            d: isCat ? 'M -9 -6 L -11 -16 L -2 -10 Z' : 'M -9 -6 L -12 -17 L -2 -10 Z',
+            fill: furMain,
+          }),
+          svgEl('path', {
+            d: isCat ? 'M 9 -6 L 11 -16 L 2 -10 Z' : 'M 9 -6 L 12 -17 L 2 -10 Z',
+            fill: furMain,
+          }),
+          svgEl('ellipse', { cx: 0, cy: 0, rx: 11.5, ry: 9.8, fill: furMain }),
+          svgEl('circle', { cx: -4.2, cy: -1, r: 2, fill: '#1E293B' }),
+          svgEl('circle', { cx: 4.2, cy: -1, r: 2, fill: '#1E293B' }),
+          svgEl('ellipse', { cx: 0, cy: 2.5, rx: 2, ry: 1.3, fill: '#FB7185' }),
+        ]),
+      ]);
+    }
+
+    const svg = svgEl(
+      'svg',
+      {
+        id: 'articulated-chibi-svg',
+        class: 'articulated-chibi-svg',
+        viewBox: '0 0 320 304',
+        'aria-hidden': 'true',
+      },
+      [defs, groundShadow, skyCharmG, bodyRootG, petRootG]
+    );
+
+    return {
+      svg,
+      key: `${gender}|${sceneId}|${npcAction}`,
+      isFemale,
+      outfit,
+      npcAction,
+      groundShadow,
+      skyCharmG,
+      bodyRootG,
+      umbrellaG,
+      twinBunsRootG,
+      bunLeftG,
+      bunRightG,
+      standLegsG,
+      sitLegsG,
+      sitShoeL,
+      sitShoeR,
+      leftArmG,
+      rightArmG,
+      scarfTailG,
+      propG,
+      headG,
+      faceShiftG,
+      browL,
+      browR,
+      squintEyesG,
+      squintL,
+      squintR,
+      openEyesG,
+      pupilLG,
+      pupilRG,
+      mouthHappyG,
+      mouthCalmPath,
+      bangsG,
+      headphonesG,
+      petRootG,
+      petTailG,
+      petPawA,
+      petPawB,
+    };
+  }
+
+  const rigKinematics = {
+    mountedKey: '',
+    dom: null,
+    rafId: 0,
+    startTimeMs: Date.now(),
+    lastFrameMs: Date.now(),
+    standBlend: 0,
+    gazeX: 0,
+    gazeY: 0,
+    targetGazeX: 0,
+    targetGazeY: 0,
+    tiltX: 0,
+    tiltY: 0,
+    targetTiltX: 0,
+    targetTiltY: 0,
+    pointerActiveUntilMs: 0,
+    nextSaccadeAtMs: 0,
+    saccadeX: 0,
+    saccadeY: 0,
+    headTiltDeg: 0,
+    secondaryLagDeg: 0,
+    nextBlinkAtMs: Date.now() + 2200,
+    blinkStartMs: 0,
+    blinkDurationMs: 135,
+    pendingDoubleBlink: false,
+    waveUntilMs: 0,
+    happySquintUntilMs: 0,
+    hopStartMs: 0,
+    petEnteredAtMs: Date.now(),
+    lastPetAction: null,
+  };
+
+  function isReducedMotionPreferred() {
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  }
+
+  function ensureCanonicalChibiMounted() {
+    if (!state.decision) return;
+    const rigPivot = document.getElementById('character-rig-pivot');
+    if (!rigPivot) return;
+
+    const gender = state.config.gender === 'female' ? 'female' : 'male';
+    const sceneId = state.decision.sceneId || 'pleasant_sunny';
+    const npcAction = state.npcAction || 'reading_book';
+    const nextKey = `${gender}|${sceneId}|${npcAction}`;
+
+    rigPivot.setAttribute('data-articulated', 'true');
+    const spriteImg = document.getElementById('character-sprite-img');
+    if (spriteImg) {
+      spriteImg.classList.add('is-rig-active');
+    }
+
+    if (rigKinematics.mountedKey !== nextKey || !rigKinematics.dom) {
+      const existingSvg = document.getElementById('articulated-chibi-svg');
+      if (existingSvg && existingSvg.parentNode) {
+        existingSvg.parentNode.removeChild(existingSvg);
+      }
+      if (rigKinematics.lastPetAction !== npcAction) {
+        rigKinematics.lastPetAction = npcAction;
+        rigKinematics.petEnteredAtMs = Date.now();
+      }
+      rigKinematics.dom = buildCanonicalChibiRigDom(gender, sceneId, npcAction);
+      rigKinematics.mountedKey = nextKey;
+      rigPivot.appendChild(rigKinematics.dom.svg);
+    }
+
+    if (isReducedMotionPreferred()) {
+      rigKinematics.standBlend = state.isStanding ? 1 : 0;
+      paintCanonicalChibiFrame(Date.now(), 0.016, true);
+    } else if (!rigKinematics.rafId) {
+      rigKinematics.lastFrameMs = Date.now();
+      const loop = () => {
+        const now = Date.now();
+        const dt = Math.min(0.05, Math.max(0.004, (now - rigKinematics.lastFrameMs) / 1000));
+        rigKinematics.lastFrameMs = now;
+        paintCanonicalChibiFrame(now, dt, false);
+        rigKinematics.rafId = requestAnimationFrame(loop);
+      };
+      rigKinematics.rafId = requestAnimationFrame(loop);
+    }
+  }
+
+  function paintCanonicalChibiFrame(nowMs, dtSec, reduced) {
+    const d = rigKinematics.dom;
+    if (!d) return;
+
+    const targetStand = state.isStanding ? 1 : 0;
+    if (reduced) {
+      rigKinematics.standBlend = targetStand;
+    } else {
+      rigKinematics.standBlend +=
+        (targetStand - rigKinematics.standBlend) * Math.min(1, dtSec * 8.5);
+    }
+
+    const sb = rigKinematics.standBlend;
+    const isSeatedNpc = sb < 0.5;
+    const tSec = reduced ? 0 : (nowMs - rigKinematics.startTimeMs) / 1000;
+    const breathPhase = tSec * 2.1;
+    const propClock = tSec * 1.9;
+
+    // Gaze & Saccades
+    let goalX = 0;
+    let goalY = 0;
+    if (!reduced && nowMs < rigKinematics.pointerActiveUntilMs) {
+      goalX = rigKinematics.targetGazeX;
+      goalY = rigKinematics.targetGazeY;
+    } else if (!reduced) {
+      if (nowMs >= rigKinematics.nextSaccadeAtMs) {
+        rigKinematics.nextSaccadeAtMs = nowMs + 1400 + Math.random() * 1900;
+        if (isSeatedNpc && d.npcAction === 'reading_book') {
+          rigKinematics.saccadeX = Math.sin(tSec * 1.6) * 0.55;
+          rigKinematics.saccadeY = 0.42;
+        } else if (isSeatedNpc && d.npcAction === 'petting_cat') {
+          rigKinematics.saccadeX = 0.58;
+          rigKinematics.saccadeY = 0.48;
+        } else if (isSeatedNpc && d.npcAction === 'petting_puppy') {
+          rigKinematics.saccadeX = -0.58;
+          rigKinematics.saccadeY = 0.48;
+        } else if (isSeatedNpc && d.npcAction === 'scrolling_phone') {
+          rigKinematics.saccadeX = (Math.random() - 0.5) * 0.25;
+          rigKinematics.saccadeY = Math.random() < 0.25 ? -0.1 : 0.45;
+        } else {
+          rigKinematics.saccadeX = (Math.random() - 0.5) * 0.65;
+          rigKinematics.saccadeY = (Math.random() - 0.5) * 0.38;
+        }
+      }
+      goalX = rigKinematics.saccadeX;
+      goalY = rigKinematics.saccadeY;
+    }
+
+    const springStep = reduced ? 1 : Math.min(1, dtSec * 10);
+    rigKinematics.gazeX += (goalX - rigKinematics.gazeX) * springStep;
+    rigKinematics.gazeY += (goalY - rigKinematics.gazeY) * springStep;
+
+    // 3D Stage Tilt
+    const wantTiltX = !reduced && nowMs < rigKinematics.pointerActiveUntilMs ? rigKinematics.targetTiltX : 0;
+    const wantTiltY = !reduced && nowMs < rigKinematics.pointerActiveUntilMs ? rigKinematics.targetTiltY : 0;
+    rigKinematics.tiltX += (wantTiltX - rigKinematics.tiltX) * springStep;
+    rigKinematics.tiltY += (wantTiltY - rigKinematics.tiltY) * springStep;
+    const rigPivot = document.getElementById('character-rig-pivot');
+    if (rigPivot) {
+      rigPivot.style.setProperty('--tilt-x', `${rigKinematics.tiltX.toFixed(2)}deg`);
+      rigPivot.style.setProperty('--tilt-y', `${rigKinematics.tiltY.toFixed(2)}deg`);
+    }
+
+    // Autonomous Blinking
+    let blinkAmount = 0;
+    if (!reduced) {
+      if (rigKinematics.blinkStartMs === 0 && nowMs >= rigKinematics.nextBlinkAtMs) {
+        rigKinematics.blinkStartMs = nowMs;
+        rigKinematics.blinkDurationMs = 130;
+        rigKinematics.pendingDoubleBlink = Math.random() < 0.22;
+      }
+      if (rigKinematics.blinkStartMs > 0) {
+        const bElapsed = nowMs - rigKinematics.blinkStartMs;
+        if (bElapsed <= rigKinematics.blinkDurationMs) {
+          blinkAmount = Math.sin((bElapsed / rigKinematics.blinkDurationMs) * Math.PI);
+        } else if (rigKinematics.pendingDoubleBlink) {
+          rigKinematics.pendingDoubleBlink = false;
+          rigKinematics.blinkStartMs = nowMs + 75;
+        } else {
+          rigKinematics.blinkStartMs = 0;
+          rigKinematics.nextBlinkAtMs = nowMs + 2400 + Math.random() * 2800;
+        }
+      }
+    }
+
+    const happySquint = !reduced && nowMs < rigKinematics.happySquintUntilMs;
+    const waving = !reduced && nowMs < rigKinematics.waveUntilMs;
+
+    // Hop bounce when clicked
+    let hopY = 0;
+    if (!reduced && rigKinematics.hopStartMs > 0) {
+      const hElapsed = (nowMs - rigKinematics.hopStartMs) / 420;
+      if (hElapsed < 1) {
+        hopY = -Math.sin(hElapsed * Math.PI) * 11 * (1 - hElapsed * 0.35);
+      } else {
+        rigKinematics.hopStartMs = 0;
+      }
+    }
+
+    const bodySitDropY = (1 - sb) * 18;
+    const breathScaleY = reduced ? 1 : 1 + Math.sin(breathPhase) * 0.016;
+    const breathScaleX = reduced ? 1 : 1 - Math.sin(breathPhase) * 0.009;
+    const swayDeg = reduced
+      ? 0
+      : Math.sin(tSec * (d.npcAction === 'listening_music' && isSeatedNpc ? 3.2 : 1.5)) *
+        (isSeatedNpc && d.npcAction === 'listening_music' ? 2.2 : 1.1);
+    const bodyY = bodySitDropY + hopY - (reduced ? 0 : Math.sin(breathPhase) * 1.6);
+
+    const targetHeadTilt =
+      rigKinematics.gazeX * 4.5 +
+      (reduced ? 0 : Math.sin(tSec * 1.4) * (isSeatedNpc && d.npcAction === 'listening_music' ? 3.2 : 1.3));
+    rigKinematics.headTiltDeg += (targetHeadTilt - rigKinematics.headTiltDeg) * springStep;
+    rigKinematics.secondaryLagDeg +=
+      (rigKinematics.headTiltDeg - rigKinematics.secondaryLagDeg) * Math.min(1, dtSec * 5.2);
+
+    // Arm kinematics
+    let leftArmDeg = 18;
+    let rightArmDeg = -18;
+    if (waving) {
+      leftArmDeg = 20;
+      rightArmDeg = -122 + Math.sin(tSec * 13.5) * 16;
+    } else if (isSeatedNpc) {
+      if (d.npcAction === 'reading_book') {
+        leftArmDeg = -34;
+        rightArmDeg = 32 + Math.sin(propClock * 1.3) * 6;
+      } else if (d.npcAction === 'scrolling_phone') {
+        leftArmDeg = -32;
+        rightArmDeg = 28 + Math.sin(propClock * 2.4) * 7;
+      } else if (d.npcAction === 'petting_cat') {
+        leftArmDeg = 14;
+        rightArmDeg = -46 + Math.sin(propClock * 3.1) * 11;
+      } else if (d.npcAction === 'petting_puppy') {
+        leftArmDeg = 46 - Math.sin(propClock * 3.1) * 11;
+        rightArmDeg = -14;
+      } else {
+        leftArmDeg = 22 + Math.sin(propClock * 1.8) * 5;
+        rightArmDeg = -22 - Math.sin(propClock * 1.8) * 5;
+      }
+    } else if (d.outfit.hasUmbrella) {
+      leftArmDeg = 16;
+      rightArmDeg = -52 + Math.sin(breathPhase) * 2.5;
+    } else {
+      leftArmDeg = 16 + Math.sin(breathPhase) * 2.5;
+      rightArmDeg = -16 - Math.sin(breathPhase) * 2.5;
+    }
+
+    // Apply transforms to cached SVG nodes
+    d.bodyRootG.setAttribute(
+      'transform',
+      `translate(160, 280) translate(0, ${bodyY.toFixed(2)}) rotate(${swayDeg.toFixed(
+        2
+      )}) scale(${breathScaleX.toFixed(4)}, ${breathScaleY.toFixed(4)}) translate(-160, -280)`
+    );
+    d.groundShadow.setAttribute('rx', String((isSeatedNpc ? 52 : 46 + hopY * 0.3).toFixed(1)));
+
+    d.standLegsG.setAttribute('display', isSeatedNpc ? 'none' : 'inline');
+    d.sitLegsG.setAttribute('display', isSeatedNpc ? 'inline' : 'none');
+    d.propG.setAttribute('display', isSeatedNpc ? 'inline' : 'none');
+    d.headphonesG.setAttribute(
+      'display',
+      isSeatedNpc && d.npcAction === 'listening_music' ? 'inline' : 'none'
+    );
+
+    if (d.umbrellaG) {
+      d.umbrellaG.setAttribute(
+        'transform',
+        `translate(168, ${isSeatedNpc ? 96 : 84}) rotate(${(
+          8 +
+          rigKinematics.secondaryLagDeg * 0.5
+        ).toFixed(2)})`
+      );
+    }
+
+    if (d.twinBunsRootG) {
+      d.twinBunsRootG.setAttribute(
+        'transform',
+        `translate(160, 118) rotate(${rigKinematics.headTiltDeg.toFixed(2)})`
+      );
+      const bunLag = (rigKinematics.secondaryLagDeg * 1.3).toFixed(2);
+      d.bunLeftG.setAttribute('transform', `translate(-45, -38) rotate(${bunLag})`);
+      d.bunRightG.setAttribute('transform', `translate(45, -38) rotate(${bunLag})`);
+    }
+
+    d.leftArmG.setAttribute('transform', `translate(128, 184) rotate(${leftArmDeg.toFixed(2)})`);
+    d.rightArmG.setAttribute('transform', `translate(192, 184) rotate(${rightArmDeg.toFixed(2)})`);
+
+    if (d.scarfTailG) {
+      d.scarfTailG.setAttribute(
+        'transform',
+        `translate(16, 4) rotate(${(-14 + rigKinematics.secondaryLagDeg * 1.6).toFixed(2)})`
+      );
+    }
+
+    d.headG.setAttribute(
+      'transform',
+      `translate(160, 122) rotate(${rigKinematics.headTiltDeg.toFixed(2)})`
+    );
+
+    const faceX = (rigKinematics.gazeX * 3.6).toFixed(2);
+    const faceY = (rigKinematics.gazeY * 2.3).toFixed(2);
+    const pupX = (rigKinematics.gazeX * 3.3).toFixed(2);
+    const pupY = (rigKinematics.gazeY * 2.4).toFixed(2);
+
+    d.faceShiftG.setAttribute('transform', `translate(${faceX}, ${faceY})`);
+    d.pupilLG.setAttribute('transform', `translate(${pupX}, ${pupY})`);
+    d.pupilRG.setAttribute('transform', `translate(${pupX}, ${pupY})`);
+
+    const showSquintOrClosed = happySquint || blinkAmount > 0.72;
+    d.squintEyesG.setAttribute('display', showSquintOrClosed ? 'inline' : 'none');
+    d.openEyesG.setAttribute('display', showSquintOrClosed ? 'none' : 'inline');
+
+    if (showSquintOrClosed) {
+      d.squintL.setAttribute(
+        'd',
+        happySquint ? 'M -32 6 Q -22 -5.5 -12 6' : 'M -32 6 Q -22 10.5 -12 6'
+      );
+      d.squintR.setAttribute(
+        'd',
+        happySquint ? 'M 12 6 Q 22 -5.5 32 6' : 'M 12 6 Q 22 10.5 32 6'
+      );
+    } else {
+      const sy = Math.max(0.15, 1 - blinkAmount * 0.85).toFixed(3);
+      const ty = (blinkAmount * 2).toFixed(2);
+      d.openEyesG.setAttribute('transform', `translate(0, ${ty}) scale(1, ${sy})`);
+    }
+
+    d.mouthHappyG.setAttribute('display', happySquint ? 'inline' : 'none');
+    d.mouthCalmPath.setAttribute('display', happySquint ? 'none' : 'inline');
+    d.bangsG.setAttribute(
+      'transform',
+      `rotate(${(rigKinematics.secondaryLagDeg * 0.6).toFixed(2)})`
+    );
+
+    // Walking Pet Companion (Kitten walks 292 -> 214; Puppy trots 28 -> 106)
+    if (d.petRootG) {
+      if (isSeatedNpc) {
+        d.petRootG.setAttribute('display', 'inline');
+        const isCat = d.npcAction === 'petting_cat';
+        const walkProgress = reduced
+          ? 1
+          : Math.min(1, (nowMs - rigKinematics.petEnteredAtMs) / 1450);
+        const easedWalk = 1 - Math.pow(1 - walkProgress, 3);
+        const startX = isCat ? 292 : 28;
+        const endX = isCat ? 214 : 106;
+        const curX = startX + (endX - startX) * easedWalk;
+        const bobY = walkProgress < 1 ? Math.abs(Math.sin(tSec * 14)) * -3.5 : 0;
+        d.petRootG.setAttribute(
+          'transform',
+          `translate(${curX.toFixed(1)}, ${(272 + bobY).toFixed(1)})`
+        );
+        if (d.petTailG) {
+          const wag = Math.sin(tSec * 6.5) * 10;
+          d.petTailG.setAttribute('transform', `rotate(${wag.toFixed(1)})`);
+        }
+      } else {
+        d.petRootG.setAttribute('display', 'none');
+      }
+    }
+  }
 
   const state = {
     mode: document.body.getAttribute('data-mode') || 'newtab',
@@ -863,6 +2319,7 @@
         state.config.longitude = city.longitude;
         saveConfig(state.config);
         renderCityStrip();
+        triggerStandUpPose(NPC_OUTFIT_SHOWCASE_MS, false);
         refreshWeatherNow();
       });
       container.appendChild(btn);
@@ -921,6 +2378,8 @@
           : `${personaName} - ${actionMeta.labelVi}`
       );
     }
+
+    ensureCanonicalChibiMounted();
 
     if (microAccent) {
       if (state.isStanding) {
@@ -1147,19 +2606,20 @@
     }
   }
 
-  function triggerStandUpPose() {
+  function triggerStandUpPose(customDurationMs, userInteracted) {
+    const durationMs =
+      typeof customDurationMs === 'number' && customDurationMs > 0
+        ? customDurationMs
+        : NPC_STAND_DURATION_MS;
     clearStandTimers();
     state.isStanding = true;
-    state.standRemainingSec = 9;
+    state.standRemainingSec = Math.ceil(durationMs / 1000);
 
-    const rigPivot = document.getElementById('character-rig-pivot');
-    if (rigPivot) {
-      rigPivot.classList.remove('stand-up-burst');
-      void rigPivot.offsetWidth;
-      rigPivot.classList.add('stand-up-burst');
-      setTimeout(() => {
-        rigPivot.classList.remove('stand-up-burst');
-      }, 600);
+    const now = Date.now();
+    rigKinematics.waveUntilMs = now + (userInteracted ? 2200 : 1600);
+    if (userInteracted) {
+      rigKinematics.happySquintUntilMs = now + 1850;
+      rigKinematics.hopStartMs = now;
     }
 
     renderNpcStage();
@@ -1167,7 +2627,7 @@
     const startedAt = Date.now();
     state.standTickId = setInterval(() => {
       const elapsed = Date.now() - startedAt;
-      const remainMs = Math.max(0, NPC_STAND_DURATION_MS - elapsed);
+      const remainMs = Math.max(0, durationMs - elapsed);
       state.standRemainingSec = Math.ceil(remainMs / 1000);
       const npcModePill = document.getElementById('npc-mode-pill');
       if (npcModePill && state.isStanding) {
@@ -1179,7 +2639,7 @@
       clearStandTimers();
       state.isStanding = false;
       renderNpcStage();
-    }, NPC_STAND_DURATION_MS);
+    }, durationMs);
   }
 
   function shuffleNpcAction() {
@@ -1203,21 +2663,18 @@
     }, NPC_ROTATION_INTERVAL_MS);
   }
 
-  function recomputeDecisionAndRender() {
+  function recomputeDecisionAndRender(showcaseOutfit) {
     if (!state.weather) return;
-    const prevSceneId = state.decision ? state.decision.sceneId : null;
+    const prevKey = state.decision
+      ? `${state.decision.sceneId}|${state.decision.gender}|${state.weather.locationName}`
+      : null;
     state.decision = evaluateCharacterDecision(state.weather, {
       gender: state.config.gender,
       sensitivity: state.config.sensitivity,
     });
-    const isRainScene =
-      state.decision.sceneId === 'light_rain_umbrella' ||
-      state.decision.sceneId === 'storm_raincoat';
-    if (isRainScene) {
-      clearStandTimers();
-      state.isStanding = true;
-    } else if (prevSceneId !== null && prevSceneId !== state.decision.sceneId) {
-      triggerStandUpPose();
+    const nextKey = `${state.decision.sceneId}|${state.decision.gender}|${state.weather.locationName}`;
+    if (showcaseOutfit || (prevKey !== null && prevKey !== nextKey)) {
+      triggerStandUpPose(NPC_OUTFIT_SHOWCASE_MS, false);
     }
     applyVisibilityToggles();
     renderCityStrip();
@@ -1358,13 +2815,49 @@
   }
 
   function wireDomEvents() {
-    // Stage click -> Spring Stand-Up into weather outfit for 8.5s
+    // Stage click, keyboard Enter/Space, and cursor-gaze + 3D tilt tracking
     const stageViewport = document.getElementById('character-stage-viewport');
     if (stageViewport) {
       stageViewport.addEventListener('click', () => {
-        triggerStandUpPose();
+        triggerStandUpPose(NPC_STAND_DURATION_MS, true);
+      });
+      stageViewport.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          triggerStandUpPose(NPC_STAND_DURATION_MS, true);
+        }
+      });
+      stageViewport.addEventListener('pointerleave', () => {
+        rigKinematics.pointerActiveUntilMs = 0;
+        rigKinematics.targetTiltX = 0;
+        rigKinematics.targetTiltY = 0;
       });
     }
+
+    window.addEventListener(
+      'pointermove',
+      (e) => {
+        const vp = document.getElementById('character-stage-viewport');
+        if (!vp) return;
+        const rect = vp.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        const cx = rect.left + rect.width * 0.5;
+        const cy = rect.top + rect.height * 0.44;
+        const nx = Math.max(-1, Math.min(1, (e.clientX - cx) / Math.max(120, rect.width * 0.75)));
+        const ny = Math.max(-1, Math.min(1, (e.clientY - cy) / Math.max(120, rect.height * 0.75)));
+        rigKinematics.targetGazeX = nx;
+        rigKinematics.targetGazeY = ny;
+        const insideStage =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom;
+        rigKinematics.targetTiltX = insideStage ? nx * 7.5 : nx * 2.5;
+        rigKinematics.targetTiltY = insideStage ? -ny * 6.5 : -ny * 2;
+        rigKinematics.pointerActiveUntilMs = Date.now() + 2400;
+      },
+      { passive: true }
+    );
 
     // Shuffle NPC Action button
     const shuffleBtn = document.getElementById('btn-shuffle-npc');

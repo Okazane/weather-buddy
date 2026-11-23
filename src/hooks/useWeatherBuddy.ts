@@ -320,9 +320,14 @@ function restartNpcRotationTimer(): void {
     return;
   }
   npcRotationTimer = setInterval(() => {
+    if (npcStandTimeout) {
+      clearTimeout(npcStandTimeout);
+      npcStandTimeout = null;
+    }
     npcSnapshot = {
       ...npcSnapshot,
       npcAction: pickNextRandomNpcAction(npcSnapshot.npcAction),
+      isStanding: false,
     };
     emitNpcSnapshot();
   }, NPC_ROTATION_INTERVAL_MS);
@@ -353,7 +358,12 @@ function getNpcSnapshot(): NpcStageSnapshot {
   return npcSnapshot;
 }
 
-export function triggerNpcCharacterInteraction(pinStanding = false): void {
+export const NPC_OUTFIT_SHOWCASE_MS = 5500;
+
+export function triggerNpcCharacterInteraction(
+  pinStanding = false,
+  durationMs: number = NPC_OUTFIT_SHOWCASE_MS
+): void {
   if (npcStandTimeout) {
     clearTimeout(npcStandTimeout);
     npcStandTimeout = null;
@@ -367,6 +377,10 @@ export function triggerNpcCharacterInteraction(pinStanding = false): void {
   emitNpcSnapshot();
 
   if (!pinStanding) {
+    const standMs =
+      Number.isFinite(durationMs) && durationMs > 0
+        ? durationMs
+        : NPC_STAND_DURATION_MS;
     npcStandTimeout = setTimeout(() => {
       npcStandTimeout = null;
       npcSnapshot = {
@@ -374,7 +388,7 @@ export function triggerNpcCharacterInteraction(pinStanding = false): void {
         isStanding: false,
       };
       emitNpcSnapshot();
-    }, NPC_STAND_DURATION_MS);
+    }, standMs);
   }
 }
 
@@ -746,28 +760,17 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
     [activeWeather, gender, sensitivity]
   );
 
-  // Automatically showcase the weather outfit whenever weather scenario, city, or sceneId changes
+  // Automatically showcase the new weather outfit for 5.5s whenever weather scenario, city, or sceneId changes, then settle back into active NPC behavior while keeping the outfit on
   const prevWeatherKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const weatherKey = `${activeScenarioId}|${selectedCityId}|${decision.sceneId}`;
     if (prevWeatherKeyRef.current === null) {
       prevWeatherKeyRef.current = weatherKey;
-      // On initial mount, if actively raining/storming, stand in rain gear instead of indoor NPC pose
-      if (
-        decision.sceneId === 'light_rain_umbrella' ||
-        decision.sceneId === 'storm_raincoat'
-      ) {
-        triggerNpcCharacterInteraction(true);
-      }
       return;
     }
     if (prevWeatherKeyRef.current !== weatherKey) {
       prevWeatherKeyRef.current = weatherKey;
-      const shouldPinStanding =
-        activeScenarioId !== 'live' ||
-        decision.sceneId === 'light_rain_umbrella' ||
-        decision.sceneId === 'storm_raincoat';
-      triggerNpcCharacterInteraction(shouldPinStanding);
+      triggerNpcCharacterInteraction(false, NPC_OUTFIT_SHOWCASE_MS);
     }
   }, [activeScenarioId, selectedCityId, decision.sceneId]);
 
