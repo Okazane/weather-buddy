@@ -27,16 +27,6 @@ function getStoredData(keys) {
   });
 }
 
-function setStoredData(obj) {
-  return new Promise((resolve) => {
-    try {
-      chrome.storage.local.set(obj, () => resolve());
-    } catch {
-      resolve();
-    }
-  });
-}
-
 function mapWmoToShortVi(code, isDay) {
   switch (code) {
     case 0:
@@ -92,6 +82,8 @@ async function fetchOpenMeteoSnapshot(lat, lon, locationName) {
       'wind_gusts_10m',
       'uv_index',
     ].join(','),
+    minutely_15: 'precipitation',
+    forecast_minutely_15: '2',
     timezone: 'auto',
   });
 
@@ -104,7 +96,10 @@ async function fetchOpenMeteoSnapshot(lat, lon, locationName) {
   const isDay = (cur.is_day ?? 1) === 1;
   const temperatureC = Math.round((cur.temperature_2m ?? 26) * 10) / 10;
   const feelsLikeC = Math.round((cur.apparent_temperature ?? temperatureC) * 10) / 10;
-  const precipMmPerHr = Math.max(0, Number(cur.precipitation ?? 0));
+  const min15 = ((data.minutely_15 && data.minutely_15.precipitation) || [])
+    .slice(0, 2)
+    .reduce((m, v) => Math.max(m, typeof v === 'number' ? v : 0), 0);
+  const precipMmPerHr = Math.max(0, Number(cur.precipitation ?? 0), min15 * 4);
   const precipProbPct = Math.max(0, Math.min(100, Math.round(cur.precipitation_probability ?? 0)));
   const conditionText = mapWmoToShortVi(cur.weather_code, isDay);
 
@@ -143,7 +138,7 @@ async function updateBadgeFromWeather(snapshot) {
     if (chrome.action.setBadgeTextColor) {
       await chrome.action.setBadgeTextColor({ color: '#F8FAFC' });
     }
-    const title = `WeatherBuddy · ${snapshot.locationName || 'Việt Nam'} ${roundedTemp}°C (Cảm giác ${Math.round(snapshot.feelsLikeC ?? roundedTemp)}°C) · ${snapshot.conditionText || ''}`;
+    const title = `WeatherBuddy · ${snapshot.locationName || 'Việt Nam'} ${roundedTemp}°C (Cảm nhận ${Math.round(snapshot.feelsLikeC ?? roundedTemp)}°C) · ${snapshot.conditionText || ''}`;
     await chrome.action.setTitle({ title });
   } catch {
     // Ignore if action API not ready

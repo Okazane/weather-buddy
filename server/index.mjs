@@ -14,7 +14,8 @@ import {
   evaluateCharacterDecision,
   fetchWeatherSnapshot,
 } from './coreLoader.mjs';
-import { createReverseGeocoder } from './reverseGeocode.mjs';
+import { createAutoLocator, createReverseGeocoder } from './reverseGeocode.mjs';
+import { createWeatherVerifier } from './weatherVerify.mjs';
 import {
   RuntimeStore,
   buildTelemetryEntry,
@@ -154,11 +155,33 @@ function readHeaderString(headers, name) {
   return typeof val === 'string' ? val.trim() : '';
 }
 
+const KNOWN_VIETNAM_CITIES = [
+  ...PRESET_CITIES,
+  { nameVi: 'Hải Phòng', latitude: 20.8449, longitude: 106.6881 },
+  { nameVi: 'Huế', latitude: 16.4637, longitude: 107.5909 },
+  { nameVi: 'Nha Trang', latitude: 12.2388, longitude: 109.1967 },
+  { nameVi: 'Vũng Tàu', latitude: 10.3460, longitude: 107.0843 },
+  { nameVi: 'Quy Nhơn', latitude: 13.7830, longitude: 109.2197 },
+  { nameVi: 'Buôn Ma Thuột', latitude: 12.6667, longitude: 108.0500 },
+  { nameVi: 'Vinh', latitude: 18.6796, longitude: 105.6813 },
+  { nameVi: 'Phú Quốc', latitude: 10.2270, longitude: 103.9632 },
+  { nameVi: 'Pleiku', latitude: 13.9833, longitude: 108.0000 },
+  { nameVi: 'Phan Thiết', latitude: 10.9289, longitude: 108.1021 },
+  { nameVi: 'Hạ Long', latitude: 20.9511, longitude: 107.0748 },
+  { nameVi: 'Biên Hòa', latitude: 10.9574, longitude: 106.8427 },
+  { nameVi: 'Thủ Dầu Một', latitude: 10.9804, longitude: 106.6519 },
+  { nameVi: 'Thanh Hóa', latitude: 19.8067, longitude: 105.7852 },
+  { nameVi: 'Đồng Hới', latitude: 17.4689, longitude: 106.6223 },
+  { nameVi: 'Tuy Hòa', latitude: 13.0955, longitude: 109.3209 },
+  { nameVi: 'Rạch Giá', latitude: 10.0125, longitude: 105.0809 },
+  { nameVi: 'Côn Đảo', latitude: 8.6833, longitude: 106.6094 },
+];
+
 function inferCityName(lat, lon, explicitName) {
   if (typeof explicitName === 'string' && explicitName.trim()) {
     return explicitName.trim().slice(0, 120);
   }
-  for (const preset of PRESET_CITIES) {
+  for (const preset of KNOWN_VIETNAM_CITIES) {
     if (
       Math.abs(lat - preset.latitude) <= 0.08 &&
       Math.abs(lon - preset.longitude) <= 0.08
@@ -244,13 +267,41 @@ export function createWeatherBuddyServer(options = {}) {
     upstreamTimeoutMs = UPSTREAM_FETCH_TIMEOUT_MS,
     maxBodyBytes = MAX_REQUEST_BODY_BYTES,
     rateLimits = DEFAULT_RATE_LIMITS,
+    enableConsensus = true,
+    localKeysFile = null,
   } = options;
+
+  let cachedLocalKeys = { tomorrowIoApiKey: '', weatherApiKey: '', googleApiKey: '' };
+  if (localKeysFile) {
+    try {
+      const rawLocal = fs.readFileSync(localKeysFile, 'utf8');
+      const parsedLocal = JSON.parse(rawLocal);
+      cachedLocalKeys = {
+        tomorrowIoApiKey:
+          typeof parsedLocal?.tomorrowIoApiKey === 'string'
+            ? parsedLocal.tomorrowIoApiKey.trim()
+            : '',
+        weatherApiKey:
+          typeof parsedLocal?.weatherApiKey === 'string'
+            ? parsedLocal.weatherApiKey.trim()
+            : '',
+        googleApiKey:
+          typeof parsedLocal?.googleApiKey === 'string'
+            ? parsedLocal.googleApiKey.trim()
+            : '',
+      };
+    } catch {
+      // Optional local runtime key file not present
+    }
+  }
 
   const publicDir = path.join(projectRoot, 'public');
   const startedAtMs = Date.now();
   const timedFetch = createTimeoutFetch(rawFetchImpl, upstreamTimeoutMs);
   const runtimeStore = new RuntimeStore(runtimeDir);
   const reverseGeocode = createReverseGeocoder({ fetchImpl: timedFetch });
+  const autoLocate = createAutoLocator({ fetchImpl: timedFetch, reverseGeocode });
+  const weatherVerifier = createWeatherVerifier({ fetchImpl: timedFetch });
   const rateLimiter = new SlidingWindowRateLimiter(rateLimits);
 
   // 15-minute smart weather cache (keyed by rounded lat,lon,provider,saltedSha256(keys))
@@ -296,21 +347,24 @@ export function createWeatherBuddyServer(options = {}) {
   }
 
   function extractRequestApiKeys(req, body = {}) {
-    // Server default API keys are strictly blank ("") — user keys exist transiently per request only
+    // Server default API keys are strictly blank ("") unless local runtime keys file is explicitly provided in CLI mode
     const tomorrowIoApiKey =
       readHeaderString(req.headers, 'x-tomorrow-api-key') ||
       (typeof body.tomorrowIoApiKey === 'string' ? body.tomorrowIoApiKey.trim() : '') ||
       (typeof body.tomorrowApiKey === 'string' ? body.tomorrowApiKey.trim() : '') ||
+      cachedLocalKeys.tomorrowIoApiKey ||
       '';
 
     const weatherApiKey =
       readHeaderString(req.headers, 'x-weatherapi-key') ||
       (typeof body.weatherApiKey === 'string' ? body.weatherApiKey.trim() : '') ||
+      cachedLocalKeys.weatherApiKey ||
       '';
 
     const googleApiKey =
       readHeaderString(req.headers, 'x-google-api-key') ||
       (typeof body.googleApiKey === 'string' ? body.googleApiKey.trim() : '') ||
+      cachedLocalKeys.googleApiKey ||
       '';
 
     return {
@@ -324,6 +378,7 @@ export function createWeatherBuddyServer(options = {}) {
     latitude,
     longitude,
     locationName,
+    hasExplicitName = false,
     provider = 'auto',
     force = false,
     gender = 'female',
@@ -348,13 +403,26 @@ export function createWeatherBuddyServer(options = {}) {
     const cacheKey = `${latitude.toFixed(3)},${longitude.toFixed(3)},${provider},${keyHash}`;
     const now = Date.now();
 
+    const resolveEffectiveLocationName = (cachedName) => {
+      if (hasExplicitName && locationName) {
+        return locationName;
+      }
+      if (cachedName && cachedName !== 'Vị trí hiện tại') {
+        return cachedName;
+      }
+      return locationName || cachedName || 'Vị trí hiện tại';
+    };
+
     if (!force) {
       const cached = weatherCache.get(cacheKey);
       if (cached && cached.expiresAtMs > now) {
         cacheHits += 1;
+        // LRU promotion so frequently queried locations remain hot in cache
+        weatherCache.delete(cacheKey);
+        weatherCache.set(cacheKey, cached);
         const snapshot = {
           ...cached.snapshot,
-          locationName: locationName || cached.snapshot.locationName,
+          locationName: resolveEffectiveLocationName(cached.snapshot.locationName),
         };
         const decision = evaluateCharacterDecision(snapshot, { gender, sensitivity });
         const latencyMs = Math.max(0, Math.round(performance.now() - reqStart));
@@ -377,10 +445,12 @@ export function createWeatherBuddyServer(options = {}) {
       }
     }
 
-    let fetchPromise = !force ? inFlightWeather.get(cacheKey) : null;
+    // Singleflight coalescing for both normal and concurrent force=true bursts
+    const inflightKey = force ? `${cacheKey}:force` : cacheKey;
+    let fetchPromise = inFlightWeather.get(inflightKey);
     if (!fetchPromise) {
       fetchPromise = (async () => {
-        const fetchedSnapshot = await fetchWeatherSnapshot({
+        const rawSnapshot = await fetchWeatherSnapshot({
           latitude,
           longitude,
           locationName,
@@ -389,27 +459,30 @@ export function createWeatherBuddyServer(options = {}) {
           weatherApiKey,
           googleApiKey,
           fetchImpl: timedFetch,
+          enableConsensus: false,
         });
+        const fetchedSnapshot = enableConsensus
+          ? await weatherVerifier.enrichSnapshot(rawSnapshot, { force })
+          : rawSnapshot;
         const storedAt = Date.now();
         const entry = {
           snapshot: fetchedSnapshot,
           createdAtMs: storedAt,
           expiresAtMs: storedAt + cacheTtlMs,
         };
+        weatherCache.delete(cacheKey);
         weatherCache.set(cacheKey, entry);
         return entry;
       })();
 
-      if (!force) {
-        inFlightWeather.set(cacheKey, fetchPromise);
-      }
+      inFlightWeather.set(inflightKey, fetchPromise);
     }
 
     try {
       const entry = await fetchPromise;
       const snapshot = {
         ...entry.snapshot,
-        locationName: locationName || entry.snapshot.locationName,
+        locationName: resolveEffectiveLocationName(entry.snapshot.locationName),
       };
       const decision = evaluateCharacterDecision(snapshot, { gender, sensitivity });
       const latencyMs = Math.max(0, Math.round(performance.now() - reqStart));
@@ -430,8 +503,8 @@ export function createWeatherBuddyServer(options = {}) {
         expiresAtIso,
       };
     } finally {
-      if (inFlightWeather.get(cacheKey) === fetchPromise) {
-        inFlightWeather.delete(cacheKey);
+      if (inFlightWeather.get(inflightKey) === fetchPromise) {
+        inFlightWeather.delete(inflightKey);
       }
     }
   }
@@ -526,6 +599,7 @@ export function createWeatherBuddyServer(options = {}) {
           '/api/health',
           '/api/security/status',
           '/api/weather',
+          '/api/weather-verify',
           '/api/reverse-geocode',
           '/api/dashboard/overview',
           '/api/widget-sync',
@@ -705,8 +779,9 @@ export function createWeatherBuddyServer(options = {}) {
           PRESET_CITIES[0]
         );
         const explicitName = body.locationName ?? q.get('locationName');
+        const hasExplicitName = typeof explicitName === 'string' && explicitName.trim().length > 0;
         const locationName =
-          usedDefault && !explicitName
+          usedDefault && !hasExplicitName
             ? PRESET_CITIES[0].nameVi
             : inferCityName(latitude, longitude, explicitName);
 
@@ -719,6 +794,7 @@ export function createWeatherBuddyServer(options = {}) {
           latitude,
           longitude,
           locationName,
+          hasExplicitName,
           provider,
           force,
           gender,
@@ -727,6 +803,19 @@ export function createWeatherBuddyServer(options = {}) {
         });
 
         sendJson(res, 200, result);
+        return;
+      }
+
+      // 3b. GET /api/weather-verify (5-minute cached NOAA Aviation METAR + MET Norway ECMWF cross-validation)
+      if (pathname === '/api/weather-verify' && req.method === 'GET') {
+        const q = parsedUrl.searchParams;
+        const rawLat = q.get('lat') ?? q.get('latitude');
+        const rawLon = q.get('lon') ?? q.get('lng') ?? q.get('longitude');
+        const { latitude, longitude } = parseCoordinates(rawLat, rawLon, null);
+        const force = parseForceFlag(q.get('force'));
+
+        const verifyResult = await weatherVerifier.verifyLocation(latitude, longitude, { force });
+        sendJson(res, 200, verifyResult);
         return;
       }
 
@@ -739,6 +828,14 @@ export function createWeatherBuddyServer(options = {}) {
 
         const geoResult = await reverseGeocode(latitude, longitude);
         sendJson(res, 200, geoResult);
+        return;
+      }
+
+      // 4b. GET /api/auto-locate (Zero-key network geolocation fallback when browser GPS is unavailable/denied)
+      if (pathname === '/api/auto-locate' && req.method === 'GET') {
+        const force = parseForceFlag(parsedUrl.searchParams.get('force'));
+        const locResult = await autoLocate({ force });
+        sendJson(res, 200, locResult);
         return;
       }
 
@@ -768,8 +865,9 @@ export function createWeatherBuddyServer(options = {}) {
         );
 
         const explicitName = q.get('locationName');
+        const hasExplicitName = typeof explicitName === 'string' && explicitName.trim().length > 0;
         const locationName =
-          usedDefault && !explicitName
+          usedDefault && !hasExplicitName
             ? defaultCity.nameVi
             : inferCityName(latitude, longitude, explicitName);
 
@@ -782,6 +880,7 @@ export function createWeatherBuddyServer(options = {}) {
           latitude,
           longitude,
           locationName,
+          hasExplicitName,
           provider,
           force,
           gender,
@@ -1088,7 +1187,9 @@ const currentModulePath = fileURLToPath(import.meta.url);
 if (invokedPath && invokedPath === currentModulePath) {
   const host = process.env.HOST || '127.0.0.1';
   const port = Number(process.env.PORT) || 8787;
-  const appServer = createWeatherBuddyServer();
+  const appServer = createWeatherBuddyServer({
+    localKeysFile: path.join(DEFAULT_RUNTIME_DIR, 'local-provider-keys.json'),
+  });
 
   appServer
     .start(port, host)

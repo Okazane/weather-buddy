@@ -8,7 +8,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import {
   PRESET_CITIES,
   type Gender,
@@ -22,6 +21,7 @@ import {
   type LucianTabOption,
 } from '../lucian/LucianNavComponents';
 import { injectLucianElementCss } from '../lucian/lucianTokens';
+import { ArrowsClockwise, Crosshair, GearSix } from './AppIcons';
 import {
   FONT_FAMILY_SANS,
   WEB_NO_OUTLINE,
@@ -42,6 +42,7 @@ export interface TopControlBarProps {
   isLiveMode: boolean;
   isLoadingLive: boolean;
   gpsLoading: boolean;
+  gpsSource?: 'gps' | 'ip' | null;
   onSelectPresetCity: (cityId: string) => void;
   onRequestGps: () => void;
   onRefreshLive: () => void;
@@ -52,19 +53,19 @@ export interface TopControlBarProps {
 
 const TOP_BAR_WEB_CSS_ID = 'weather-buddy-top-control-css';
 const TOP_BAR_WEB_CSS = `
-.wb-gps-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:0;border-radius:999px;background:var(--ux-surface);color:var(--ux-ink);font-size:12.5px;font-weight:700;white-space:nowrap;box-shadow:0 0 0 1px var(--ux-line),0 4px 12px -8px var(--ux-shadow);transition:transform .3s var(--ux-spring),background-color .25s,color .25s,box-shadow .25s}
-.wb-gps-btn:hover{box-shadow:0 0 0 1.5px var(--ux-line-2),0 6px 14px -8px var(--ux-shadow)}
+.wb-gps-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:0;border-radius:999px;background:var(--wb-surface,var(--ux-surface));color:var(--wb-ink,var(--ux-ink));font-size:12.5px;font-weight:700;white-space:nowrap;box-shadow:0 0 0 1px var(--wb-border,var(--ux-line)),0 4px 12px -8px var(--ux-shadow);transition:transform .3s var(--ux-spring),background-color .25s,color .25s,box-shadow .25s}
+.wb-gps-btn:hover{background:var(--wb-surface-hover,var(--ux-surface-2));box-shadow:0 0 0 1.5px var(--wb-border-hover,var(--ux-line-2)),0 6px 14px -8px var(--ux-shadow)}
 .wb-gps-btn:active{transform:scale(.96)}
-.wb-gps-btn[aria-pressed="true"]{background:var(--ux-ink);color:var(--ux-page);box-shadow:0 8px 18px -10px var(--ux-shadow-strong)}
-.wb-gps-btn:focus-visible{outline:2px solid var(--ux-accent);outline-offset:2px}
-.wb-prov-pill{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 11px;border-radius:999px;background:var(--ux-surface-2);color:var(--ux-ink-2);font-size:11.5px;font-weight:680;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:inset 0 0 0 1px var(--ux-line)}
-.wb-prov-dot{width:6.5px;height:6.5px;border-radius:50%;background:var(--ux-mint);flex:none}
-.wb-prov-dot.is-demo{background:var(--ux-accent)}
-.wb-icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:0;border-radius:12px;background:var(--ux-surface);color:var(--ux-ink);box-shadow:0 0 0 1px var(--ux-line),0 4px 12px -8px var(--ux-shadow);transition:transform .3s var(--ux-spring),box-shadow .25s,color .25s}
-.wb-icon-btn:hover{box-shadow:0 0 0 1.5px var(--ux-line-2),0 6px 14px -8px var(--ux-shadow)}
+.wb-gps-btn[aria-pressed="true"]{background:var(--wb-pill-active,var(--ux-ink));color:var(--wb-pill-active-ink,var(--ux-page));box-shadow:0 8px 18px -10px var(--ux-shadow-strong)}
+.wb-gps-btn:focus-visible{outline:2px solid var(--wb-accent,var(--ux-accent));outline-offset:2px}
+.wb-prov-pill{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 11px;border-radius:999px;background:var(--wb-pill-idle,var(--ux-surface-2));color:var(--wb-ink-2,var(--ux-ink-2));font-size:11.5px;font-weight:680;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:inset 0 0 0 1px var(--wb-hairline,var(--ux-line));transition:background-color .25s,color .25s}
+.wb-prov-dot{width:6.5px;height:6.5px;border-radius:50%;background:var(--wb-safe,var(--ux-mint));flex:none}
+.wb-prov-dot.is-demo{background:var(--wb-accent,var(--ux-accent))}
+.wb-icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:0;border-radius:12px;background:var(--wb-surface,var(--ux-surface));color:var(--wb-ink,var(--ux-ink));box-shadow:0 0 0 1px var(--wb-border,var(--ux-line)),0 4px 12px -8px var(--ux-shadow);transition:transform .3s var(--ux-spring),background-color .25s,box-shadow .25s,color .25s}
+.wb-icon-btn:hover{background:var(--wb-surface-hover,var(--ux-surface-2));box-shadow:0 0 0 1.5px var(--wb-border-hover,var(--ux-line-2)),0 6px 14px -8px var(--ux-shadow)}
 .wb-icon-btn:active{transform:scale(.94)}
-.wb-icon-btn:focus-visible{outline:2px solid var(--ux-accent);outline-offset:2px}
-.wb-icon-btn.is-busy{color:var(--ux-accent)}
+.wb-icon-btn:focus-visible{outline:2px solid var(--wb-accent,var(--ux-accent));outline-offset:2px}
+.wb-icon-btn.is-busy{color:var(--wb-accent,var(--ux-accent))}
 @keyframes wb-spin{to{transform:rotate(360deg)}}
 .wb-icon-btn.is-busy svg{animation:wb-spin .9s linear infinite}
 @media (max-width:440px){
@@ -78,8 +79,8 @@ const TOP_BAR_WEB_CSS = `
 `;
 
 const GENDER_OPTIONS: ReadonlyArray<LucianPillOption<Gender>> = [
-  { id: 'male', label: '👦 Nam', ariaLabel: 'Nhân vật Nam' },
-  { id: 'female', label: '👧 Nữ', ariaLabel: 'Nhân vật Nữ' },
+  { id: 'male', label: 'Nam', icon: 'gender-male', ariaLabel: 'Nhân vật Nam' },
+  { id: 'female', label: 'Nữ', icon: 'gender-female', ariaLabel: 'Nhân vật Nữ' },
 ];
 
 export const TopControlBar: React.FC<TopControlBarProps> = ({
@@ -93,6 +94,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
   isLiveMode,
   isLoadingLive,
   gpsLoading,
+  gpsSource = null,
   onSelectPresetCity,
   onRequestGps,
   onRefreshLive,
@@ -129,25 +131,25 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
         id: 'stage',
         label: 'Thời tiết',
         compactLabel: 'Thời tiết',
-        featherIcon: palette.isDark ? 'moon' : 'sun',
+        icon: palette.isDark ? 'moon-stars' : 'cloud-sun',
       },
       {
         id: 'dashboard',
         label: 'Dashboard Web',
         compactLabel: 'Dashboard',
-        featherIcon: 'bar-chart-2',
+        icon: 'chart-bar',
       },
       {
         id: 'hub',
         label: 'Tiện ích & Cài đặt',
         compactLabel: 'Tiện ích',
-        featherIcon: 'grid',
+        icon: 'squares-four',
       },
       {
         id: 'widgets',
         label: 'Widget Màn hình khóa',
         compactLabel: 'Widget',
-        featherIcon: 'smartphone',
+        icon: 'device-mobile',
       },
     ],
     [palette.isDark]
@@ -157,17 +159,20 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
     () => [
       {
         id: 'auto',
-        label: isVeryNarrow ? 'Tự động' : '🌤️ Tự động',
+        label: 'Tự động',
+        icon: isVeryNarrow ? undefined : 'cloud-sun',
         ariaLabel: 'Giao diện tự động theo bầu trời',
       },
       {
         id: 'light',
-        label: '☀️ Sáng',
+        label: 'Sáng',
+        icon: 'sun-dim',
         ariaLabel: 'Giao diện Sáng',
       },
       {
         id: 'dark',
-        label: '🌙 Tối',
+        label: 'Tối',
+        icon: 'moon-stars',
         ariaLabel: 'Giao diện Tối',
       },
     ],
@@ -177,8 +182,30 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
   const gpsText = gpsLoading
     ? 'Đang định vị...'
     : isVeryNarrow
-      ? '📍 Vị trí'
-      : '📍 Vị trí hiện tại';
+      ? 'Vị trí'
+      : 'Vị trí hiện tại';
+
+  const safeLiveDotColor = palette.isDark ? '#58C49E' : '#168560';
+
+  const webControlVars = useMemo(() => {
+    if (Platform.OS !== 'web') {
+      return undefined;
+    }
+    return {
+      ['--wb-surface' as string]: palette.coreElevatedBg,
+      ['--wb-surface-hover' as string]: palette.pillIdleBg,
+      ['--wb-pill-idle' as string]: palette.pillIdleBg,
+      ['--wb-pill-active' as string]: palette.pillActiveBg,
+      ['--wb-pill-active-ink' as string]: palette.pillActiveInk,
+      ['--wb-ink' as string]: palette.inkPrimary,
+      ['--wb-ink-2' as string]: palette.inkSecondary,
+      ['--wb-border' as string]: palette.bezelOuterBorder,
+      ['--wb-border-hover' as string]: palette.bezelOuterBorder,
+      ['--wb-hairline' as string]: palette.hairline,
+      ['--wb-accent' as string]: palette.accent,
+      ['--wb-safe' as string]: safeLiveDotColor,
+    } as React.CSSProperties;
+  }, [palette, safeLiveDotColor]);
 
   return (
     <View
@@ -189,6 +216,14 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
           backgroundColor: palette.coreSurfaceBg,
           borderColor: palette.bezelOuterBorder,
         },
+        Platform.OS === 'web'
+          ? ({
+              boxShadow: palette.isDark
+                ? '0 14px 34px -20px rgba(4, 8, 16, 0.58)'
+                : '0 14px 34px -22px rgba(20, 29, 43, 0.16)',
+              transition: 'background-color 0.25s ease, border-color 0.25s ease',
+            } as any)
+          : null,
       ]}
     >
       {/* Row 1: City Listbox (#031) + 1-Tap GPS + Provider 15p + Gender (#039) + Theme (#039) + Actions */}
@@ -214,6 +249,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
               onSelectCity={onSelectPresetCity}
               onRequestGps={onRequestGps}
               gpsLoading={gpsLoading}
+              gpsSource={gpsSource}
               palette={palette}
             />
           </View>
@@ -221,7 +257,10 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
           {isMobileStack && (
             <View style={styles.mobileQuickActions}>
               {Platform.OS === 'web' ? (
-                <div className="ux" style={{ display: 'inline-flex', gap: 6 }}>
+                <div
+                  className="ux"
+                  style={{ ...webControlVars, display: 'inline-flex', gap: 6 }}
+                >
                   <button
                     type="button"
                     className={`wb-icon-btn${isLoadingLive ? ' is-busy' : ''}`}
@@ -229,7 +268,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                     title="Làm mới thời tiết"
                     onClick={onRefreshLive}
                   >
-                    <Feather name="refresh-cw" size={15} color="currentColor" />
+                    <ArrowsClockwise size={16} weight="bold" color="currentColor" />
                   </button>
                   <button
                     type="button"
@@ -238,7 +277,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                     title="Cài đặt nguồn thời tiết & độ nhạy nhiệt"
                     onClick={onOpenSettings}
                   >
-                    <Feather name="settings" size={15} color="currentColor" />
+                    <GearSix size={16} weight="duotone" color="currentColor" />
                   </button>
                 </div>
               ) : (
@@ -256,9 +295,9 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                       },
                     ]}
                   >
-                    <Feather
-                      name="refresh-cw"
-                      size={15}
+                    <ArrowsClockwise
+                      size={16}
+                      weight="bold"
                       color={isLoadingLive ? palette.accent : palette.inkPrimary}
                     />
                   </Pressable>
@@ -275,7 +314,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                       },
                     ]}
                   >
-                    <Feather name="settings" size={15} color={palette.inkPrimary} />
+                    <GearSix size={16} weight="duotone" color={palette.inkPrimary} />
                   </Pressable>
                 </>
               )}
@@ -287,6 +326,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
             <div
               className="ux"
               style={{
+                ...webControlVars,
                 display: 'inline-flex',
                 alignItems: 'center',
                 flexWrap: 'wrap',
@@ -308,9 +348,9 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                     color={isGpsActive ? palette.pillActiveInk : palette.accent}
                   />
                 ) : (
-                  <Feather
-                    name="crosshair"
-                    size={13}
+                  <Crosshair
+                    size={15}
+                    weight="duotone"
                     color="currentColor"
                   />
                 )}
@@ -351,9 +391,9 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                     color={isGpsActive ? palette.pillActiveInk : palette.accent}
                   />
                 ) : (
-                  <Feather
-                    name="crosshair"
-                    size={13}
+                  <Crosshair
+                    size={15}
+                    weight="duotone"
                     color={isGpsActive ? palette.pillActiveInk : palette.accent}
                   />
                 )}
@@ -377,10 +417,20 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                   styles.nativeProvBadge,
                   {
                     backgroundColor: palette.pillIdleBg,
-                    borderColor: palette.bezelOuterBorder,
+                    borderColor: palette.hairline,
                   },
                 ]}
               >
+                <View
+                  style={[
+                    styles.nativeProvDot,
+                    {
+                      backgroundColor: isLiveMode
+                        ? safeLiveDotColor
+                        : palette.accent,
+                    },
+                  ]}
+                />
                 <Text
                   style={[
                     styles.nativeProvText,
@@ -421,7 +471,10 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
 
           {!isMobileStack && (
             Platform.OS === 'web' ? (
-              <div className="ux" style={{ display: 'inline-flex', gap: 8 }}>
+              <div
+                className="ux"
+                style={{ ...webControlVars, display: 'inline-flex', gap: 8 }}
+              >
                 <button
                   type="button"
                   className={`wb-icon-btn${isLoadingLive ? ' is-busy' : ''}`}
@@ -429,7 +482,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                   title="Làm mới thời tiết"
                   onClick={onRefreshLive}
                 >
-                  <Feather name="refresh-cw" size={15} color="currentColor" />
+                  <ArrowsClockwise size={16} weight="bold" color="currentColor" />
                 </button>
                 <button
                   type="button"
@@ -438,7 +491,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                   title="Cài đặt nguồn thời tiết & độ nhạy nhiệt"
                   onClick={onOpenSettings}
                 >
-                  <Feather name="settings" size={16} color="currentColor" />
+                  <GearSix size={17} weight="duotone" color="currentColor" />
                 </button>
               </div>
             ) : (
@@ -456,9 +509,9 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                     },
                   ]}
                 >
-                  <Feather
-                    name="refresh-cw"
-                    size={15}
+                  <ArrowsClockwise
+                    size={16}
+                    weight="bold"
                     color={isLoadingLive ? palette.accent : palette.inkPrimary}
                   />
                 </Pressable>
@@ -475,7 +528,7 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                     },
                   ]}
                 >
-                  <Feather name="settings" size={16} color={palette.inkPrimary} />
+                  <GearSix size={17} weight="duotone" color={palette.inkPrimary} />
                 </Pressable>
               </View>
             )
@@ -604,10 +657,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   nativeProvBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
+  },
+  nativeProvDot: {
+    width: 6.5,
+    height: 6.5,
+    borderRadius: 3.25,
   },
   nativeProvText: {
     fontFamily: FONT_FAMILY_SANS,

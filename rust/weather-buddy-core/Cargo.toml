@@ -1,0 +1,15 @@
+[package]
+name = "weather-buddy-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core meteorological rule engine, character outfit decision tree, and NPC state machine for WeatherBuddy"
+
+[dependencies]
+serde.workspace = true
+chrono.workspace = true
+rand.workspace = true
+regex.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

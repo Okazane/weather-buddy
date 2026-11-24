@@ -10,7 +10,12 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import {
+  ArrowsClockwise,
+  ChartBar,
+  Compass,
+  Crosshair,
+} from '../components/AppIcons';
 import {
   evaluateCharacterDecision,
   PRESET_CITIES,
@@ -32,6 +37,7 @@ import {
   useResolvedLucianDark,
   type LucianSortableRow,
 } from '../lucian/LucianHubComponents';
+import { TermTooltip } from '../components/TermTooltip';
 import {
   FONT_FAMILY_DISPLAY,
   FONT_FAMILY_SANS,
@@ -39,6 +45,13 @@ import {
   WEB_NO_OUTLINE,
   type AtmosphericPalette,
 } from '../components/themeTokens';
+
+function localizeDisplayTermVi(raw: string): string {
+  return sanitizeCopy(raw)
+    .replace(/&\s*UV cao/gi, '· Tia cực tím cao')
+    .replace(/\bUV cao\b/gi, 'Tia cực tím cao')
+    .replace(/\bAQI cao\b/gi, 'Ô nhiễm bụi mịn cao');
+}
 
 interface WebDashboardScreenProps {
   palette: AtmosphericPalette;
@@ -116,16 +129,18 @@ function formatHourShort(iso: string | null | undefined, index: number): string 
   if (!iso) {
     return `+${index + 1}h`;
   }
-  const hasExplicitTz = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso.trim());
-  if (!hasExplicitTz) {
-    const match = iso.match(/T(\d{2}):(\d{2})/);
-    if (match) {
-      return `${match[1]}:00`;
-    }
+  const trimmed = iso.trim();
+  const explicitMatch = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?([+-]\d{2}:?\d{2})?$/
+  );
+  if (explicitMatch) {
+    return `${explicitMatch[4]}:00 (${explicitMatch[3]}/${explicitMatch[2]})`;
   }
-  const parsed = new Date(iso);
+  const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
-    return `${String(parsed.getHours()).padStart(2, '0')}:00`;
+    const dd = String(parsed.getDate()).padStart(2, '0');
+    const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+    return `${String(parsed.getHours()).padStart(2, '0')}:00 (${dd}/${mm})`;
   }
   return `+${index + 1}h`;
 }
@@ -135,10 +150,12 @@ function formatTimeClock(iso: string): string {
   if (Number.isNaN(parsed.getTime())) {
     return '--:--:--';
   }
+  const dd = String(parsed.getDate()).padStart(2, '0');
+  const mo = String(parsed.getMonth() + 1).padStart(2, '0');
   const hh = String(parsed.getHours()).padStart(2, '0');
   const mm = String(parsed.getMinutes()).padStart(2, '0');
   const ss = String(parsed.getSeconds()).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
+  return `${hh}:${mm}:${ss} · ${dd}/${mo}`;
 }
 
 function computeClientAnalytics24h(weather: WeatherSnapshot): Analytics24hPayload {
@@ -251,6 +268,53 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
     ? overview.analytics24h
     : clientAnalytics;
 
+  const range3h = useMemo(() => {
+    const pts3 = (weather.hourly ?? []).slice(0, 3);
+    const temps3 = [
+      weather.temperatureC,
+      ...pts3.map((h) => h.temperatureC),
+    ];
+    const min3 = Math.round(Math.min(...temps3));
+    const max3 = Math.round(Math.max(...temps3));
+    const avg3 = Number(
+      (temps3.reduce((acc, t) => acc + t, 0) / temps3.length).toFixed(1)
+    );
+    return { min3, max3, avg3 };
+  }, [weather.temperatureC, weather.hourly]);
+
+  const aqiStatusLabelVi = useMemo(() => {
+    if (typeof weather.aqi !== 'number') {
+      return 'Độ sạch không khí (Bụi mịn): Trong lành';
+    }
+    const aqiVal = Math.round(weather.aqi);
+    if (aqiVal >= 130) {
+      return `Độ sạch không khí (Bụi mịn): Bụi mịn cao (${aqiVal})`;
+    }
+    if (aqiVal >= 101) {
+      return `Độ sạch không khí (Bụi mịn): Kém cho người nhạy cảm (${aqiVal})`;
+    }
+    if (aqiVal >= 51) {
+      return `Độ sạch không khí (Bụi mịn): Trung bình (${aqiVal})`;
+    }
+    return `Độ sạch không khí (Bụi mịn): Trong lành (${aqiVal})`;
+  }, [weather.aqi]);
+
+  const uvStatusLabelVi = useMemo(() => {
+    if (!weather.isDay) {
+      return 'Bức xạ tia cực tím: Ban đêm (0)';
+    }
+    if (weather.uvIndex >= 8) {
+      return `Bức xạ tia cực tím: Rất gắt (${weather.uvIndex})`;
+    }
+    if (weather.uvIndex >= 6) {
+      return `Bức xạ tia cực tím: Cao (${weather.uvIndex})`;
+    }
+    if (weather.uvIndex >= 3) {
+      return `Bức xạ tia cực tím: Trung bình (${weather.uvIndex})`;
+    }
+    return `Bức xạ tia cực tím: Thấp (${weather.uvIndex})`;
+  }, [weather.isDay, weather.uvIndex]);
+
   const chartSeries: HourlyForecastPoint[] = useMemo(() => {
     const raw =
       analytics.hourlySeries && analytics.hourlySeries.length > 0
@@ -352,21 +416,29 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
   const activeHourPoint: HourlyForecastPoint | null =
     chartSeries[selectedHourIdx] ?? chartSeries[0] ?? null;
 
+  const safeColor = isDark ? '#58C49E' : '#168560';
+  const safeSoftBg = isDark
+    ? 'rgba(88, 196, 158, 0.15)'
+    : 'rgba(22, 133, 96, 0.11)';
+  const cautionColor = isDark ? '#E8A849' : '#B86818';
+  const hazardColor = isDark ? '#E5737D' : '#C4384B';
+
   const citySortableRows: ReadonlyArray<LucianSortableRow> = useMemo(
     () =>
       cityRows.map(({ city, snapshot, decision: cityDec }, idx) => {
         const tempRounded = snapshot ? Math.round(snapshot.temperatureC) : -99;
         const rainPct = snapshot ? Math.round(snapshot.precipProbPct) : 0;
         const humPct = snapshot ? Math.round(snapshot.humidityPct) : 0;
+        const precipMm = snapshot ? snapshot.precipMmPerHr : 0;
         const statusColor = !snapshot
-          ? '#94A3B8'
-          : rainPct >= 50
-            ? '#38BDF8'
-            : tempRounded >= 33
-              ? '#F97316'
+          ? palette.inkSecondary
+          : precipMm >= 4.5 || tempRounded >= 37 || (snapshot.aqi ?? 0) >= 150
+            ? hazardColor
+            : rainPct >= 50 || tempRounded >= 33 || (snapshot.aqi ?? 0) >= 101
+              ? cautionColor
               : tempRounded < 18
-                ? '#60A5FA'
-                : '#10B981';
+                ? palette.accent
+                : safeColor;
 
         return {
           id: city.id,
@@ -378,89 +450,141 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
           metricNumeric: snapshot ? snapshot.temperatureC : -99,
           sortTimeOrOrder: idx + 1,
           statusText: cityDec
-            ? sanitizeCopy(cityDec.headlineVi)
+            ? localizeDisplayTermVi(cityDec.headlineVi)
             : 'Đang đồng bộ',
           statusColor,
           isSelected: selectedCityId === city.id,
         };
       }),
-    [cityRows, selectedCityId]
+    [
+      cityRows,
+      selectedCityId,
+      palette.inkSecondary,
+      palette.accent,
+      safeColor,
+      cautionColor,
+      hazardColor,
+    ]
   );
 
   const backendSortableRows: ReadonlyArray<LucianSortableRow> = useMemo(() => {
+    const formatProviderUsedVi = (raw: string | undefined): string => {
+      switch (raw) {
+        case 'open_meteo':
+          return 'Open-Meteo (Đa nguồn)';
+        case 'weatherapi':
+          return 'WeatherAPI.com';
+        case 'tomorrow_io':
+          return 'Tomorrow.io';
+        case 'google':
+          return 'Google Weather';
+        case 'demo':
+          return 'Kịch bản mẫu';
+        default:
+          return sanitizeCopy(raw) || 'Trực tiếp';
+      }
+    };
+
     const logs = overview?.recentTelemetry ?? [];
     if (backendOnline && logs.length > 0) {
       return logs.slice(0, 6).map((entry, idx) => ({
         id: entry.id || `log_${idx}`,
         primaryText: `${entry.locationName} (${Math.round(entry.temperatureC)}°C)`,
-        secondaryText: `${formatTimeClock(entry.timestampIso)} · ${entry.providerUsed}`,
+        secondaryText: `${formatTimeClock(entry.timestampIso)} · ${formatProviderUsedVi(
+          entry.providerUsed
+        )}`,
         metricDisplay: entry.cacheHit ? '0 ms' : `${entry.latencyMs} ms`,
         metricNumeric: entry.cacheHit ? 0 : entry.latencyMs,
         sortTimeOrOrder: Date.parse(entry.timestampIso) || idx,
-        statusText: entry.cacheHit ? 'CACHE HIT 15p' : 'UPSTREAM LIVE',
-        statusColor: entry.cacheHit ? '#10B981' : '#38BDF8',
+        statusText: entry.cacheHit ? 'Bộ đệm 15p' : 'Mới tải',
+        statusColor: entry.cacheHit ? safeColor : palette.accent,
       }));
     }
 
+    const providerLabel = formatProviderUsedVi(weather.provider);
+
     return [
       {
-        id: 'sec_zero_keys',
-        primaryText: 'Zero Hardcoded Keys',
-        secondaryText: 'Khóa API cá nhân mặc định trống 100%',
-        metricDisplay: '0 Key',
-        metricNumeric: 1,
+        id: 'sys_weather_source',
+        primaryText: 'Chỉ số khí tượng thời gian thực',
+        secondaryText: `${weather.locationName} · ${aqiStatusLabelVi} · ${uvStatusLabelVi}`,
+        metricDisplay: providerLabel,
+        metricNumeric: 15,
         sortTimeOrOrder: 1,
-        statusText: securityStatus?.keyRedaction !== false ? 'SHA-256 Redact' : 'Bảo vệ',
-        statusColor: '#10B981',
+        statusText: 'Đang đồng bộ',
+        statusColor: safeColor,
       },
       {
-        id: 'sec_csrf',
-        primaryText: 'CSRF & Origin Guard',
-        secondaryText: 'X-WeatherBuddy-Client + Loopback Check',
-        metricDisplay: backendOnline ? '200 OK' : 'Client',
-        metricNumeric: 2,
-        sortTimeOrOrder: 2,
-        statusText: securityStatus?.csrfProtected ? 'Đang bật :8787' : 'Sẵn sàng',
-        statusColor: '#10B981',
-      },
-      {
-        id: 'sec_ratelimit',
-        primaryText: 'Rate Limit & Body Cap',
-        secondaryText: 'Giới hạn 16KB POST & chống spam IP',
-        metricDisplay: '16 KB',
-        metricNumeric: 16,
-        sortTimeOrOrder: 3,
-        statusText: securityStatus?.rateLimitActive ? 'Đang bảo vệ' : 'Tiêu chuẩn',
-        statusColor: '#0EA5E9',
-      },
-      {
-        id: 'sec_cache',
-        primaryText: 'Bộ đệm Khí tượng 15 phút',
+        id: 'sys_cache_15m',
+        primaryText: 'Bộ đệm dự báo 15 phút',
         secondaryText: backendOnline
-          ? `${overview?.serverHealth?.totalRequests ?? 0} yêu cầu · Uptime ${
+          ? `${overview?.serverHealth?.totalRequests ?? 0} lượt truy vấn · Hoạt động ${
               overview?.serverHealth?.uptimeSec ?? 0
             }s`
-          : 'Đồng bộ trực tiếp Open-Meteo Free',
+          : 'Lưu đệm nhanh trên trình duyệt',
         metricDisplay: backendOnline
           ? `${overview?.serverHealth?.cacheHitRatePct ?? 0}%`
           : '15 phút',
         metricNumeric: overview?.serverHealth?.cacheHitRatePct ?? 15,
-        sortTimeOrOrder: 4,
-        statusText: backendOnline ? 'Backend :8787' : 'Trình duyệt',
-        statusColor: backendOnline ? '#10B981' : '#38BDF8',
+        sortTimeOrOrder: 2,
+        statusText: backendOnline ? 'Máy chủ :8787' : 'Trình duyệt',
+        statusColor: backendOnline ? safeColor : palette.accent,
       },
       {
-        id: 'sec_headers',
-        primaryText: 'CSP & Nosniff Headers',
-        secondaryText: "object-src 'none' · frame-ancestors 'none'",
-        metricDisplay: 'A+ Sec',
-        metricNumeric: 99,
+        id: 'sys_hourly_series',
+        primaryText: 'Chuỗi dự báo & Biên nhiệt 3h',
+        secondaryText: `Biên nhiệt 3h: ${range3h.min3}°–${range3h.max3}°C · Cả ngày ${analytics.tempMinC}°–${analytics.tempMaxC}°C · Mưa đỉnh ${analytics.maxPrecipProbPct}%`,
+        metricDisplay: `${chartSeries.length} giờ`,
+        metricNumeric: chartSeries.length,
+        sortTimeOrOrder: 3,
+        statusText: analytics.comfortIndexVi,
+        statusColor:
+          analytics.comfortIndexVi === 'Oi nóng'
+            ? cautionColor
+            : analytics.comfortIndexVi === 'Dễ chịu'
+              ? safeColor
+              : palette.accent,
+      },
+      {
+        id: 'sys_rust_suite',
+        primaryText: 'Hạ tầng Rust Native',
+        secondaryText: 'Máy chủ Axum :8787 · Tauri v2 Widget · Công cụ đóng gói',
+        metricDisplay: backendOnline ? ':8787' : 'Tauri v2',
+        metricNumeric: 8787,
+        sortTimeOrOrder: 4,
+        statusText: backendOnline ? 'Đang chạy' : 'Sẵn sàng',
+        statusColor: safeColor,
+      },
+      {
+        id: 'sys_privacy_local',
+        primaryText: 'Bảo vệ kết nối cục bộ',
+        secondaryText: 'Tự động ẩn danh khóa cá nhân & kiểm soát truy vấn',
+        metricDisplay: backendOnline ? '200 OK' : 'Cục bộ',
+        metricNumeric: 1,
         sortTimeOrOrder: 5,
-        statusText: securityStatus?.headersHardened !== false ? 'Đã khóa cứng' : 'Chuẩn',
-        statusColor: '#10B981',
+        statusText: securityStatus?.csrfProtected ? 'Đang bật' : 'Tiêu chuẩn',
+        statusColor: safeColor,
       },
     ];
-  }, [backendOnline, overview, securityStatus]);
+  }, [
+    analytics.comfortIndexVi,
+    analytics.maxPrecipProbPct,
+    analytics.tempMaxC,
+    analytics.tempMinC,
+    aqiStatusLabelVi,
+    backendOnline,
+    cautionColor,
+    chartSeries.length,
+    overview,
+    palette.accent,
+    range3h.max3,
+    range3h.min3,
+    safeColor,
+    securityStatus,
+    uvStatusLabelVi,
+    weather.locationName,
+    weather.provider,
+  ]);
 
   return (
     <View style={styles.dashboardStack}>
@@ -489,7 +613,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
                     styles.backendStatusPill,
                     {
                       backgroundColor: backendOnline
-                        ? 'rgba(16, 185, 129, 0.16)'
+                        ? safeSoftBg
                         : palette.accentSoftBg,
                     },
                   ]}
@@ -499,7 +623,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
                       styles.statusDot,
                       {
                         backgroundColor: backendOnline
-                          ? '#10B981'
+                          ? safeColor
                           : palette.accent,
                       },
                     ]}
@@ -508,13 +632,13 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
                     style={[
                       styles.backendStatusText,
                       {
-                        color: backendOnline ? '#10B981' : palette.accent,
+                        color: backendOnline ? safeColor : palette.accent,
                       },
                     ]}
                   >
                     {backendOnline
-                      ? 'Backend API Online · Port 8787'
-                      : 'Chế độ Trực tiếp Trình duyệt'}
+                      ? 'Máy chủ :8787 trực tuyến'
+                      : 'Trực tiếp trên trình duyệt'}
                   </Text>
                 </View>
 
@@ -527,30 +651,15 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
                     },
                   ]}
                 >
-                  <Feather name="compass" size={11} color={palette.inkSecondary} />
+                  <Compass
+                    size={12}
+                    color={palette.inkSecondary}
+                    weight="duotone"
+                  />
                   <Text
                     style={[styles.coordPillText, { color: palette.inkSecondary }]}
                   >
                     {weather.latitude.toFixed(4)}, {weather.longitude.toFixed(4)}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.coordPill,
-                    {
-                      backgroundColor: palette.pillIdleBg,
-                      borderColor: palette.bezelOuterBorder,
-                    },
-                  ]}
-                >
-                  <Feather name="shield" size={11} color={palette.accent} />
-                  <Text
-                    style={[styles.coordPillText, { color: palette.inkPrimary }]}
-                  >
-                    {backendOnline && securityStatus?.csrfProtected
-                      ? 'CSRF · Rate Limit · SHA-256 Redaction'
-                      : 'Bảo mật: 0 lưu khóa API trên Server'}
                   </Text>
                 </View>
               </View>
@@ -560,10 +669,10 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
               </Text>
               <Text style={[styles.dashboardSub, { color: palette.inkSecondary }]}>
                 {backendOnline
-                  ? `Máy chủ bộ đệm 15 phút đang hoạt động · Tỷ lệ Cache Hit ${
+                  ? `Bộ đệm dự báo 15 phút đang chạy · Tỷ lệ dùng đệm ${
                       overview?.serverHealth?.cacheHitRatePct ?? 0
                     }% (${overview?.serverHealth?.totalRequests ?? 0} yêu cầu)`
-                  : 'Phân tích trực tiếp 24 giờ trên trình duyệt · Tự động kết nối cổng 8787 khi chạy máy chủ'}
+                  : 'Tổng hợp dự báo 24 giờ trên trình duyệt · Tự động kết nối cổng 8787 khi bật máy chủ'}
               </Text>
             </View>
 
@@ -587,10 +696,10 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
               {loadingOverview || loadingCities ? (
                 <ActivityIndicator size="small" color={palette.pillActiveInk} />
               ) : (
-                <Feather
-                  name="refresh-cw"
+                <ArrowsClockwise
                   size={13}
                   color={palette.pillActiveInk}
+                  weight="bold"
                 />
               )}
               <Text
@@ -604,95 +713,133 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
             </Pressable>
           </View>
 
-          {/* 4 KPI Summary Bento Cards */}
+          {/* 4 KPI Summary Cards */}
           <View style={styles.kpiRow}>
-            <View
-              style={[
-                styles.kpiCard,
-                {
-                  backgroundColor: palette.coreSurfaceBg,
-                  borderColor: palette.hairline,
-                },
-              ]}
+            <TermTooltip
+              palette={palette}
+              align="left"
+              containerStyle={styles.kpiTooltipWrap}
+              termTitleVi="Biên độ nhiệt 3 giờ tới"
+              explanationVi={`Khoảng dao động nhiệt độ thấp nhất – cao nhất trong 3 tiếng sắp tới (${range3h.min3}°–${range3h.max3}°C, trung bình ${range3h.avg3}°C). Biên độ cả ngày 24h là ${analytics.tempMinC}°–${analytics.tempMaxC}°C.`}
             >
-              <Text style={[styles.kpiLabel, { color: palette.inkSecondary }]}>
-                Biên độ 24h
-              </Text>
-              <Text style={[styles.kpiValue, { color: palette.inkPrimary }]}>
-                {analytics.tempMinC}° - {analytics.tempMaxC}°C
-              </Text>
-              <Text style={[styles.kpiSub, { color: palette.inkMuted }]}>
-                Trung bình {analytics.tempAvgC}°C
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.kpiCard,
-                {
-                  backgroundColor: palette.coreSurfaceBg,
-                  borderColor: palette.hairline,
-                },
-              ]}
-            >
-              <Text style={[styles.kpiLabel, { color: palette.inkSecondary }]}>
-                Xác suất mưa đỉnh
-              </Text>
-              <Text style={[styles.kpiValue, { color: palette.inkPrimary }]}>
-                {analytics.maxPrecipProbPct}%
-              </Text>
-              <Text style={[styles.kpiSub, { color: palette.inkMuted }]}>
-                {analytics.peakRainHourIso
-                  ? `Đỉnh lúc ${formatHourShort(analytics.peakRainHourIso, 0)}`
-                  : 'Trời tạnh ráo'}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.kpiCard,
-                {
-                  backgroundColor: palette.coreSurfaceBg,
-                  borderColor: palette.hairline,
-                },
-              ]}
-            >
-              <Text style={[styles.kpiLabel, { color: palette.inkSecondary }]}>
-                Tổng lượng mưa
-              </Text>
-              <Text style={[styles.kpiValue, { color: palette.inkPrimary }]}>
-                {analytics.totalPrecipMm} mm
-              </Text>
-              <Text style={[styles.kpiSub, { color: palette.inkMuted }]}>
-                {analytics.rainHoursCount} khung giờ có mưa
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.kpiCard,
-                {
-                  backgroundColor: palette.coreSurfaceBg,
-                  borderColor: palette.hairline,
-                },
-              ]}
-            >
-              <Text style={[styles.kpiLabel, { color: palette.inkSecondary }]}>
-                Trạng thái gợi ý
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={[styles.kpiValueSmall, { color: palette.accent }]}
+              <View
+                style={[
+                  styles.kpiCard,
+                  {
+                    backgroundColor: palette.coreSurfaceBg,
+                    borderColor: palette.hairline,
+                  },
+                ]}
               >
-                {sanitizeCopy(decision.headlineVi)}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={[styles.kpiSub, { color: palette.inkMuted }]}
+                <Text style={[styles.kpiLabel, { color: palette.inkSecondary }]}>
+                  Biên nhiệt 3 giờ tới
+                </Text>
+                <Text style={[styles.kpiValue, { color: palette.inkPrimary }]}>
+                  {range3h.min3}° - {range3h.max3}°C
+                </Text>
+                <Text style={[styles.kpiSub, { color: palette.inkMuted }]}>
+                  TB 3h: {range3h.avg3}°C · 24h: {analytics.tempMinC}°-{analytics.tempMaxC}°C
+                </Text>
+              </View>
+            </TermTooltip>
+
+            <TermTooltip
+              palette={palette}
+              align="left"
+              containerStyle={styles.kpiTooltipWrap}
+              termTitleVi="Xác suất mưa đỉnh theo giờ"
+              explanationVi="Phần trăm (%) khả năng xuất hiện mưa cao nhất trên chuỗi dự báo theo giờ sắp tới, kèm mốc giờ dự kiến mưa đạt đỉnh để bạn chủ động mang ô hoặc áo mưa."
+            >
+              <View
+                style={[
+                  styles.kpiCard,
+                  {
+                    backgroundColor: palette.coreSurfaceBg,
+                    borderColor: palette.hairline,
+                  },
+                ]}
               >
-                {sanitizeCopy(decision.outfitAdviceVi)}
-              </Text>
-            </View>
+                <Text style={[styles.kpiLabel, { color: palette.inkSecondary }]}>
+                  Xác suất mưa đỉnh
+                </Text>
+                <Text style={[styles.kpiValue, { color: palette.inkPrimary }]}>
+                  {analytics.maxPrecipProbPct}%
+                </Text>
+                <Text style={[styles.kpiSub, { color: palette.inkMuted }]}>
+                  {analytics.peakRainHourIso
+                    ? `Đỉnh lúc ${formatHourShort(analytics.peakRainHourIso, 0)}`
+                    : 'Trời tạnh ráo'}
+                </Text>
+              </View>
+            </TermTooltip>
+
+            <TermTooltip
+              palette={palette}
+              align="right"
+              containerStyle={styles.kpiTooltipWrap}
+              termTitleVi="Độ sạch không khí (Bụi mịn) & Bức xạ tia cực tím"
+              explanationVi={`${aqiStatusLabelVi}. ${uvStatusLabelVi}. Tổng lượng mưa tích lũy dự kiến: ${analytics.totalPrecipMm} mm (${analytics.rainHoursCount} khung giờ có mưa).`}
+            >
+              <View
+                style={[
+                  styles.kpiCard,
+                  {
+                    backgroundColor: palette.coreSurfaceBg,
+                    borderColor: palette.hairline,
+                  },
+                ]}
+              >
+                <Text style={[styles.kpiLabel, { color: palette.inkSecondary }]}>
+                  Độ sạch không khí & Bức xạ cực tím
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.kpiValueSmall, { color: palette.inkPrimary }]}
+                >
+                  {typeof weather.aqi === 'number'
+                    ? `Bụi mịn ${Math.round(weather.aqi)}`
+                    : 'Không khí sạch'}{' '}
+                  · {weather.isDay ? `Tia cực tím ${weather.uvIndex}` : 'Ban đêm'}
+                </Text>
+                <Text style={[styles.kpiSub, { color: palette.inkMuted }]}>
+                  Tổng mưa: {analytics.totalPrecipMm} mm ({analytics.rainHoursCount}h mưa)
+                </Text>
+              </View>
+            </TermTooltip>
+
+            <TermTooltip
+              palette={palette}
+              align="right"
+              containerStyle={styles.kpiTooltipWrap}
+              termTitleVi="Chỉ số khí tượng thời gian thực & Lời khuyên"
+              explanationVi={`Tổng hợp từ nhiệt độ cảm nhận thực tế (${Math.round(weather.feelsLikeC)}°C), độ ẩm (${Math.round(weather.humidityPct)}%), sức gió (${Math.round(weather.windSpeedKmh)} km/giờ) và độ sạch không khí để đưa ra lời khuyên trang phục phù hợp nhất.`}
+            >
+              <View
+                style={[
+                  styles.kpiCard,
+                  {
+                    backgroundColor: palette.coreSurfaceBg,
+                    borderColor: palette.hairline,
+                  },
+                ]}
+              >
+                <Text style={[styles.kpiLabel, { color: palette.inkSecondary }]}>
+                  Chỉ số khí tượng thời gian thực
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.kpiValueSmall, { color: palette.accent }]}
+                >
+                  {localizeDisplayTermVi(decision.headlineVi)}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.kpiSub, { color: palette.inkMuted }]}
+                >
+                  {localizeDisplayTermVi(decision.outfitAdviceVi)}
+                </Text>
+              </View>
+            </TermTooltip>
           </View>
         </View>
       </View>
@@ -716,7 +863,7 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
         >
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionTitleCluster}>
-              <Feather name="bar-chart-2" size={15} color={palette.accent} />
+              <ChartBar size={16} color={palette.accent} weight="duotone" />
               <Text style={[styles.sectionTitle, { color: palette.inkPrimary }]}>
                 Phân tích Biến thiên Nhiệt độ, Mưa & Cảm giác theo giờ
               </Text>
@@ -764,8 +911,11 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
             col1Label="Nhiệt độ"
             col2Label="Trạng thái"
             rows={citySortableRows}
+            actionButtonIcon={
+              <Crosshair size={13} weight="duotone" color="currentColor" />
+            }
             actionButtonLabel={
-              gpsLoading ? 'Đang định vị...' : '📍 GPS của tôi'
+              gpsLoading ? 'Đang định vị...' : 'GPS của tôi'
             }
             onPressActionButton={onRequestGps}
             onSelectRow={onSelectPresetCity}
@@ -777,13 +927,13 @@ export const WebDashboardScreen: React.FC<WebDashboardScreenProps> = ({
           <LucianLiveSortableTable
             title={
               backendOnline && (overview?.recentTelemetry?.length ?? 0) > 0
-                ? 'Nhật ký Đồng bộ Backend :8787'
-                : 'Hạ tầng Bảo mật & Bộ đệm :8787'
+                ? 'Nhật ký Đồng bộ Máy chủ :8787'
+                : 'Thông số Đồng bộ & Hạ tầng'
             }
             col0Label={
               backendOnline && (overview?.recentTelemetry?.length ?? 0) > 0
                 ? 'Điểm đo & Nguồn'
-                : 'Lớp bảo vệ'
+                : 'Hạng mục'
             }
             col1Label={
               backendOnline && (overview?.recentTelemetry?.length ?? 0) > 0
@@ -809,18 +959,21 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 18,
     paddingBottom: 36,
+    overflow: 'visible',
   },
   outerBezel: {
     padding: 5,
     borderRadius: 28,
     borderWidth: 1,
     minWidth: 0,
+    overflow: 'visible',
   },
   innerCore: {
     borderRadius: 23,
     padding: 20,
     gap: 16,
     minWidth: 0,
+    overflow: 'visible',
   },
   innerCoreCompact: {
     padding: 14,
@@ -832,17 +985,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: 12,
+    overflow: 'visible',
   },
   headerTitleCol: {
     flex: 1,
     minWidth: 210,
     gap: 6,
+    overflow: 'visible',
   },
   statusPillRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
+    overflow: 'visible',
   },
   backendStatusPill: {
     flexDirection: 'row',
@@ -905,9 +1061,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    overflow: 'visible',
+  },
+  kpiTooltipWrap: {
+    flex: 1,
+    minWidth: 145,
   },
   kpiCard: {
     flex: 1,
+    width: '100%',
     minWidth: 145,
     borderRadius: 18,
     borderWidth: 1,

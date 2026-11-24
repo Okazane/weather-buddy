@@ -24,8 +24,14 @@
       <div id="city-strip" class="city-strip"></div>
 
       <div class="top-actions">
-        <button type="button" id="btn-refresh-weather" class="action-btn">🔄 Làm mới thời tiết</button>
-        <button type="button" data-action-launch-widget="true" class="action-btn primary">🚀 Mở Widget lên Màn hình Windows</button>
+        <button type="button" id="btn-refresh-weather" class="action-btn" data-label="Làm mới thời tiết">
+          <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><circle cx="128" cy="128" r="88" opacity="0.18"/><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></svg>
+          <span>Làm mới thời tiết</span>
+        </button>
+        <button type="button" data-action-launch-widget="true" class="action-btn primary">
+          <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><rect x="32" y="48" width="192" height="144" rx="16" transform="translate(256 240) rotate(180)" opacity="0.2"/><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24h72v16H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V200h72a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40ZM48,56H208a8,8,0,0,1,8,8v80H40V64A8,8,0,0,1,48,56ZM208,184H48a8,8,0,0,1-8-8V160H216v16A8,8,0,0,1,208,184Z"/></svg>
+          <span>Mở Widget lên Màn hình Windows</span>
+        </button>
       </div>
     </nav>
 
@@ -37,10 +43,15 @@
       <article class="bezel-card">
         <div class="bezel-inner">
           <div class="stage-top-row">
-            <span id="weather-badge-pill" class="weather-badge-pill">🌤️ Nắng đẹp</span>
+            <span id="weather-badge-pill" class="weather-badge-pill">
+              <svg class="ph-icon" width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><circle cx="128" cy="128" r="60" opacity="0.2"/><path d="M120,40V32a8,8,0,0,1,16,0v8a8,8,0,0,1-16,0Zm8,24a64,64,0,1,0,64,64A64.07,64.07,0,0,0,128,64Zm0,112a48,48,0,1,1,48-48A48.05,48.05,0,0,1,128,176ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-8-8A8,8,0,0,0,50.34,61.66Zm0,116.68-8,8a8,8,0,0,0,11.32,11.32l8-8a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l8-8a8,8,0,0,0-11.32-11.32l-8,8A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l8,8a8,8,0,0,0,11.32-11.32ZM40,120H32a8,8,0,0,0,0,16h8a8,8,0,0,0,0-16Zm88,88a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-8A8,8,0,0,0,128,208Zm96-88h-8a8,8,0,0,0,0,16h8a8,8,0,0,0,0-16Z"/></svg>
+              <span>Nắng đẹp</span>
+            </span>
             <div class="npc-status-cluster">
-              <span id="npc-mode-pill" class="npc-mode-pill">📖 NPC · Đọc sách</span>
-              <button type="button" id="btn-shuffle-npc" class="npc-shuffle-btn" title="Đổi hành động NPC">🎲</button>
+              <span id="npc-mode-pill" class="npc-mode-pill hidden"></span>
+              <button type="button" id="btn-shuffle-npc" class="npc-shuffle-btn" title="Đổi hoạt động nhân vật">
+                <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M237.66,178.34l-32-32A8,8,0,0,0,192,152v24h-4.74a56,56,0,0,1-45.89-23.88L95.54,86.65A72,72,0,0,0,36.53,56H32a8,8,0,0,0,0,16h4.53a56,56,0,0,1,45.89,23.88l45.83,65.47A72,72,0,0,0,187.26,192H192v24a8,8,0,0,0,13.66,5.66l32-32A8,8,0,0,0,237.66,178.34ZM149.1,107a8,8,0,0,0,11.16-1.86l1.2-1.71A56,56,0,0,1,207.35,80H208v24a8,8,0,0,0,13.66-5.66l32-32a8,8,0,0,0,0-11.32l-32-32A8,8,0,0,0,192,28.69V56h-.65a72,72,0,0,0-59,30.65l-1.2,1.72A8,8,0,0,0,149.1,107Zm-42.2,42a8,8,0,0,0-11.16,1.86l-1.2,1.71A56,56,0,0,1,48.65,176H32a8,8,0,0,0,0,16H48.65a72,72,0,0,0,59-30.65l1.2-1.72A8,8,0,0,0,106.9,149Z"/></svg>
+              </button>
             </div>
           </div>
 
@@ -49,9 +60,12 @@
             class="character-stage-viewport"
             role="button"
             tabindex="0"
+            aria-label="Nhân vật thời tiết"
           >
             <div class="character-aura"></div>
-            <span id="ambient-micro-accent" class="ambient-micro-accent">📖</span>
+            <span id="ambient-micro-accent" class="ambient-micro-accent">
+              <svg class="ph-icon" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,88a32,32,0,0,1,32-32h64a8,8,0,0,1,8,8V192a8,8,0,0,1-8,8H160a32,32,0,0,0-32,32Z" opacity="0.2"/><path d="M224,48H160a40,40,0,0,0-32,16A40,40,0,0,0,96,48H32A16,16,0,0,0,16,64V192a16,16,0,0,0,16,16H96a24,24,0,0,1,24,24,8,8,0,0,0,16,0,24,24,0,0,1,24-24h64a16,16,0,0,0,16-16V64A16,16,0,0,0,224,48ZM96,192H32V64H96a24,24,0,0,1,24,24V200A39.81,39.81,0,0,0,96,192Zm128,0H160a39.81,39.81,0,0,0-24,8V88a24,24,0,0,1,24-24h64Z"/></svg>
+            </span>
             <div id="character-rig-pivot" class="character-rig-pivot" data-motion="reading_book">
               <img
                 id="character-sprite-img"
@@ -61,39 +75,43 @@
               />
             </div>
             <div class="character-ground-shadow"></div>
-            <div id="tap-hint-pill" class="tap-hint-pill">
-              Xem trước trực tiếp · Chạm vào Chibi để đứng dậy (8.5s)
-            </div>
+            <div id="tap-hint-pill" class="tap-hint-pill hidden"></div>
           </div>
 
-          <div id="npc-action-strip" class="npc-action-strip"></div>
+          <div id="npc-action-strip" class="npc-action-strip hidden"></div>
           <div id="foresight-alerts" class="foresight-alerts"></div>
 
           <div class="stage-bottom-summary">
             <div>
               <div class="temp-display-cluster">
-                <span id="hero-temp" class="hero-temp tabular">26°</span>
+                <span id="hero-temp" class="hero-temp tabular" title="Nhiệt độ không khí thực tế hiện tại">26°</span>
               </div>
-              <div id="feels-like-tag" class="feels-like-tag tabular">Cảm giác 27°C · Hà Nội</div>
+              <div id="feels-like-tag" class="feels-like-tag tabular" title="Nhiệt độ cảm nhận tính cả độ ẩm và sức gió; biên nhiệt 3h là khoảng thấp nhất – cao nhất trong 3 tiếng tới">Cảm nhận 27°C · Biên nhiệt 3h: 25°–27°C</div>
             </div>
             <div class="decision-copy-cluster">
-              <div id="decision-headline" class="decision-headline">Trời nắng dịu</div>
-              <div id="decision-outfit" class="decision-outfit">Mặc trang phục gọn nhẹ thoải mái</div>
+              <div id="decision-headline" class="decision-headline" title="Tóm tắt chỉ số khí tượng thời gian thực">Trời nắng dịu</div>
+              <div id="decision-outfit" class="decision-outfit" title="Gợi ý trang phục và bảo vệ sức khỏe theo chỉ số khí tượng thời gian thực">Mặc trang phục gọn nhẹ thoải mái</div>
             </div>
           </div>
 
           <!-- Platform Installation Guide Cards -->
           <div class="install-grid" style="margin-top:8px;">
             <div class="install-card">
-              <div class="install-card-title">🌐 1. Extension Tab Mới &amp; Popup</div>
+              <div class="install-card-title">
+                <svg class="ph-icon" width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><circle cx="128" cy="128" r="96" opacity="0.2"/><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.62,87.62,0,0,1-6.4,32.94l-44.7-27.49a15.92,15.92,0,0,0-6.24-2.23l-22.82-3.08a16.11,16.11,0,0,0-16,7.86h-8.72l-3.8-7.86a15.91,15.91,0,0,0-11-8.67l-8-1.73L96.14,104h16.71a16.06,16.06,0,0,0,7.73-2l12.25-6.76a16.62,16.62,0,0,0,3-2.14l26.91-24.34A15.93,15.93,0,0,0,166,49.1l-.36-.65A88.11,88.11,0,0,1,216,128ZM40,128a87.53,87.53,0,0,1,8.54-37.8l11.34,30.27a16,16,0,0,0,11.62,10l21.43,4.61L96.74,143a16.09,16.09,0,0,0,14.4,9h1.48l-7.23,16.23a16,16,0,0,0,2.86,17.37l.14.14L128,205.94l-1.94,10A88.11,88.11,0,0,1,40,128Z"/></svg>
+                <span>1. Extension Tab Mới &amp; Popup</span>
+              </div>
               <div class="install-card-desc">
                 Tự động hiển thị Chibi NPC trên Tab mới và cập nhật nhiệt độ <code>27°</code> trên thanh công cụ mỗi 15 phút.
               </div>
             </div>
             <div class="install-card">
-              <div class="install-card-title">🖥️ 2. Widget Màn hình Windows</div>
+              <div class="install-card-title">
+                <svg class="ph-icon" width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><rect x="32" y="48" width="192" height="144" rx="16" transform="translate(256 240) rotate(180)" opacity="0.2"/><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24h72v16H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V200h72a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40ZM48,56H208a8,8,0,0,1,8,8v80H40V64A8,8,0,0,1,48,56ZM208,184H48a8,8,0,0,1-8-8V160H216v16A8,8,0,0,1,208,184Z"/></svg>
+                <span>2. Widget Màn hình Windows</span>
+              </div>
               <div class="install-card-desc">
-                Neo Chibi nổi ở 4 góc màn hình Desktop (`Launch-Desktop-Widget.ps1` hoặc nút Mở Widget ở góc phải trên).
+                Neo Chibi nổi ở 4 góc màn hình Desktop (<code>Launch-Desktop-Widget.ps1</code> hoặc nút Mở Widget ở góc phải trên).
               </div>
             </div>
           </div>
@@ -104,7 +122,10 @@
       <aside id="control-drawer" class="control-drawer open">
         <div class="drawer-header">
           <div>
-            <div class="drawer-title">🎛️ Bảng Tùy chỉnh Chức năng &amp; Cài đặt</div>
+            <div class="drawer-title">
+              <svg class="ph-icon" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><circle cx="104" cy="80" r="24" opacity="0.2"/><circle cx="168" cy="176" r="24" opacity="0.2"/><path d="M40,88H73a32,32,0,0,0,62,0h81a8,8,0,0,0,0-16H135a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16Zm64-24A16,16,0,1,1,88,80,16,16,0,0,1,104,64ZM216,168H199a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16h97a32,32,0,0,0,62,0h17a8,8,0,0,0,0-16Zm-48,24a16,16,0,1,1,16-16A16,16,0,0,1,168,192Z"/></svg>
+              <span>Bảng Tùy chỉnh Chức năng &amp; Cài đặt</span>
+            </div>
             <div class="drawer-sub">Mọi thay đổi được áp dụng tức thì cho cả Tab mới, Popup và Desktop Widget</div>
           </div>
         </div>
@@ -143,7 +164,7 @@
             <label class="toggle-row">
               <div>
                 <div class="toggle-label-title">Hiện đồng hồ lớn HH:MM &amp; Ngày tháng</div>
-                <div class="toggle-label-desc">Đồng hồ số tabular sắc nét trên Tab mới</div>
+                <div class="toggle-label-desc">Hiển thị giờ và ngày tháng rõ nét trên Tab mới</div>
               </div>
               <input type="checkbox" id="chk-show-clock" class="switch-input" checked />
             </label>
@@ -163,8 +184,8 @@
             </label>
             <label class="toggle-row">
               <div>
-                <div class="toggle-label-title">Hiện lưới 6 chỉ số khí tượng chi tiết</div>
-                <div class="toggle-label-desc">Lượng mưa, Sức gió, Độ ẩm, UV, AQI, Cơ địa</div>
+                <div class="toggle-label-title">Hiện lưới 6 chỉ số khí tượng thời gian thực</div>
+                <div class="toggle-label-desc">Lượng mưa, Sức gió, Độ ẩm, Tia cực tím, Bụi mịn, Biên nhiệt 3h</div>
               </div>
               <input type="checkbox" id="chk-show-telemetry" class="switch-input" checked />
             </label>
@@ -218,15 +239,16 @@
               <input type="checkbox" id="chk-always-on-top" class="switch-input" checked />
             </label>
             <button type="button" data-action-launch-widget="true" class="action-btn primary">
-              🚀 Mở ngay Widget lên Màn hình Windows
+              <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><rect x="32" y="48" width="192" height="144" rx="16" transform="translate(256 240) rotate(180)" opacity="0.2"/><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24h72v16H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V200h72a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40ZM48,56H208a8,8,0,0,1,8,8v80H40V64A8,8,0,0,1,48,56ZM208,184H48a8,8,0,0,1-8-8V160H216v16A8,8,0,0,1,208,184Z"/></svg>
+              <span>Mở ngay Widget lên Màn hình Windows</span>
             </button>
           </section>
 
-          <!-- 4. Blank User-Supplied API Keys -->
+          <!-- 4. User-Supplied API Keys -->
           <section class="settings-card">
-            <div class="settings-card-title"><span>4. API Key cá nhân (Mặc định để trống 100%)</span></div>
+            <div class="settings-card-title"><span>4. Khóa API cá nhân (Tùy chọn)</span></div>
             <div class="toggle-label-desc">
-              Không có bất kỳ API Key nào được gắn cứng. Khi để trống, ứng dụng tự động dùng <strong>Open-Meteo Free</strong> hoàn toàn miễn phí.
+              Khi để trống, ứng dụng tự động lấy dữ liệu từ <strong>Open-Meteo</strong> miễn phí. Khóa riêng (nếu nhập) chỉ lưu cục bộ trên trình duyệt.
             </div>
             <div class="field-group">
               <label class="field-label" for="sel-provider">Nguồn dữ liệu thời tiết</label>
@@ -242,30 +264,45 @@
             <div class="field-group">
               <label class="field-label" for="inp-google-key">Google Weather API Key</label>
               <div style="display:flex;gap:6px;">
-                <input type="password" id="inp-google-key" class="field-input" style="flex:1;" placeholder="Để trống = dùng Open-Meteo Free" autocomplete="off" value="" />
-                <button type="button" class="action-btn" data-toggle-secret="inp-google-key">👁️ Hiện</button>
+                <input type="password" id="inp-google-key" class="field-input" style="flex:1;" placeholder="Để trống để dùng Open-Meteo" autocomplete="off" value="" />
+                <button type="button" class="action-btn" data-toggle-secret="inp-google-key">
+                  <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,56C48,56,16,128,16,128s32,72,112,72,112-72,112-72S208,56,128,56Zm0,112a40,40,0,1,1,40-40A40,40,0,0,1,128,168Z" opacity="0.2"/><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>
+                  <span>Hiện</span>
+                </button>
               </div>
             </div>
 
             <div class="field-group">
               <label class="field-label" for="inp-tomorrow-key">Tomorrow.io API Key</label>
               <div style="display:flex;gap:6px;">
-                <input type="password" id="inp-tomorrow-key" class="field-input" style="flex:1;" placeholder="Để trống = dùng Open-Meteo Free" autocomplete="off" value="" />
-                <button type="button" class="action-btn" data-toggle-secret="inp-tomorrow-key">👁️ Hiện</button>
+                <input type="password" id="inp-tomorrow-key" class="field-input" style="flex:1;" placeholder="Để trống để dùng Open-Meteo" autocomplete="off" value="" />
+                <button type="button" class="action-btn" data-toggle-secret="inp-tomorrow-key">
+                  <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,56C48,56,16,128,16,128s32,72,112,72,112-72,112-72S208,56,128,56Zm0,112a40,40,0,1,1,40-40A40,40,0,0,1,128,168Z" opacity="0.2"/><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>
+                  <span>Hiện</span>
+                </button>
               </div>
             </div>
 
             <div class="field-group">
               <label class="field-label" for="inp-weatherapi-key">WeatherAPI.com Key</label>
               <div style="display:flex;gap:6px;">
-                <input type="password" id="inp-weatherapi-key" class="field-input" style="flex:1;" placeholder="Để trống = dùng Open-Meteo Free" autocomplete="off" value="" />
-                <button type="button" class="action-btn" data-toggle-secret="inp-weatherapi-key">👁️ Hiện</button>
+                <input type="password" id="inp-weatherapi-key" class="field-input" style="flex:1;" placeholder="Để trống để dùng Open-Meteo" autocomplete="off" value="" />
+                <button type="button" class="action-btn" data-toggle-secret="inp-weatherapi-key">
+                  <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,56C48,56,16,128,16,128s32,72,112,72,112-72,112-72S208,56,128,56Zm0,112a40,40,0,1,1,40-40A40,40,0,0,1,128,168Z" opacity="0.2"/><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>
+                  <span>Hiện</span>
+                </button>
               </div>
             </div>
 
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="button" id="btn-save-api-keys" class="action-btn primary">💾 Lưu API Key</button>
-              <button type="button" id="btn-clear-api-keys" class="action-btn">🗑️ Xóa trắng Key</button>
+              <button type="button" id="btn-save-api-keys" class="action-btn primary">
+                <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><circle cx="128" cy="128" r="96" opacity="0.2"/><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+                <span>Lưu API Key</span>
+              </button>
+              <button type="button" id="btn-clear-api-keys" class="action-btn">
+                <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M200,56V208a8,8,0,0,1-8,8H64a8,8,0,0,1-8-8V56Z" opacity="0.2"/><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg>
+                <span>Xóa trắng Key</span>
+              </button>
             </div>
           </section>
 
@@ -273,8 +310,14 @@
           <section class="settings-card">
             <div class="settings-card-title"><span>5. Sao lưu &amp; Khôi phục cấu hình (.json)</span></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="button" id="btn-export-config" class="action-btn">📋 Xuất cấu hình .json</button>
-              <button type="button" id="btn-import-config" class="action-btn">📂 Nhập cấu hình .json</button>
+              <button type="button" id="btn-export-config" class="action-btn">
+                <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,88H152V32Z" opacity="0.2"/><path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z"/></svg>
+                <span>Xuất cấu hình .json</span>
+              </button>
+              <button type="button" id="btn-import-config" class="action-btn">
+                <svg class="ph-icon" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><rect x="32" y="48" width="192" height="160" rx="16" opacity="0.2"/><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM40,56H92.69l16,16H40ZM216,200H40V88H216Z"/></svg>
+                <span>Nhập cấu hình .json</span>
+              </button>
               <input type="file" id="inp-import-file" accept="application/json" class="hidden" />
             </div>
           </section>

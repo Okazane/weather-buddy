@@ -14,83 +14,83 @@ const LUCIAN_TOKENS_STYLE_ID = 'lucian-uxui-tokens';
  * WeatherBuddy's Plus Jakarta Sans geometric Vietnamese font stack.
  */
 export const LUCIAN_TOKENS_CSS = `/* Lucian UX/UI Prompt theme tokens · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/
-   Every element reads its colors from these --ux-* tokens and uses the .ux base rules below. */
+   Calibrated with pbakaus/impeccable OKLCH perceptual color system & strict WCAG AA+ contrast. */
 :root,
 :root[data-theme="light"]{
   color-scheme:light;
-  --ux-page:#F4F2EE;
-  --ux-surface:#FFFFFF;
-  --ux-surface-2:#F3F5F8;
-  --ux-surface-3:#E6EBF1;
-  --ux-ink:#16151B;
-  --ux-ink-2:#4B5262;
-  --ux-ink-3:#7C8596;
-  --ux-line:rgba(22,21,27,.09);
-  --ux-line-2:rgba(22,21,27,.17);
-  --ux-accent:var(--wb-accent,#185ADB);
-  --ux-accent-2:#2F8FE0;
-  --ux-accent-soft:var(--wb-accent-soft,rgba(24,90,219,.12));
-  --ux-accent-ink:var(--wb-accent-ink,#FFFFFF);
-  --ux-mint:#119C72;
-  --ux-warn:#D6731E;
-  --ux-danger:#D93A55;
-  --ux-glass:rgba(255,255,255,.68);
-  --ux-glass-line:rgba(255,255,255,.86);
-  --ux-shadow:rgba(20,32,56,.11);
-  --ux-shadow-strong:rgba(20,32,56,.24);
-  --ux-grad:linear-gradient(120deg,#185ADB,#2F8FE0 55%,#1FB89A);
+  --ux-page:var(--wb-page,#F7F5F0);
+  --ux-surface:var(--wb-surface,#FCFBF8);
+  --ux-surface-2:var(--wb-surface-2,#F3EFE8);
+  --ux-surface-3:var(--wb-surface-3,#ECE8DF);
+  --ux-ink:var(--wb-ink,#141D2B);
+  --ux-ink-2:var(--wb-ink-2,#36455C);
+  --ux-ink-3:var(--wb-ink-3,#53647D);
+  --ux-line:var(--wb-line,rgba(20,29,43,.09));
+  --ux-line-2:var(--wb-line-2,rgba(20,29,43,.17));
+  --ux-accent:var(--wb-accent,#1E6BB8);
+  --ux-accent-2:#2A7AC9;
+  --ux-accent-soft:var(--wb-accent-soft,rgba(30,107,184,.11));
+  --ux-accent-ink:var(--wb-accent-ink,#FCFBF8);
+  --ux-mint:#13845E;
+  --ux-warn:#B86B1D;
+  --ux-danger:#C4384B;
+  --ux-glass:rgba(252,251,248,.76);
+  --ux-glass-line:rgba(252,251,248,.90);
+  --ux-shadow:rgba(20,29,43,.10);
+  --ux-shadow-strong:rgba(20,29,43,.22);
+  --ux-grad:linear-gradient(120deg,#1E6BB8,#2A7AC9 55%,#13845E);
   --ux-ease:cubic-bezier(.2,.8,.2,1);
   --ux-spring:cubic-bezier(.34,1.45,.64,1);
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     color-scheme:dark;
-    --ux-page:#07080D;
-    --ux-surface:#131824;
-    --ux-surface-2:#1B2232;
-    --ux-surface-3:#252F44;
-    --ux-ink:#F4F6FA;
-    --ux-ink-2:rgba(244,246,250,.72);
-    --ux-ink-3:rgba(244,246,250,.46);
-    --ux-line:rgba(255,255,255,.09);
-    --ux-line-2:rgba(255,255,255,.17);
-    --ux-accent:var(--wb-accent,#63ADFF);
-    --ux-accent-2:#7DB4FF;
-    --ux-accent-soft:var(--wb-accent-soft,rgba(99,173,255,.16));
-    --ux-accent-ink:var(--wb-accent-ink,#0B1220);
-    --ux-mint:#7EE8C0;
-    --ux-warn:#FFB26B;
-    --ux-danger:#FF7D8C;
-    --ux-glass:rgba(19,24,36,.72);
-    --ux-glass-line:rgba(255,255,255,.18);
-    --ux-shadow:rgba(0,0,0,.42);
-    --ux-shadow-strong:rgba(0,0,0,.68);
-    --ux-grad:linear-gradient(120deg,#63ADFF,#38BDF8 55%,#7EE8C0);
+    --ux-page:var(--wb-page,#0B1220);
+    --ux-surface:var(--wb-surface,#152033);
+    --ux-surface-2:var(--wb-surface-2,#1C2A42);
+    --ux-surface-3:var(--wb-surface-3,#22324D);
+    --ux-ink:var(--wb-ink,#EEF3FA);
+    --ux-ink-2:var(--wb-ink-2,#B2C1D6);
+    --ux-ink-3:var(--wb-ink-3,#7E91AC);
+    --ux-line:var(--wb-line,rgba(203,221,245,.08));
+    --ux-line-2:var(--wb-line-2,rgba(203,221,245,.15));
+    --ux-accent:var(--wb-accent,#6BA9E8);
+    --ux-accent-2:#7EB6EE;
+    --ux-accent-soft:var(--wb-accent-soft,rgba(107,169,232,.14));
+    --ux-accent-ink:var(--wb-accent-ink,#0D1524);
+    --ux-mint:#38B889;
+    --ux-warn:#E5A23C;
+    --ux-danger:#E26D7A;
+    --ux-glass:rgba(21,32,51,.76);
+    --ux-glass-line:rgba(203,221,245,.16);
+    --ux-shadow:rgba(5,10,20,.44);
+    --ux-shadow-strong:rgba(5,10,20,.68);
+    --ux-grad:linear-gradient(120deg,#6BA9E8,#5899DA 55%,#38B889);
   }
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --ux-page:#07080D;
-  --ux-surface:#131824;
-  --ux-surface-2:#1B2232;
-  --ux-surface-3:#252F44;
-  --ux-ink:#F4F6FA;
-  --ux-ink-2:rgba(244,246,250,.72);
-  --ux-ink-3:rgba(244,246,250,.46);
-  --ux-line:rgba(255,255,255,.09);
-  --ux-line-2:rgba(255,255,255,.17);
-  --ux-accent:var(--wb-accent,#63ADFF);
-  --ux-accent-2:#7DB4FF;
-  --ux-accent-soft:var(--wb-accent-soft,rgba(99,173,255,.16));
-  --ux-accent-ink:var(--wb-accent-ink,#0B1220);
-  --ux-mint:#7EE8C0;
-  --ux-warn:#FFB26B;
-  --ux-danger:#FF7D8C;
-  --ux-glass:rgba(19,24,36,.72);
-  --ux-glass-line:rgba(255,255,255,.18);
-  --ux-shadow:rgba(0,0,0,.42);
-  --ux-shadow-strong:rgba(0,0,0,.68);
-  --ux-grad:linear-gradient(120deg,#63ADFF,#38BDF8 55%,#7EE8C0);
+  --ux-page:var(--wb-page,#0B1220);
+  --ux-surface:var(--wb-surface,#152033);
+  --ux-surface-2:var(--wb-surface-2,#1C2A42);
+  --ux-surface-3:var(--wb-surface-3,#22324D);
+  --ux-ink:var(--wb-ink,#EEF3FA);
+  --ux-ink-2:var(--wb-ink-2,#B2C1D6);
+  --ux-ink-3:var(--wb-ink-3,#7E91AC);
+  --ux-line:var(--wb-line,rgba(203,221,245,.08));
+  --ux-line-2:var(--wb-line-2,rgba(203,221,245,.15));
+  --ux-accent:var(--wb-accent,#6BA9E8);
+  --ux-accent-2:#7EB6EE;
+  --ux-accent-soft:var(--wb-accent-soft,rgba(107,169,232,.14));
+  --ux-accent-ink:var(--wb-accent-ink,#0D1524);
+  --ux-mint:#38B889;
+  --ux-warn:#E5A23C;
+  --ux-danger:#E26D7A;
+  --ux-glass:rgba(21,32,51,.76);
+  --ux-glass-line:rgba(203,221,245,.16);
+  --ux-shadow:rgba(5,10,20,.44);
+  --ux-shadow-strong:rgba(5,10,20,.68);
+  --ux-grad:linear-gradient(120deg,#6BA9E8,#5899DA 55%,#38B889);
 }
 
 .ux,.ux *,.ux *::before,.ux *::after{box-sizing:border-box}
@@ -118,7 +118,11 @@ export function ensureLucianTokensInjected(): void {
   if (Platform.OS !== 'web' || typeof document === 'undefined') {
     return;
   }
-  if (document.getElementById(LUCIAN_TOKENS_STYLE_ID)) {
+  const existing = document.getElementById(LUCIAN_TOKENS_STYLE_ID);
+  if (existing) {
+    if (existing.textContent !== LUCIAN_TOKENS_CSS) {
+      existing.textContent = LUCIAN_TOKENS_CSS;
+    }
     return;
   }
   const styleEl = document.createElement('style');
@@ -132,7 +136,11 @@ export function injectLucianElementCss(styleId: string, cssText: string): void {
     return;
   }
   ensureLucianTokensInjected();
-  if (document.getElementById(styleId)) {
+  const existing = document.getElementById(styleId);
+  if (existing) {
+    if (existing.textContent !== cssText) {
+      existing.textContent = cssText;
+    }
     return;
   }
   const styleEl = document.createElement('style');
@@ -167,6 +175,15 @@ export function syncLucianDocumentTheme(
   root.style.colorScheme = resolvedTheme;
 
   if (palette) {
+    root.style.setProperty('--wb-page', palette.skyStops[2]);
+    root.style.setProperty('--wb-surface', palette.coreSurfaceBg);
+    root.style.setProperty('--wb-surface-2', palette.coreElevatedBg);
+    root.style.setProperty('--wb-surface-3', palette.pillIdleBg);
+    root.style.setProperty('--wb-ink', palette.inkPrimary);
+    root.style.setProperty('--wb-ink-2', palette.inkSecondary);
+    root.style.setProperty('--wb-ink-3', palette.inkMuted);
+    root.style.setProperty('--wb-line', palette.hairline);
+    root.style.setProperty('--wb-line-2', palette.bezelOuterBorder);
     root.style.setProperty('--wb-accent', palette.accent);
     root.style.setProperty('--wb-accent-soft', palette.accentSoftBg);
     root.style.setProperty('--wb-accent-ink', palette.accentContrastInk);

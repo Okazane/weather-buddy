@@ -57,8 +57,9 @@ if (-not (Test-Path -LiteralPath $widgetHtmlPath)) {
   throw "Không tìm thấy widget.html tại: $widgetHtmlPath"
 }
 
-$resolvedPath = (Resolve-Path -LiteralPath $widgetHtmlPath).Path -replace '\\', '/'
-$targetUri = "file:///$resolvedPath?mode=widget&corner=$Corner&size=$Size&gender=$Gender"
+$resolvedFilePath = (Resolve-Path -LiteralPath $widgetHtmlPath).Path
+$fileUri = ([System.Uri]::new($resolvedFilePath)).AbsoluteUri
+$targetUri = "${fileUri}?mode=widget&corner=$Corner&size=$Size&gender=$Gender"
 
 # Locate Microsoft Edge, Google Chrome, Brave, or CocCoc
 $browserCandidates = @(

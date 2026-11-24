@@ -1,4 +1,6 @@
 import type { HourlyForecastPoint, WeatherSnapshot } from './types';
+import { inferAstronomicalDaytime } from './solarTime';
+import { pm25ToUsAqi } from './weatherApiClient';
 
 const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const OPEN_METEO_AIR_QUALITY_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality';
@@ -34,7 +36,8 @@ interface OpenMeteoForecastResponse {
 
 interface OpenMeteoAirQualityResponse {
   current?: {
-    us_aqi?: number;
+    us_aqi?: number | null;
+    pm2_5?: number | null;
   };
 }
 
@@ -170,14 +173,29 @@ export async function fetchOpenMeteoAqi(
     const aqiParams = new URLSearchParams({
       latitude: String(lat),
       longitude: String(lon),
-      current: 'us_aqi',
+      current: 'us_aqi,pm2_5',
     });
     const res = await fetchImpl(`${OPEN_METEO_AIR_QUALITY_URL}?${aqiParams.toString()}`);
     if (!res.ok) return undefined;
     const data = (await res.json()) as OpenMeteoAirQualityResponse;
     const rawAqi = data?.current?.us_aqi;
-    if (typeof rawAqi === 'number' && Number.isFinite(rawAqi)) {
-      return Math.max(0, Math.round(rawAqi));
+    const rawPm25 = data?.current?.pm2_5;
+    const validRawAqi =
+      typeof rawAqi === 'number' && Number.isFinite(rawAqi) ? rawAqi : undefined;
+    const pm25Aqi =
+      typeof rawPm25 === 'number' && Number.isFinite(rawPm25)
+        ? pm25ToUsAqi(rawPm25)
+        : undefined;
+
+    if (pm25Aqi !== undefined) {
+      if (validRawAqi !== undefined && validRawAqi - pm25Aqi > 22) {
+        return Math.max(0, Math.round(pm25Aqi * 0.8 + validRawAqi * 0.2));
+      }
+      return Math.max(0, Math.max(pm25Aqi, Math.round(validRawAqi ?? pm25Aqi)));
+    }
+
+    if (validRawAqi !== undefined) {
+      return Math.max(0, Math.round(validRawAqi));
     }
     return undefined;
   } catch {
@@ -234,7 +252,11 @@ export async function fetchOpenMeteoWeather(
   const current = data.current ?? {};
   const offsetSuffix = formatOffsetSuffix(data.utc_offset_seconds);
 
-  const isDay = (current.is_day ?? 1) === 1;
+  const updatedAtIso = normalizeOpenMeteoIso(current.time, offsetSuffix);
+  const isDay =
+    typeof current.is_day === 'number'
+      ? current.is_day === 1
+      : inferAstronomicalDaytime(updatedAtIso, lat, lon, data.utc_offset_seconds);
   const temperatureC = round1(current.temperature_2m ?? 25);
   const feelsLikeC = round1(current.apparent_temperature ?? temperatureC);
   const humidityPct = clampPct(current.relative_humidity_2m ?? 70);
@@ -252,8 +274,20 @@ export async function fetchOpenMeteoWeather(
   );
   const precipProbPct = clampPct(current.precipitation_probability ?? 0);
 
-  const { conditionTextVi } = mapWmoWeatherCode(current.weather_code, isDay);
-  const updatedAtIso = normalizeOpenMeteoIso(current.time, offsetSuffix);
+  const wmoCode = current.weather_code;
+  let { conditionTextVi } = mapWmoWeatherCode(wmoCode, isDay);
+  if (precipMmPerHr >= 4.5 && (wmoCode === undefined || wmoCode < 51)) {
+    conditionTextVi = 'Mưa to nặng hạt';
+  } else if (precipMmPerHr >= 0.2 && (wmoCode === undefined || wmoCode < 51)) {
+    conditionTextVi = 'Mưa nhỏ rải rác';
+  } else if (
+    precipMmPerHr === 0 &&
+    precipProbPct < 45 &&
+    wmoCode !== undefined &&
+    ((wmoCode >= 51 && wmoCode <= 61) || wmoCode === 80)
+  ) {
+    conditionTextVi = 'Trời nhiều mây';
+  }
 
   const hourlyTimes = data.hourly?.time ?? [];
   const hourlyTemps = data.hourly?.temperature_2m ?? [];
@@ -265,7 +299,7 @@ export async function fetchOpenMeteoWeather(
   let startIdx = 0;
   if (currentLocalTime && hourlyTimes.length > 0) {
     const foundIdx = hourlyTimes.findIndex((t) => t > currentLocalTime);
-    startIdx = foundIdx >= 0 ? foundIdx : 0;
+    startIdx = foundIdx >= 0 ? foundIdx : Math.max(0, hourlyTimes.length - 1);
   }
 
   const hourly: HourlyForecastPoint[] = [];
@@ -299,6 +333,10 @@ export async function fetchOpenMeteoWeather(
     isDay,
     hourly,
   };
+
+  if (typeof data.utc_offset_seconds === 'number' && Number.isFinite(data.utc_offset_seconds)) {
+    snapshot.utcOffsetSeconds = data.utc_offset_seconds;
+  }
 
   if (typeof aqi === 'number') {
     snapshot.aqi = aqi;

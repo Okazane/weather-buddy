@@ -28,6 +28,8 @@ import {
 const PREFS_STORAGE_KEY = 'weather_buddy_user_prefs_v2';
 const LEGACY_PREFS_STORAGE_KEY = 'weather_buddy_user_prefs_v1';
 
+export type LocationSource = 'gps' | 'ip';
+
 interface PersistedUserPrefs {
   gender: Gender;
   sensitivity: ThermalSensitivity;
@@ -41,6 +43,7 @@ interface PersistedUserPrefs {
     longitude: number;
     locationName: string;
     accuracyMeters?: number | null;
+    locationSource?: LocationSource;
   } | null;
 }
 
@@ -56,8 +59,12 @@ const DEFAULT_PREFS: PersistedUserPrefs = {
 };
 
 let memoryPrefsFallback: PersistedUserPrefs = { ...DEFAULT_PREFS };
+let hasMemorySavedPrefs = false;
 
-function loadPersistedPrefs(): PersistedUserPrefs {
+function loadPersistedPrefs(): {
+  prefs: PersistedUserPrefs;
+  hasSavedPrefs: boolean;
+} {
   try {
     const scope = globalThis as unknown as {
       localStorage?: {
@@ -69,46 +76,76 @@ function loadPersistedPrefs(): PersistedUserPrefs {
     const raw = scope.localStorage?.getItem(PREFS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PersistedUserPrefs>;
+      const rawCoords = parsed.customGpsCoords;
+      const normalizedCoords =
+        rawCoords &&
+        typeof rawCoords.latitude === 'number' &&
+        Number.isFinite(rawCoords.latitude) &&
+        typeof rawCoords.longitude === 'number' &&
+        Number.isFinite(rawCoords.longitude)
+          ? {
+              latitude: rawCoords.latitude,
+              longitude: rawCoords.longitude,
+              locationName:
+                typeof rawCoords.locationName === 'string' &&
+                rawCoords.locationName.trim()
+                  ? rawCoords.locationName.trim()
+                  : 'Vị trí hiện tại',
+              accuracyMeters: rawCoords.accuracyMeters ?? null,
+              locationSource:
+                rawCoords.locationSource === 'ip'
+                  ? ('ip' as const)
+                  : ('gps' as const),
+            }
+          : null;
+
       return {
-        gender: parsed.gender === 'male' ? 'male' : 'female',
-        sensitivity:
-          parsed.sensitivity === 'cold_sensitive' ||
-          parsed.sensitivity === 'heat_sensitive'
-            ? parsed.sensitivity
-            : 'normal',
-        providerPref:
-          parsed.providerPref === 'tomorrow_io' ||
-          parsed.providerPref === 'weatherapi' ||
-          parsed.providerPref === 'google' ||
-          parsed.providerPref === 'open_meteo'
-            ? parsed.providerPref
-            : 'auto',
-        tomorrowIoApiKey:
-          typeof parsed.tomorrowIoApiKey === 'string'
-            ? parsed.tomorrowIoApiKey.trim()
-            : '',
-        weatherApiKey:
-          typeof parsed.weatherApiKey === 'string'
-            ? parsed.weatherApiKey.trim()
-            : '',
-        googleApiKey:
-          typeof parsed.googleApiKey === 'string'
-            ? parsed.googleApiKey.trim()
-            : '',
-        selectedCityId:
-          typeof parsed.selectedCityId === 'string'
-            ? parsed.selectedCityId
-            : 'ha_noi',
-        customGpsCoords: parsed.customGpsCoords ?? null,
+        hasSavedPrefs: true,
+        prefs: {
+          gender: parsed.gender === 'male' ? 'male' : 'female',
+          sensitivity:
+            parsed.sensitivity === 'cold_sensitive' ||
+            parsed.sensitivity === 'heat_sensitive'
+              ? parsed.sensitivity
+              : 'normal',
+          providerPref:
+            parsed.providerPref === 'tomorrow_io' ||
+            parsed.providerPref === 'weatherapi' ||
+            parsed.providerPref === 'google' ||
+            parsed.providerPref === 'open_meteo'
+              ? parsed.providerPref
+              : 'auto',
+          tomorrowIoApiKey:
+            typeof parsed.tomorrowIoApiKey === 'string'
+              ? parsed.tomorrowIoApiKey.trim()
+              : '',
+          weatherApiKey:
+            typeof parsed.weatherApiKey === 'string'
+              ? parsed.weatherApiKey.trim()
+              : '',
+          googleApiKey:
+            typeof parsed.googleApiKey === 'string'
+              ? parsed.googleApiKey.trim()
+              : '',
+          selectedCityId:
+            typeof parsed.selectedCityId === 'string'
+              ? parsed.selectedCityId
+              : 'ha_noi',
+          customGpsCoords: normalizedCoords,
+        },
       };
     }
   } catch {
     // Ignore storage read restrictions
   }
-  return { ...memoryPrefsFallback };
+  return {
+    prefs: { ...memoryPrefsFallback },
+    hasSavedPrefs: hasMemorySavedPrefs,
+  };
 }
 
 function savePersistedPrefs(prefs: PersistedUserPrefs): void {
+  hasMemorySavedPrefs = true;
   memoryPrefsFallback = prefs;
   try {
     const scope = globalThis as unknown as {
@@ -196,16 +233,106 @@ interface ReverseGeocodeResponse {
   locality?: string;
   city?: string;
   principalSubdivision?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
+interface AutoLocateBackendResponse {
+  status?: string;
+  source?: string;
+  latitude?: number;
+  longitude?: number;
+  locationName?: string;
+  city?: string;
+}
+
+interface IpWhoResponse {
+  success?: boolean;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  region?: string;
+}
+
+const ASCII_VI_CITY_MAP: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^ho chi minh(?: city)?$/i, 'TP. Hồ Chí Minh'],
+  [/^tp\.?\s*ho chi minh$/i, 'TP. Hồ Chí Minh'],
+  [/^thanh pho ho chi minh$/i, 'TP. Hồ Chí Minh'],
+  [/^(?:tp\.?\s*)?hồ chí minh$/i, 'TP. Hồ Chí Minh'],
+  [/^saigon$|^sai gon$/i, 'TP. Hồ Chí Minh'],
+  [/^ha noi$|^hanoi$/i, 'Hà Nội'],
+  [/^da nang$|^danang$/i, 'Đà Nẵng'],
+  [/^da lat$|^dalat$/i, 'Đà Lạt'],
+  [/^can tho$|^cantho$/i, 'Cần Thơ'],
+  [/^hai phong$|^haiphong$/i, 'Hải Phòng'],
+  [/^nha trang$/i, 'Nha Trang'],
+  [/^binh duong$/i, 'Bình Dương'],
+  [/^dong nai$/i, 'Đồng Nai'],
+  [/^ba ria\s*-?\s*vung tau$|^vung tau$/i, 'Vũng Tàu'],
+  [/^hue$|^thua thien hue$/i, 'Huế'],
+];
+
 function cleanVietnamesePlaceToken(raw: string | undefined): string {
-  if (!raw) {
+  if (!raw || !raw.trim()) {
     return '';
   }
-  return raw
+  const cleaned = raw
     .trim()
     .replace(/^Thành phố\s+/i, 'TP. ')
-    .replace(/^Tỉnh\s+/i, '');
+    .replace(/^Tỉnh\s+/i, '')
+    .replace(/\s+/g, ' ');
+
+  for (const [pattern, viName] of ASCII_VI_CITY_MAP) {
+    if (pattern.test(cleaned)) {
+      return viName;
+    }
+  }
+  return cleaned;
+}
+
+function findNearestPresetCityName(lat: number, lon: number): string | null {
+  let best: PresetCity | null = null;
+  let bestDistSq = Infinity;
+  for (const city of PRESET_CITIES) {
+    const dLat = lat - city.latitude;
+    const dLon = lon - city.longitude;
+    const distSq = dLat * dLat + dLon * dLon;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      best = city;
+    }
+  }
+  if (best && bestDistSq <= 0.25 * 0.25) {
+    return best.nameVi;
+  }
+  return null;
+}
+
+async function fetchJsonWithAbort<T>(
+  url: string,
+  timeoutMs: number
+): Promise<T | null> {
+  const controller =
+    typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+  try {
+    const res = await fetch(
+      url,
+      controller ? { signal: controller.signal } : undefined
+    );
+    if (!res.ok) {
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 async function resolveVietnamesePlaceName(
@@ -214,53 +341,24 @@ async function resolveVietnamesePlaceName(
 ): Promise<string> {
   // 1. Try local Backend Server proxy (/api/reverse-geocode) first when on Web
   if (Platform.OS === 'web') {
-    const backendCtrl =
-      typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const backendTimer = backendCtrl
-      ? setTimeout(() => backendCtrl.abort(), 2200)
-      : null;
-    try {
-      const base = resolveBackendBaseUrl();
-      const bRes = await fetch(
-        `${base}/api/reverse-geocode?lat=${encodeURIComponent(
-          String(latitude)
-        )}&lon=${encodeURIComponent(String(longitude))}`,
-        backendCtrl ? { signal: backendCtrl.signal } : undefined
-      );
-      if (bRes.ok) {
-        const bData = (await bRes.json()) as ReverseGeocodeResponse;
-        if (bData?.locationName && bData.locationName.trim()) {
-          return bData.locationName.trim();
-        }
-      }
-    } catch {
-      // Fall through to direct BigDataCloud Vietnamese reverse geocode
-    } finally {
-      if (backendTimer) {
-        clearTimeout(backendTimer);
-      }
+    const base = resolveBackendBaseUrl();
+    const bData = await fetchJsonWithAbort<ReverseGeocodeResponse>(
+      `${base}/api/reverse-geocode?lat=${encodeURIComponent(
+        String(latitude)
+      )}&lon=${encodeURIComponent(String(longitude))}`,
+      2200
+    );
+    if (bData?.locationName && bData.locationName.trim()) {
+      return cleanVietnamesePlaceToken(bData.locationName);
     }
   }
 
   // 2. Direct zero-key CORS-friendly Vietnamese reverse geocode
-  const controller =
-    typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = controller
-    ? setTimeout(() => controller.abort(), 3500)
-    : null;
-
-  try {
-    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(
-      String(latitude)
-    )}&longitude=${encodeURIComponent(String(longitude))}&localityLanguage=vi`;
-    const res = await fetch(
-      url,
-      controller ? { signal: controller.signal } : undefined
-    );
-    if (!res.ok) {
-      return 'Vị trí hiện tại';
-    }
-    const data = (await res.json()) as ReverseGeocodeResponse;
+  const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(
+    String(latitude)
+  )}&longitude=${encodeURIComponent(String(longitude))}&localityLanguage=vi`;
+  const data = await fetchJsonWithAbort<ReverseGeocodeResponse>(url, 3500);
+  if (data) {
     const locality = cleanVietnamesePlaceToken(data.locality);
     const city = cleanVietnamesePlaceToken(
       data.city || data.principalSubdivision
@@ -280,14 +378,168 @@ async function resolveVietnamesePlaceName(
     if (locality) {
       return locality;
     }
-  } catch {
-    // Fallback to default label if offline or blocked
-  } finally {
-    if (timer) {
-      clearTimeout(timer);
+  }
+
+  return findNearestPresetCityName(latitude, longitude) ?? 'Vị trí hiện tại';
+}
+
+interface GeolocationPositionLike {
+  coords: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
+}
+
+interface GeolocationErrorLike {
+  code?: number;
+  message?: string;
+}
+
+interface GeolocationApiLike {
+  getCurrentPosition: (
+    success: (pos: GeolocationPositionLike) => void,
+    error: (err: GeolocationErrorLike) => void,
+    options?: {
+      enableHighAccuracy?: boolean;
+      timeout?: number;
+      maximumAge?: number;
+    }
+  ) => void;
+}
+
+function getBrowserPositionPromise(
+  geolocation: GeolocationApiLike,
+  options: { enableHighAccuracy: boolean; timeout: number; maximumAge: number }
+): Promise<GeolocationPositionLike> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const guardTimer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        reject({ code: 3, message: 'Geolocation timeout' });
+      }
+    }, options.timeout + 400);
+
+    try {
+      geolocation.getCurrentPosition(
+        (pos) => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(guardTimer);
+            resolve(pos);
+          }
+        },
+        (err) => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(guardTimer);
+            reject(err ?? { code: 2 });
+          }
+        },
+        options
+      );
+    } catch (err) {
+      if (!settled) {
+        settled = true;
+        clearTimeout(guardTimer);
+        reject(err ?? { code: 2 });
+      }
+    }
+  });
+}
+
+async function fetchNetworkAutoLocationFallback(): Promise<{
+  latitude: number;
+  longitude: number;
+  locationName: string;
+} | null> {
+  // 3a. Local backend /api/auto-locate (cached + multi-provider + Vietnamese reverse geocode)
+  if (Platform.OS === 'web') {
+    const base = resolveBackendBaseUrl();
+    const backendLoc = await fetchJsonWithAbort<AutoLocateBackendResponse>(
+      `${base}/api/auto-locate`,
+      4000
+    );
+    if (
+      backendLoc &&
+      backendLoc.status === 'ok' &&
+      typeof backendLoc.latitude === 'number' &&
+      Number.isFinite(backendLoc.latitude) &&
+      typeof backendLoc.longitude === 'number' &&
+      Number.isFinite(backendLoc.longitude)
+    ) {
+      const lat = Number(backendLoc.latitude.toFixed(5));
+      const lon = Number(backendLoc.longitude.toFixed(5));
+      const locationName =
+        cleanVietnamesePlaceToken(backendLoc.locationName || backendLoc.city) ||
+        findNearestPresetCityName(lat, lon) ||
+        'Vị trí hiện tại';
+      return { latitude: lat, longitude: lon, locationName };
     }
   }
-  return 'Vị trí hiện tại';
+
+  // 3b. Direct client fallback: ipwho.is (?lang=vi)
+  const ipwho = await fetchJsonWithAbort<IpWhoResponse>(
+    'https://ipwho.is/?lang=vi',
+    4000
+  );
+  if (
+    ipwho &&
+    ipwho.success !== false &&
+    typeof ipwho.latitude === 'number' &&
+    Number.isFinite(ipwho.latitude) &&
+    typeof ipwho.longitude === 'number' &&
+    Number.isFinite(ipwho.longitude)
+  ) {
+    const lat = Number(ipwho.latitude.toFixed(5));
+    const lon = Number(ipwho.longitude.toFixed(5));
+    let cityLabel = cleanVietnamesePlaceToken(ipwho.city || ipwho.region);
+    if (!cityLabel || /^[A-Za-z\s.-]+$/.test(cityLabel)) {
+      const bdcEnrich = await fetchJsonWithAbort<ReverseGeocodeResponse>(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(
+          String(lat)
+        )}&longitude=${encodeURIComponent(String(lon))}&localityLanguage=vi`,
+        3200
+      );
+      if (bdcEnrich) {
+        const viCity = cleanVietnamesePlaceToken(
+          bdcEnrich.city || bdcEnrich.principalSubdivision || bdcEnrich.locality
+        );
+        if (viCity) {
+          cityLabel = viCity;
+        }
+      }
+    }
+    const locationName =
+      cityLabel || findNearestPresetCityName(lat, lon) || 'Vị trí hiện tại';
+    return { latitude: lat, longitude: lon, locationName };
+  }
+
+  // 3c. Secondary direct client fallback: BigDataCloud client-IP reverse geocode
+  const bdcIp = await fetchJsonWithAbort<ReverseGeocodeResponse>(
+    'https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=vi',
+    4000
+  );
+  if (
+    bdcIp &&
+    typeof bdcIp.latitude === 'number' &&
+    Number.isFinite(bdcIp.latitude) &&
+    typeof bdcIp.longitude === 'number' &&
+    Number.isFinite(bdcIp.longitude)
+  ) {
+    const lat = Number(bdcIp.latitude.toFixed(5));
+    const lon = Number(bdcIp.longitude.toFixed(5));
+    const locationName =
+      cleanVietnamesePlaceToken(
+        bdcIp.city || bdcIp.principalSubdivision || bdcIp.locality
+      ) ||
+      findNearestPresetCityName(lat, lon) ||
+      'Vị trí hiện tại';
+    return { latitude: lat, longitude: lon, locationName };
+  }
+
+  return null;
 }
 
 // --- Shared Autonomous NPC Idle & Stand-Up-On-Tap Store ---
@@ -450,6 +702,7 @@ export interface UseWeatherBuddyState {
   requestDeviceLocation: () => void;
   gpsLoading: boolean;
   gpsError: string | null;
+  gpsSource: LocationSource | null;
   activeScenarioId: ScenarioSelection;
   setActiveScenarioId: (scenario: ScenarioSelection) => void;
   activeWeather: WeatherSnapshot;
@@ -468,8 +721,44 @@ export interface UseWeatherBuddyState {
   shuffleNpcAction: () => void;
 }
 
+function reanchorPresetToToday(
+  preset: WeatherSnapshot,
+  useCurrentClockHour: boolean
+): WeatherSnapshot {
+  const now = new Date();
+  let anchorMs = now.getTime();
+
+  if (!useCurrentClockHour) {
+    // Keep the preset's intended time of day (morning/noon/evening/night) on TODAY's real calendar date
+    const parsedPreset = new Date(preset.updatedAtIso);
+    const target = new Date(now);
+    if (!Number.isNaN(parsedPreset.getTime())) {
+      target.setHours(parsedPreset.getHours(), 0, 0, 0);
+    } else {
+      target.setHours(preset.isDay ? 10 : 21, 0, 0, 0);
+    }
+    anchorMs = target.getTime();
+  }
+
+  const nextHourFloor = new Date(anchorMs);
+  nextHourFloor.setMinutes(0, 0, 0);
+  const firstSlotMs = nextHourFloor.getTime() + 3600_000;
+  const localHour = new Date(anchorMs).getHours();
+
+  return {
+    ...preset,
+    updatedAtIso: new Date(anchorMs).toISOString(),
+    isDay: useCurrentClockHour ? localHour >= 6 && localHour < 18 : preset.isDay,
+    hourly: (preset.hourly ?? []).map((pt, idx) => ({
+      ...pt,
+      timeIso: new Date(firstSlotMs + idx * 3600_000).toISOString(),
+    })),
+  };
+}
+
 export function useWeatherBuddy(): UseWeatherBuddyState {
-  const initialPrefs = useMemo(() => loadPersistedPrefs(), []);
+  const initialPrefsBundle = useMemo(() => loadPersistedPrefs(), []);
+  const initialPrefs = initialPrefsBundle.prefs;
   const npcStage = useNpcStageController();
 
   const [gender, setGenderState] = useState<Gender>(initialPrefs.gender);
@@ -509,6 +798,8 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
 
   const fetchSeqRef = useRef<number>(0);
   const lastLiveFetchAtRef = useRef<number>(0);
+  const geoSeqRef = useRef<number>(0);
+  const autoDetectedInitialMountRef = useRef<boolean>(false);
 
   // Detect OS / browser reduced-motion preference
   useEffect(() => {
@@ -591,15 +882,33 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
     setLiveError(null);
 
     try {
-      const snapshot = await fetchWeatherWithBackendFallback({
-        latitude: activeCityTarget.latitude,
-        longitude: activeCityTarget.longitude,
-        locationName: activeCityTarget.locationName,
-        provider: providerPref,
-        tomorrowIoApiKey,
-        weatherApiKey,
-        googleApiKey,
-      });
+      let snapshot: WeatherSnapshot;
+      try {
+        snapshot = await fetchWeatherWithBackendFallback({
+          latitude: activeCityTarget.latitude,
+          longitude: activeCityTarget.longitude,
+          locationName: activeCityTarget.locationName,
+          provider: providerPref,
+          tomorrowIoApiKey,
+          weatherApiKey,
+          googleApiKey,
+        });
+      } catch (primaryErr: unknown) {
+        if (providerPref !== 'auto') {
+          // Automatically recover via 'auto' (Tomorrow.io if server key present -> Open-Meteo + METAR)
+          snapshot = await fetchWeatherWithBackendFallback({
+            latitude: activeCityTarget.latitude,
+            longitude: activeCityTarget.longitude,
+            locationName: activeCityTarget.locationName,
+            provider: 'auto',
+            tomorrowIoApiKey,
+            weatherApiKey,
+            googleApiKey,
+          });
+        } else {
+          throw primaryErr;
+        }
+      }
       if (seq === fetchSeqRef.current) {
         lastLiveFetchAtRef.current = Date.now();
         setLiveWeather(snapshot);
@@ -673,82 +982,145 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
   }, [activeScenarioId, refreshLiveWeather]);
 
   const selectPresetCity = useCallback((cityId: string) => {
+    geoSeqRef.current += 1;
+    setGpsLoading(false);
     setGpsError(null);
     setSelectedCityId(cityId);
     setActiveScenarioId('live');
   }, []);
 
   const requestDeviceLocation = useCallback(() => {
+    const reqSeq = ++geoSeqRef.current;
     setGpsError(null);
+    setGpsLoading(true);
+
     const nav = (globalThis as unknown as {
       navigator?: {
-        geolocation?: {
-          getCurrentPosition: (
-            success: (pos: {
-              coords: {
-                latitude: number;
-                longitude: number;
-                accuracy?: number;
-              };
-            }) => void,
-            error: (err: { code?: number; message?: string }) => void,
-            options?: {
-              enableHighAccuracy?: boolean;
-              timeout?: number;
-              maximumAge?: number;
-            }
-          ) => void;
-        };
+        geolocation?: GeolocationApiLike;
       };
     }).navigator;
 
-    if (!nav?.geolocation) {
-      setGpsError('Thiết bị này chưa hỗ trợ định vị GPS.');
-      return;
-    }
+    (async () => {
+      // Tier 1 & Tier 2: Browser Hardware GPS -> OS/Wi-Fi Geolocation
+      if (nav?.geolocation) {
+        let gpsPos: GeolocationPositionLike | null = null;
+        try {
+          gpsPos = await getBrowserPositionPromise(nav.geolocation, {
+            enableHighAccuracy: true,
+            timeout: 4000,
+            maximumAge: 60000,
+          });
+        } catch (tier1Err: unknown) {
+          const code = (tier1Err as GeolocationErrorLike | null)?.code;
+          if (code !== 1) {
+            try {
+              gpsPos = await getBrowserPositionPromise(nav.geolocation, {
+                enableHighAccuracy: false,
+                timeout: 3000,
+                maximumAge: 300000,
+              });
+            } catch {
+              gpsPos = null;
+            }
+          }
+        }
 
-    setGpsLoading(true);
-    nav.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = Number(pos.coords.latitude.toFixed(5));
-        const lon = Number(pos.coords.longitude.toFixed(5));
-        const accuracyMeters =
-          typeof pos.coords.accuracy === 'number' &&
-          Number.isFinite(pos.coords.accuracy)
-            ? Math.max(1, Math.round(pos.coords.accuracy))
-            : null;
+        if (
+          gpsPos &&
+          typeof gpsPos.coords?.latitude === 'number' &&
+          Number.isFinite(gpsPos.coords.latitude) &&
+          typeof gpsPos.coords?.longitude === 'number' &&
+          Number.isFinite(gpsPos.coords.longitude)
+        ) {
+          const lat = Number(gpsPos.coords.latitude.toFixed(5));
+          const lon = Number(gpsPos.coords.longitude.toFixed(5));
+          const accuracyMeters =
+            typeof gpsPos.coords.accuracy === 'number' &&
+            Number.isFinite(gpsPos.coords.accuracy)
+              ? Math.max(1, Math.round(gpsPos.coords.accuracy))
+              : null;
 
-        const resolvedPlaceName = await resolveVietnamesePlaceName(lat, lon);
+          const resolvedPlaceName = await resolveVietnamesePlaceName(lat, lon);
+          if (reqSeq !== geoSeqRef.current) {
+            return;
+          }
+          setCustomGpsCoords({
+            latitude: lat,
+            longitude: lon,
+            locationName: resolvedPlaceName,
+            accuracyMeters,
+            locationSource: 'gps',
+          });
+          setSelectedCityId('gps');
+          setActiveScenarioId('live');
+          setGpsError(null);
+          setGpsLoading(false);
+          return;
+        }
+      }
+
+      // Tier 3: Zero-key Network/IP Geolocation Fallback (/api/auto-locate -> ipwho.is -> BigDataCloud)
+      const ipFallback = await fetchNetworkAutoLocationFallback();
+      if (reqSeq !== geoSeqRef.current) {
+        return;
+      }
+      if (ipFallback) {
         setCustomGpsCoords({
-          latitude: lat,
-          longitude: lon,
-          locationName: resolvedPlaceName,
-          accuracyMeters,
+          latitude: ipFallback.latitude,
+          longitude: ipFallback.longitude,
+          locationName: ipFallback.locationName,
+          accuracyMeters: null,
+          locationSource: 'ip',
         });
         setSelectedCityId('gps');
         setActiveScenarioId('live');
+        setGpsError(null);
         setGpsLoading(false);
-      },
-      () => {
-        setGpsLoading(false);
-        setGpsError('Chưa có quyền truy cập vị trí. Hãy cho phép định vị trên trình duyệt hoặc chọn thành phố.');
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
-    );
+        return;
+      }
+
+      setGpsLoading(false);
+      setGpsError(
+        'Không thể tự động xác định vị trí lúc này. Hãy kiểm tra kết nối mạng hoặc chọn thành phố thủ công.'
+      );
+    })();
   }, []);
+
+  // Auto-detect user's real local city once on first fresh visit when no prefs are saved yet
+  useEffect(() => {
+    if (
+      !initialPrefsBundle.hasSavedPrefs &&
+      !autoDetectedInitialMountRef.current
+    ) {
+      autoDetectedInitialMountRef.current = true;
+      requestDeviceLocation();
+    }
+  }, [initialPrefsBundle.hasSavedPrefs, requestDeviceLocation]);
+
+  const gpsSource: LocationSource | null = useMemo(() => {
+    if (selectedCityId === 'gps' && customGpsCoords) {
+      return customGpsCoords.locationSource === 'ip' ? 'ip' : 'gps';
+    }
+    return null;
+  }, [selectedCityId, customGpsCoords]);
 
   const activeWeather: WeatherSnapshot = useMemo(() => {
     if (activeScenarioId !== 'live') {
       const preset = DEMO_WEATHER_PRESETS[activeScenarioId];
       if (preset) {
-        return preset;
+        return reanchorPresetToToday(preset, false);
       }
     }
     if (liveWeather) {
       return liveWeather;
     }
+    const nowHour = new Date().getHours();
+    const baseTemplate =
+      nowHour >= 6 && nowHour < 18
+        ? DEMO_WEATHER_PRESETS.sunny
+        : DEMO_WEATHER_PRESETS.clear_night ?? DEMO_WEATHER_PRESETS.sunny;
     return {
-      ...DEMO_WEATHER_PRESETS.sunny,
+      ...reanchorPresetToToday(baseTemplate, true),
       locationName: activeCityTarget.locationName,
       latitude: activeCityTarget.latitude,
       longitude: activeCityTarget.longitude,
@@ -840,6 +1212,7 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
     requestDeviceLocation,
     gpsLoading,
     gpsError,
+    gpsSource,
     activeScenarioId,
     setActiveScenarioId,
     activeWeather,

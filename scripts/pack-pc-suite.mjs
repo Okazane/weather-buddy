@@ -44,7 +44,25 @@ function copyCharacterSprites() {
     fs.copyFileSync(src, path.join(EXT_CHAR_DIR, file));
     fs.copyFileSync(src, path.join(WIDGET_CHAR_DIR, file));
   }
-  return files.length;
+
+  let companionCount = 0;
+  const compSrcDir = path.join(CHAR_SRC_DIR, 'companions');
+  if (fs.existsSync(compSrcDir) && fs.statSync(compSrcDir).isDirectory()) {
+    const extCompDir = path.join(EXT_CHAR_DIR, 'companions');
+    const widgetCompDir = path.join(WIDGET_CHAR_DIR, 'companions');
+    ensureDir(extCompDir);
+    ensureDir(widgetCompDir);
+    const compFiles = fs
+      .readdirSync(compSrcDir)
+      .filter((f) => f.toLowerCase().endsWith('.png'));
+    for (const file of compFiles) {
+      const src = path.join(compSrcDir, file);
+      fs.copyFileSync(src, path.join(extCompDir, file));
+      fs.copyFileSync(src, path.join(widgetCompDir, file));
+      companionCount += 1;
+    }
+  }
+  return { spriteCount: files.length, companionCount };
 }
 
 function syncSharedRuntimeFiles() {
@@ -91,14 +109,28 @@ function createZipArchive(sourceDir, destinationZip) {
   return stat.size;
 }
 
+function verifyDesktopWidgetHtml() {
+  const widgetHtmlPath = path.join(WIDGET_DIR, 'widget.html');
+  if (!fs.existsSync(widgetHtmlPath)) {
+    throw new Error(`Missing required desktop widget HTML: ${widgetHtmlPath}`);
+  }
+  const raw = fs.readFileSync(widgetHtmlPath, 'utf8');
+  if (!/Content-Security-Policy/i.test(raw)) {
+    throw new Error('desktop-widget/widget.html must define a Content-Security-Policy meta tag');
+  }
+}
+
 function main() {
   console.log('📦 Packing WeatherBuddy PC & Browser Suite...');
-  const spriteCount = copyCharacterSprites();
-  console.log(`✅ Synchronized ${spriteCount} character & NPC sprites into browser-extension/ and desktop-widget/`);
+  const { spriteCount, companionCount } = copyCharacterSprites();
+  console.log(
+    `✅ Synchronized ${spriteCount} character & NPC sprites (+${companionCount} companion sprites) into browser-extension/ and desktop-widget/`
+  );
 
   syncSharedRuntimeFiles();
   const version = verifyManifestJson();
-  console.log(`✅ Verified Manifest V3 (v${version}) and CSP hardening`);
+  verifyDesktopWidgetHtml();
+  console.log(`✅ Verified Manifest V3 (v${version}), desktop widget HTML, and CSP hardening`);
 
   ensureDir(DOWNLOADS_DIR);
 

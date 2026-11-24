@@ -1,4 +1,5 @@
 import type { HourlyForecastPoint, WeatherSnapshot } from './types';
+import { inferAstronomicalDaytime } from './solarTime';
 
 const WEATHERAPI_FORECAST_URL = 'https://api.weatherapi.com/v1/forecast.json';
 
@@ -40,6 +41,7 @@ interface WeatherApiForecastResponse {
   location?: {
     localtime?: string;
     localtime_epoch?: number;
+    tz_id?: string;
   };
   current?: WeatherApiCurrent;
   forecast?: {
@@ -47,6 +49,74 @@ interface WeatherApiForecastResponse {
       hour?: WeatherApiHour[];
     }>;
   };
+}
+
+function inferWeatherApiOffsetSeconds(
+  data: WeatherApiForecastResponse
+): number | undefined {
+  const pairs: Array<[string | undefined, number | undefined]> = [
+    [data.location?.localtime, data.location?.localtime_epoch],
+    [data.current?.last_updated, data.current?.last_updated_epoch],
+  ];
+
+  for (const [localStr, epochSec] of pairs) {
+    if (localStr && typeof epochSec === 'number' && Number.isFinite(epochSec)) {
+      const m = localStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+      if (m) {
+        const wallUtcSec = Math.floor(
+          Date.UTC(
+            Number(m[1]),
+            Number(m[2]) - 1,
+            Number(m[3]),
+            Number(m[4]),
+            Number(m[5])
+          ) / 1000
+        );
+        const approxOffset = Math.round((wallUtcSec - epochSec) / 900) * 900;
+        if (Number.isFinite(approxOffset) && Math.abs(approxOffset) <= 14 * 3600) {
+          return approxOffset;
+        }
+      }
+    }
+  }
+
+  const tzId = data.location?.tz_id?.trim();
+  if (tzId) {
+    try {
+      const refSec =
+        data.current?.last_updated_epoch ??
+        data.location?.localtime_epoch ??
+        Math.floor(Date.now() / 1000);
+      const refMs = refSec * 1000;
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tzId,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(new Date(refMs));
+      const pick = (type: string) =>
+        Number(parts.find((p) => p.type === type)?.value ?? NaN);
+      const wallMs = Date.UTC(
+        pick('year'),
+        pick('month') - 1,
+        pick('day'),
+        pick('hour'),
+        pick('minute'),
+        pick('second')
+      );
+      if (Number.isFinite(wallMs)) {
+        return Math.round((wallMs - refMs) / 60_000) * 60;
+      }
+    } catch {
+      // Ignore unsupported timezone IDs
+    }
+  }
+
+  return undefined;
 }
 
 function round1(val: number): number {
@@ -121,7 +191,14 @@ export function mapWeatherApiResponse(
   locationName: string
 ): WeatherSnapshot {
   const current = data.current ?? {};
-  const isDay = (current.is_day ?? 1) === 1;
+  const updatedAtIso = current.last_updated_epoch
+    ? new Date(current.last_updated_epoch * 1000).toISOString()
+    : new Date().toISOString();
+  const utcOffsetSeconds = inferWeatherApiOffsetSeconds(data);
+  const isDay =
+    typeof current.is_day === 'number'
+      ? current.is_day === 1
+      : inferAstronomicalDaytime(updatedAtIso, lat, lon, utcOffsetSeconds);
   const temperatureC = round1(current.temp_c ?? 26);
   const feelsLikeC = round1(current.feelslike_c ?? temperatureC);
   const humidityPct = clampPct(current.humidity ?? 70);
@@ -148,10 +225,6 @@ export function mapWeatherApiResponse(
   const precipProbPct = clampPct(
     currentHourSlot?.chance_of_rain ?? (precipMmPerHr >= 0.2 ? 70 : 10)
   );
-
-  const updatedAtIso = current.last_updated_epoch
-    ? new Date(current.last_updated_epoch * 1000).toISOString()
-    : new Date().toISOString();
 
   const hourly: HourlyForecastPoint[] = upcomingHours.slice(0, 24).map((h) => ({
     timeIso: h.time_epoch
@@ -184,6 +257,10 @@ export function mapWeatherApiResponse(
     isDay,
     hourly,
   };
+
+  if (typeof utcOffsetSeconds === 'number') {
+    snapshot.utcOffsetSeconds = utcOffsetSeconds;
+  }
 
   if (typeof aqi === 'number') {
     snapshot.aqi = aqi;

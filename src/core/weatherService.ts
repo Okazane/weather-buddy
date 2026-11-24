@@ -2,6 +2,7 @@ import { fetchGoogleWeather } from './googleWeatherClient';
 import { fetchOpenMeteoAqi, fetchOpenMeteoWeather } from './openMeteoClient';
 import { fetchTomorrowIoWeather } from './tomorrowIoClient';
 import { fetchWeatherApiWeather } from './weatherApiClient';
+import { crossValidateWeatherSnapshot } from './weatherConsensus';
 import type {
   HourlyForecastPoint,
   WeatherProviderType,
@@ -338,6 +339,8 @@ export async function fetchWeatherSnapshot(params: {
   weatherApiKey?: string;
   googleApiKey?: string;
   fetchImpl?: typeof fetch;
+  enableConsensus?: boolean;
+  consensusTimeoutMs?: number;
 }): Promise<WeatherSnapshot> {
   const {
     latitude,
@@ -348,14 +351,31 @@ export async function fetchWeatherSnapshot(params: {
     weatherApiKey,
     googleApiKey,
     fetchImpl = fetch,
+    enableConsensus,
+    consensusTimeoutMs,
   } = params;
 
   const trimmedTomorrow = tomorrowIoApiKey?.trim() ?? '';
   const trimmedWeatherApi = weatherApiKey?.trim() ?? '';
   const trimmedGoogle = googleApiKey?.trim() ?? '';
 
+  const shouldRunConsensus =
+    enableConsensus !== false &&
+    (fetchImpl === globalThis.fetch || enableConsensus === true);
+
+  const finalize = async (snap: WeatherSnapshot): Promise<WeatherSnapshot> => {
+    if (!shouldRunConsensus) {
+      return snap;
+    }
+    return crossValidateWeatherSnapshot(snap, {
+      fetchImpl,
+      timeoutMs: consensusTimeoutMs,
+    });
+  };
+
   if (provider === 'open_meteo') {
-    return fetchOpenMeteoWeather(latitude, longitude, locationName, fetchImpl);
+    const snap = await fetchOpenMeteoWeather(latitude, longitude, locationName, fetchImpl);
+    return finalize(snap);
   }
 
   if (provider === 'tomorrow_io') {
@@ -371,7 +391,7 @@ export async function fetchWeatherSnapshot(params: {
     if (snap.aqi === undefined && typeof aqi === 'number') {
       snap.aqi = aqi;
     }
-    return snap;
+    return finalize(snap);
   }
 
   if (provider === 'weatherapi') {
@@ -387,7 +407,8 @@ export async function fetchWeatherSnapshot(params: {
       trimmedWeatherApi,
       fetchImpl
     );
-    return enrichWithOpenMeteoAqi(snap, latitude, longitude, fetchImpl);
+    const withAqi = await enrichWithOpenMeteoAqi(snap, latitude, longitude, fetchImpl);
+    return finalize(withAqi);
   }
 
   if (provider === 'google') {
@@ -403,7 +424,7 @@ export async function fetchWeatherSnapshot(params: {
     if (googleSnap.aqi === undefined && typeof aqi === 'number') {
       googleSnap.aqi = aqi;
     }
-    return googleSnap;
+    return finalize(googleSnap);
   }
 
   // provider === 'auto': Prefer no-card high-accuracy keys first (Tomorrow.io -> WeatherAPI),
@@ -417,7 +438,7 @@ export async function fetchWeatherSnapshot(params: {
       if (snap.aqi === undefined && typeof aqi === 'number') {
         snap.aqi = aqi;
       }
-      return snap;
+      return finalize(snap);
     } catch {
       // Fall through to next available provider
     }
@@ -432,7 +453,8 @@ export async function fetchWeatherSnapshot(params: {
         trimmedWeatherApi,
         fetchImpl
       );
-      return enrichWithOpenMeteoAqi(snap, latitude, longitude, fetchImpl);
+      const withAqi = await enrichWithOpenMeteoAqi(snap, latitude, longitude, fetchImpl);
+      return finalize(withAqi);
     } catch {
       // Fall through to next available provider
     }
@@ -447,11 +469,12 @@ export async function fetchWeatherSnapshot(params: {
       if (googleSnap.aqi === undefined && typeof aqi === 'number') {
         googleSnap.aqi = aqi;
       }
-      return googleSnap;
+      return finalize(googleSnap);
     } catch {
       // Fall through to Open-Meteo Free
     }
   }
 
-  return fetchOpenMeteoWeather(latitude, longitude, locationName, fetchImpl);
+  const snap = await fetchOpenMeteoWeather(latitude, longitude, locationName, fetchImpl);
+  return finalize(snap);
 }

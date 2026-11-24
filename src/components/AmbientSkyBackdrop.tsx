@@ -76,7 +76,6 @@ export const AmbientSkyBackdrop: React.FC<AmbientSkyBackdropProps> = ({
         useNativeDriver: USE_NATIVE_DRIVER,
       })
     );
-    loop.start();
 
     const pulseLoop = Animated.loop(
       Animated.sequence([
@@ -94,7 +93,6 @@ export const AmbientSkyBackdrop: React.FC<AmbientSkyBackdropProps> = ({
         }),
       ])
     );
-    pulseLoop.start();
 
     let flashLoop: Animated.CompositeAnimation | null = null;
     if (particleKind === 'storm') {
@@ -124,15 +122,48 @@ export const AmbientSkyBackdrop: React.FC<AmbientSkyBackdropProps> = ({
           Animated.delay(2400),
         ])
       );
-      flashLoop.start();
     } else {
       stormFlash.setValue(0);
     }
 
-    return () => {
+    const startAllLoops = () => {
+      loop.start();
+      pulseLoop.start();
+      flashLoop?.start();
+    };
+
+    const stopAllLoops = () => {
       loop.stop();
       pulseLoop.stop();
       flashLoop?.stop();
+    };
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined' && document.hidden) {
+      stopAllLoops();
+    } else {
+      startAllLoops();
+    }
+
+    const onVisibilityChange = () => {
+      if (typeof document === 'undefined') {
+        return;
+      }
+      if (document.hidden) {
+        stopAllLoops();
+      } else {
+        startAllLoops();
+      }
+    };
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    }
+
+    return () => {
+      stopAllLoops();
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      }
     };
   }, [particleKind, reduceMotion, masterClock, sunPulse, stormFlash]);
 
@@ -180,155 +211,181 @@ export const AmbientSkyBackdrop: React.FC<AmbientSkyBackdropProps> = ({
 
   const travelHeight = Math.max(640, Math.min(winHeight, 980));
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      return;
+    }
+    const bottomSky = palette.skyStops[2];
+    document.documentElement.style.backgroundColor = bottomSky;
+    if (document.body) {
+      document.body.style.backgroundColor = bottomSky;
+    }
+  }, [palette.skyStops]);
+
   const haloScale = sunPulse.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.96, 1.07],
+    outputRange: [0.97, 1.05],
   });
   const haloOpacity = sunPulse.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.48, 0.78],
+    outputRange: [0.32, 0.54],
   });
 
   return (
-    <View style={styles.root}>
-      <LinearGradient
-        colors={[palette.skyStops[0], palette.skyStops[1], palette.skyStops[2]]}
-        locations={[0, 0.54, 1]}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Ambient atmospheric sun / moon orb */}
-      {(particleKind === 'sun' ||
-        particleKind === 'heat' ||
-        particleKind === 'night' ||
-        skyTheme === 'night') && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.celestialOrb,
-            {
-              backgroundColor:
-                skyTheme === 'night' || particleKind === 'night'
-                  ? 'rgba(186, 214, 255, 0.16)'
-                  : particleKind === 'heat'
-                    ? 'rgba(253, 186, 116, 0.44)'
-                    : 'rgba(254, 240, 188, 0.58)',
-              opacity: haloOpacity,
-              transform: [{ scale: haloScale }],
-            },
-          ]}
+    <View style={[styles.root, { backgroundColor: palette.skyStops[2] }]}>
+      <View pointerEvents="none" style={styles.backdropLayer}>
+        <LinearGradient
+          colors={[palette.skyStops[0], palette.skyStops[1], palette.skyStops[2]]}
+          locations={[0, 0.54, 1]}
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 0.8, y: 1 }}
+          style={StyleSheet.absoluteFill}
         />
-      )}
 
-      {/* Subtle horizon glow */}
-      <View
-        pointerEvents="none"
-        style={[styles.horizonOrb, { backgroundColor: palette.horizonGlow }]}
-      />
+        {/* Soft daytime rain-mist cloud canopy when raining during daytime */}
+        {skyTheme === 'day_rain' && (
+          <View pointerEvents="none" style={styles.dayRainCanopy} />
+        )}
 
-      {/* GPU-accelerated weather particles (transform + opacity only) */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        {particles.map((item) => {
-          const shifted = Animated.modulo(
-            Animated.add(masterClock, item.delayFrac),
-            1
-          );
-          const translateY = shifted.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-60, travelHeight],
-          });
-          const translateX = shifted.interpolate({
-            inputRange: [0, 0.5, 1],
-            outputRange: [0, item.driftPx, item.driftPx * 1.4],
-          });
+        {/* Restrained atmospheric sunlight / moonlight glow (no harsh neon orbs) */}
+        {(particleKind === 'sun' ||
+          particleKind === 'heat' ||
+          particleKind === 'night' ||
+          skyTheme === 'dawn' ||
+          skyTheme === 'sunset' ||
+          skyTheme === 'night') &&
+          skyTheme !== 'day_rain' &&
+          skyTheme !== 'rain_storm' && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.celestialOrb,
+              {
+                backgroundColor:
+                  skyTheme === 'night' || particleKind === 'night'
+                    ? 'rgba(168, 201, 240, 0.11)'
+                    : skyTheme === 'sunset'
+                      ? 'rgba(238, 172, 108, 0.30)'
+                      : skyTheme === 'dawn'
+                        ? 'rgba(244, 192, 158, 0.28)'
+                        : particleKind === 'heat'
+                          ? 'rgba(245, 184, 118, 0.28)'
+                          : 'rgba(250, 232, 178, 0.36)',
+                opacity: haloOpacity,
+                transform: [{ scale: haloScale }],
+              },
+            ]}
+          />
+        )}
 
-          if (particleKind === 'rain' || particleKind === 'storm') {
+        {/* Subtle horizon glow */}
+        <View
+          pointerEvents="none"
+          style={[styles.horizonOrb, { backgroundColor: palette.horizonGlow }]}
+        />
+
+        {/* GPU-accelerated weather particles (transform + opacity only) */}
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {particles.map((item) => {
+            const shifted = Animated.modulo(
+              Animated.add(masterClock, item.delayFrac),
+              1
+            );
+            const translateY = shifted.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-60, travelHeight],
+            });
+            const translateX = shifted.interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: [0, item.driftPx, item.driftPx * 1.4],
+            });
+
+            if (particleKind === 'rain' || particleKind === 'storm') {
+              return (
+                <Animated.View
+                  key={item.id}
+                  style={[
+                    styles.rainStreak,
+                    {
+                      left: `${item.leftPct}%`,
+                      height: item.lengthPx,
+                      opacity: item.opacity,
+                      backgroundColor: palette.isDark
+                        ? 'rgba(186, 212, 244, 0.58)'
+                        : 'rgba(35, 76, 128, 0.24)',
+                      transform: [
+                        { translateY },
+                        { translateX },
+                        { rotate: '14deg' },
+                      ],
+                    },
+                  ]}
+                />
+              );
+            }
+
+            if (particleKind === 'snow') {
+              return (
+                <Animated.View
+                  key={item.id}
+                  style={[
+                    styles.snowFlake,
+                    {
+                      left: `${item.leftPct}%`,
+                      width: item.lengthPx,
+                      height: item.lengthPx,
+                      borderRadius: item.lengthPx / 2,
+                      opacity: item.opacity,
+                      backgroundColor: palette.isDark
+                        ? 'rgba(238, 243, 250, 0.82)'
+                        : 'rgba(250, 251, 252, 0.88)',
+                      transform: [{ translateY }, { translateX }],
+                    },
+                  ]}
+                />
+              );
+            }
+
             return (
               <Animated.View
                 key={item.id}
                 style={[
-                  styles.rainStreak,
+                  styles.autumnLeaf,
                   {
                     left: `${item.leftPct}%`,
-                    height: item.lengthPx,
-                    opacity: item.opacity,
-                    backgroundColor: palette.isDark
-                      ? 'rgba(191, 219, 254, 0.65)'
-                      : 'rgba(30, 64, 115, 0.28)',
+                    opacity: item.opacity * 0.68,
+                    backgroundColor:
+                      item.leftPct % 2 === 0
+                        ? 'rgba(196, 114, 34, 0.36)'
+                        : 'rgba(168, 84, 28, 0.28)',
                     transform: [
                       { translateY },
                       { translateX },
-                      { rotate: '14deg' },
+                      { rotate: '32deg' },
                     ],
                   },
                 ]}
               />
             );
-          }
+          })}
+        </View>
 
-          if (particleKind === 'snow') {
-            return (
-              <Animated.View
-                key={item.id}
-                style={[
-                  styles.snowFlake,
-                  {
-                    left: `${item.leftPct}%`,
-                    width: item.lengthPx,
-                    height: item.lengthPx,
-                    borderRadius: item.lengthPx / 2,
-                    opacity: item.opacity,
-                    backgroundColor: palette.isDark
-                      ? 'rgba(241, 245, 249, 0.85)'
-                      : 'rgba(255, 255, 255, 0.92)',
-                    transform: [{ translateY }, { translateX }],
-                  },
-                ]}
-              />
-            );
-          }
-
-          return (
-            <Animated.View
-              key={item.id}
-              style={[
-                styles.autumnLeaf,
-                {
-                  left: `${item.leftPct}%`,
-                  opacity: item.opacity * 0.72,
-                  backgroundColor:
-                    item.leftPct % 2 === 0
-                      ? 'rgba(217, 119, 6, 0.42)'
-                      : 'rgba(180, 83, 9, 0.32)',
-                  transform: [
-                    { translateY },
-                    { translateX },
-                    { rotate: '32deg' },
-                  ],
-                },
-              ]}
-            />
-          );
-        })}
+        {/* Subtle distant sheet-lightning flash during heavy storm */}
+        {particleKind === 'storm' && !reduceMotion && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: palette.isDark ? '#D8E8FA' : '#F2F6FA',
+                opacity: stormFlash,
+              },
+            ]}
+          />
+        )}
       </View>
 
-      {/* Subtle distant sheet-lightning flash during heavy storm */}
-      {particleKind === 'storm' && !reduceMotion && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: '#E0F2FE',
-              opacity: stormFlash,
-            },
-          ]}
-        />
-      )}
-
-      {children}
+      <View style={styles.foregroundContent}>{children}</View>
     </View>
   );
 };
@@ -338,23 +395,61 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: Platform.OS === 'web' ? ('100dvh' as unknown as number) : '100%',
     position: 'relative',
-    overflow: 'hidden',
+    borderRadius: 0,
+  },
+  backdropLayer: {
+    ...(Platform.OS === 'web'
+      ? ({
+          position: 'fixed' as any,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100dvh',
+          minHeight: '100vh',
+          zIndex: 0,
+          overflow: 'hidden',
+          borderRadius: 0,
+          pointerEvents: 'none',
+        } as any)
+      : {
+          ...StyleSheet.absoluteFillObject,
+          overflow: 'hidden',
+        }),
+  },
+  foregroundContent: {
+    flex: 1,
+    position: 'relative',
+    zIndex: 1,
+  },
+  dayRainCanopy: {
+    position: 'absolute',
+    top: -90,
+    left: '-8%',
+    width: '116%',
+    height: 240,
+    borderRadius: 180,
+    backgroundColor: 'rgba(156, 178, 202, 0.20)',
+    ...(Platform.OS === 'web' ? ({ filter: 'blur(36px)' } as any) : null),
   },
   celestialOrb: {
     position: 'absolute',
-    top: -110,
-    right: -70,
-    width: 380,
-    height: 380,
-    borderRadius: 190,
+    top: -120,
+    right: -80,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    ...(Platform.OS === 'web' ? ({ filter: 'blur(54px)' } as any) : null),
   },
   horizonOrb: {
     position: 'absolute',
     bottom: -140,
-    left: '12%',
-    width: '76%',
+    left: '10%',
+    width: '80%',
     height: 280,
     borderRadius: 200,
+    ...(Platform.OS === 'web' ? ({ filter: 'blur(48px)' } as any) : null),
   },
   rainStreak: {
     position: 'absolute',

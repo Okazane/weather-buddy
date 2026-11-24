@@ -1,4 +1,5 @@
 import type { HourlyForecastPoint, WeatherSnapshot } from './types';
+import { inferAstronomicalDaytime, parseIsoOffsetSeconds } from './solarTime';
 
 const GOOGLE_CURRENT_URL = 'https://weather.googleapis.com/v1/currentConditions:lookup';
 const GOOGLE_HOURLY_URL = 'https://weather.googleapis.com/v1/forecast/hours:lookup';
@@ -35,6 +36,9 @@ interface GooglePrecipitation {
 
 interface GoogleCurrentResponse {
   currentTime?: string;
+  timeZone?: {
+    id?: string;
+  };
   isDaytime?: boolean;
   weatherCondition?: GoogleWeatherCondition;
   temperature?: GoogleTemperatureValue;
@@ -46,6 +50,49 @@ interface GoogleCurrentResponse {
     gust?: GoogleSpeedValue | number;
   };
   precipitation?: GooglePrecipitation;
+}
+
+function resolveGoogleOffsetSeconds(
+  isoTime: string,
+  timeZoneId?: string
+): number | undefined {
+  const explicitOffset = parseIsoOffsetSeconds(isoTime);
+  if (explicitOffset !== undefined) {
+    return explicitOffset;
+  }
+  const trimmedTz = timeZoneId?.trim();
+  if (trimmedTz) {
+    try {
+      const parsedMs = Date.parse(isoTime);
+      const refMs = Number.isFinite(parsedMs) ? parsedMs : Date.now();
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: trimmedTz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(new Date(refMs));
+      const pick = (type: string) =>
+        Number(parts.find((p) => p.type === type)?.value ?? NaN);
+      const wallMs = Date.UTC(
+        pick('year'),
+        pick('month') - 1,
+        pick('day'),
+        pick('hour'),
+        pick('minute'),
+        pick('second')
+      );
+      if (Number.isFinite(wallMs)) {
+        return Math.round((wallMs - refMs) / 60_000) * 60;
+      }
+    } catch {
+      // Ignore invalid IANA timezone ID
+    }
+  }
+  return undefined;
 }
 
 interface GoogleForecastHourItem {
@@ -173,7 +220,20 @@ export function mapGoogleWeatherResponses(
   const hourlyResp = (hourlyRaw ?? {}) as GoogleHourlyResponse;
 
   const updatedAtIso = current.currentTime || new Date().toISOString();
-  const isDay = typeof current.isDaytime === 'boolean' ? current.isDaytime : true;
+  const utcOffsetSeconds = resolveGoogleOffsetSeconds(
+    updatedAtIso,
+    current.timeZone?.id
+  );
+  // Google Weather v1 uses Proto3 JSON, which omits `isDaytime` when `false` (nighttime)
+  const isDay =
+    typeof current.isDaytime === 'boolean'
+      ? current.isDaytime
+      : inferAstronomicalDaytime(
+          updatedAtIso,
+          meta.latitude,
+          meta.longitude,
+          utcOffsetSeconds
+        );
   const temperatureC = toCelsius(current.temperature, 25);
   const feelsLikeC = toCelsius(current.feelsLikeTemperature, temperatureC);
   const humidityPct = clampPct(current.relativeHumidity ?? 65);
@@ -240,6 +300,10 @@ export function mapGoogleWeatherResponses(
     isDay,
     hourly,
   };
+
+  if (typeof utcOffsetSeconds === 'number') {
+    snapshot.utcOffsetSeconds = utcOffsetSeconds;
+  }
 
   if (typeof meta.aqi === 'number' && Number.isFinite(meta.aqi)) {
     snapshot.aqi = Math.round(meta.aqi);

@@ -1,0 +1,34 @@
+[package]
+name = "weather-buddy-tauri"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "WeatherBuddy ultra-lightweight Tauri v2 Windows desktop companion widget & system tray shell"
+
+[lib]
+name = "weather_buddy_tauri_lib"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "weather-buddy-tauri"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+weather-buddy-core = { path = "../weather-buddy-core" }
+weather-buddy-server = { path = "../weather-buddy-server" }
+
+tauri = { version = "2.1", features = ["tray-icon", "image-png"] }
+tauri-plugin-shell = "2.0"
+tauri-plugin-single-instance = "2.0"
+tauri-plugin-autostart = "2.0"
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }

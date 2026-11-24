@@ -1,4 +1,5 @@
 import type { HourlyForecastPoint, WeatherSnapshot } from './types';
+import { inferAstronomicalDaytime, parseIsoOffsetSeconds } from './solarTime';
 
 const TOMORROW_FORECAST_URL = 'https://api.tomorrow.io/v4/weather/forecast';
 
@@ -44,14 +45,6 @@ function msToKmh(valMs: number | undefined): number {
   return Math.max(0, round1(valMs * 3.6));
 }
 
-function inferVietnamDaytime(isoTime: string | undefined, lon: number): boolean {
-  const ts = isoTime ? Date.parse(isoTime) : Date.now();
-  const safeTs = Number.isFinite(ts) ? ts : Date.now();
-  const approxOffsetHours = Math.round(lon / 15);
-  const localHour = new Date(safeTs + approxOffsetHours * 3600_000).getUTCHours();
-  return localHour >= 6 && localHour < 18;
-}
-
 export function mapTomorrowWeatherCode(
   code: number | undefined,
   isDay: boolean
@@ -73,6 +66,10 @@ export function mapTomorrowWeatherCode(
         conditionTextVi: 'Có mây rải rác',
       };
     case 1102:
+      return {
+        conditionCode: 'MOSTLY_CLOUDY',
+        conditionTextVi: isDay ? 'Nắng dịu có mây' : 'Đêm có mây nhẹ',
+      };
     case 1001:
       return {
         conditionCode: 'CLOUDY',
@@ -156,7 +153,8 @@ export function mapTomorrowIoResponse(
   const hourlyZero = hourlyItems[0]?.values ?? {};
 
   const updatedAtIso = currentItem.time ?? new Date().toISOString();
-  const isDay = inferVietnamDaytime(updatedAtIso, lon);
+  const explicitOffsetSec = parseIsoOffsetSeconds(updatedAtIso);
+  const isDay = inferAstronomicalDaytime(updatedAtIso, lat, lon, explicitOffsetSec);
 
   const temperatureC = round1(values.temperature ?? hourlyZero.temperature ?? 26);
   const feelsLikeC = round1(
@@ -196,7 +194,10 @@ export function mapTomorrowIoResponse(
   const hourly: HourlyForecastPoint[] = hourlyItems.slice(1, 25).map((item) => {
     const hv = item.values ?? {};
     const timeIso = item.time ?? new Date().toISOString();
-    const mapped = mapTomorrowWeatherCode(hv.weatherCode, inferVietnamDaytime(timeIso, lon));
+    const mapped = mapTomorrowWeatherCode(
+      hv.weatherCode,
+      inferAstronomicalDaytime(timeIso, lat, lon, explicitOffsetSec)
+    );
     return {
       timeIso,
       temperatureC: round1(hv.temperature ?? temperatureC),
@@ -206,7 +207,7 @@ export function mapTomorrowIoResponse(
     };
   });
 
-  return {
+  const snapshot: WeatherSnapshot = {
     provider: 'tomorrow_io',
     locationName,
     latitude: lat,
@@ -224,6 +225,12 @@ export function mapTomorrowIoResponse(
     isDay,
     hourly,
   };
+
+  if (typeof explicitOffsetSec === 'number') {
+    snapshot.utcOffsetSeconds = explicitOffsetSec;
+  }
+
+  return snapshot;
 }
 
 export async function fetchTomorrowIoWeather(

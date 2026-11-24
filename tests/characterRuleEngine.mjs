@@ -3,8 +3,12 @@ import { registerHooks } from 'node:module';
 import test from 'node:test';
 
 // Allow Node's built-in TypeScript loader to resolve extensionless relative imports in src/core/*.ts
+// and stub react-native Platform so themeTokens.ts can be verified directly in Node unit tests.
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (specifier === 'react-native') {
+      return { url: 'mock:react-native', shortCircuit: true };
+    }
     try {
       return nextResolve(specifier, context);
     } catch (err) {
@@ -17,9 +21,21 @@ registerHooks({
       throw err;
     }
   },
+  load(url, context, nextLoad) {
+    if (url === 'mock:react-native') {
+      return {
+        format: 'module',
+        shortCircuit: true,
+        source:
+          "export const Platform = { OS: 'web', select: (spec) => spec.web ?? spec.default };",
+      };
+    }
+    return nextLoad(url, context);
+  },
 });
 
 const core = await import('../src/core/index.ts');
+const themeTokens = await import('../src/components/themeTokens.ts');
 
 const {
   AUTO_REFRESH_INTERVAL_MINUTES,
@@ -31,6 +47,7 @@ const {
   PRESET_CITIES,
   DEMO_WEATHER_PRESETS,
   evaluateCharacterDecision,
+  resolveLocationLocalHour,
   pickNextRandomNpcAction,
   buildGoogleWeatherUrls,
   buildTomorrowIoUrl,
@@ -42,6 +59,8 @@ const {
   fetchWeatherSnapshot,
   pm25ToUsAqi,
 } = core;
+
+const { SKY_PALETTES, resolveBackdropSkyTheme, resolveAppPalette } = themeTokens;
 
 function makeSnapshot(overrides = {}) {
   return {
@@ -86,13 +105,14 @@ test('PRESET_CITIES exposes all 6 required Vietnamese cities', () => {
 });
 
 test('evaluateCharacterDecision covers all 7 CharacterSceneId states, priority order & crisp non-AI copy', () => {
-  // 1. storm_raincoat via heavy rain mm/hr >= 4.5 (even if hot)
+  // 1. storm_raincoat via heavy rain mm/hr >= 4.5 (even if hot) during daytime -> day_rain (light!)
   const stormByMm = evaluateCharacterDecision(
-    makeSnapshot({ precipMmPerHr: 5.2, precipProbPct: 40, feelsLikeC: 35 }),
+    makeSnapshot({ precipMmPerHr: 5.2, precipProbPct: 40, feelsLikeC: 35, isDay: true }),
     { gender: 'male', sensitivity: 'normal' }
   );
   assert.equal(stormByMm.sceneId, 'storm_raincoat');
-  assert.equal(stormByMm.skyTheme, 'rain_storm');
+  assert.equal(stormByMm.skyTheme, 'day_rain');
+  assert.equal(SKY_PALETTES[stormByMm.skyTheme].isDark, false);
   assert.doesNotMatch(stormByMm.headlineVi, /Cậu bé Mây|Cô bé Nắng|!/);
 
   // 1b. storm_raincoat via precipProbPct >= 60 && windGustKmh >= 32
@@ -103,13 +123,14 @@ test('evaluateCharacterDecision covers all 7 CharacterSceneId states, priority o
   assert.equal(stormByGust.sceneId, 'storm_raincoat');
   assert.doesNotMatch(stormByGust.headlineVi, /Cậu bé Mây|Cô bé Nắng|!/);
 
-  // 2. light_rain_umbrella via precipMmPerHr >= 0.2 or precipProbPct >= 50
+  // 2. light_rain_umbrella via precipMmPerHr >= 0.2 or precipProbPct >= 50 during daytime -> day_rain (light!)
   const lightRain = evaluateCharacterDecision(
-    makeSnapshot({ precipMmPerHr: 0.4, precipProbPct: 40, windGustKmh: 18 }),
+    makeSnapshot({ precipMmPerHr: 0.4, precipProbPct: 40, windGustKmh: 18, isDay: true }),
     { gender: 'female', sensitivity: 'normal' }
   );
   assert.equal(lightRain.sceneId, 'light_rain_umbrella');
-  assert.equal(lightRain.skyTheme, 'rain_storm');
+  assert.equal(lightRain.skyTheme, 'day_rain');
+  assert.equal(SKY_PALETTES[lightRain.skyTheme].isDark, false);
 
   const lightRainByProb = evaluateCharacterDecision(
     makeSnapshot({ precipMmPerHr: 0, precipProbPct: 55, windGustKmh: 20 }),
@@ -626,4 +647,347 @@ test('npcBehavior exports 5 actions, 300_000ms rotation interval, and pickNextRa
     current = next;
   }
   assert.equal(visitedChain.size, 5);
+});
+
+test('resolveLocationLocalHour accurately parses utcOffsetSeconds, explicit ISO offsets, and UTC Z across global timezones', () => {
+  // Priority A: Explicit utcOffsetSeconds (TP.HCM UTC+7 = 25200s, Tokyo UTC+9 = 32400s, India UTC+5:30 = 19800s)
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        latitude: 10.8231,
+        longitude: 106.6297,
+        updatedAtIso: '2026-11-24T01:30:00.000Z',
+        utcOffsetSeconds: 25200,
+      })
+    ),
+    8.5
+  );
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        latitude: 35.6762,
+        longitude: 139.6503,
+        updatedAtIso: '2026-11-24T00:15:00.000Z',
+        utcOffsetSeconds: 32400,
+      })
+    ),
+    9.25
+  );
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        latitude: 28.6139,
+        longitude: 77.209,
+        updatedAtIso: '2026-11-24T03:00:00.000Z',
+        utcOffsetSeconds: 19800,
+      })
+    ),
+    8.5
+  );
+
+  // Priority B: Explicit non-Z offset suffix in ISO string (+07:00, +09:00, -05:00)
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        latitude: 10.8231,
+        longitude: 106.6297,
+        updatedAtIso: '2026-11-24T08:30:00+07:00',
+        utcOffsetSeconds: undefined,
+      })
+    ),
+    8.5
+  );
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        latitude: 40.7128,
+        longitude: -74.006,
+        updatedAtIso: '2026-11-24T17:15:00-05:00',
+        utcOffsetSeconds: undefined,
+      })
+    ),
+    17.25
+  );
+
+  // Priority C: UTC Z string fallback (Vietnam bounding box exact UTC+7, Tokyo UTC+9, London UTC+0)
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        locationName: 'TP. Hồ Chí Minh',
+        latitude: 10.8231,
+        longitude: 106.6297,
+        updatedAtIso: '2026-11-24T01:30:00.000Z',
+        utcOffsetSeconds: undefined,
+      })
+    ),
+    8.5
+  );
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        locationName: 'Sa Pa',
+        latitude: 22.3364,
+        longitude: 103.8438,
+        updatedAtIso: '2026-11-24T00:00:00.000Z',
+        utcOffsetSeconds: undefined,
+      })
+    ),
+    7
+  );
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        locationName: 'Tokyo',
+        latitude: 35.6762,
+        longitude: 139.6503,
+        updatedAtIso: '2026-11-24T00:00:00.000Z',
+        utcOffsetSeconds: undefined,
+      })
+    ),
+    9
+  );
+  assert.equal(
+    resolveLocationLocalHour(
+      makeSnapshot({
+        locationName: 'London',
+        latitude: 51.5074,
+        longitude: -0.1278,
+        updatedAtIso: '2026-11-24T09:45:00.000Z',
+        utcOffsetSeconds: undefined,
+      })
+    ),
+    9.75
+  );
+});
+
+test('TP.HCM local time-of-day sky synchronization: morning clear/cloudy/rain, dawn, golden-hour sunset, and night match isDark accurately', () => {
+  const hcmcBase = {
+    locationName: 'TP. Hồ Chí Minh',
+    latitude: 10.8231,
+    longitude: 106.6297,
+    utcOffsetSeconds: 25200,
+    temperatureC: 29,
+    feelsLikeC: 31,
+  };
+
+  // 1. TP.HCM Morning (08:30+07:00, isDay: true) — Clear, Cloudy, Light Rain, Heavy Storm ALL !isDark
+  const morningClear = evaluateCharacterDecision(
+    makeSnapshot({
+      ...hcmcBase,
+      updatedAtIso: '2026-11-24T08:30:00+07:00',
+      isDay: true,
+      uvIndex: 5,
+      precipMmPerHr: 0,
+      precipProbPct: 10,
+      conditionText: 'Trời nắng quang đãng',
+    }),
+    { gender: 'male', sensitivity: 'normal' }
+  );
+  assert.equal(morningClear.skyTheme, 'day_sunny');
+  assert.equal(SKY_PALETTES[morningClear.skyTheme].isDark, false);
+
+  const morningCloudy = evaluateCharacterDecision(
+    makeSnapshot({
+      ...hcmcBase,
+      updatedAtIso: '2026-11-24T08:30:00+07:00',
+      isDay: true,
+      uvIndex: 3,
+      precipMmPerHr: 0,
+      precipProbPct: 25,
+      conditionText: 'Trời nhiều mây',
+    }),
+    { gender: 'female', sensitivity: 'normal' }
+  );
+  assert.equal(morningCloudy.skyTheme, 'day_cloudy');
+  assert.equal(SKY_PALETTES[morningCloudy.skyTheme].isDark, false);
+
+  const morningLightRain = evaluateCharacterDecision(
+    makeSnapshot({
+      ...hcmcBase,
+      updatedAtIso: '2026-11-24T08:30:00+07:00',
+      isDay: true,
+      uvIndex: 2,
+      precipMmPerHr: 1.2,
+      precipProbPct: 75,
+      conditionText: 'Mưa nhỏ rải rác',
+    }),
+    { gender: 'female', sensitivity: 'normal' }
+  );
+  assert.equal(morningLightRain.sceneId, 'light_rain_umbrella');
+  assert.equal(morningLightRain.skyTheme, 'day_rain');
+  assert.equal(SKY_PALETTES[morningLightRain.skyTheme].isDark, false);
+  assert.equal(resolveAppPalette(morningLightRain.skyTheme, 'auto').isDark, false);
+
+  const morningHeavyRain = evaluateCharacterDecision(
+    makeSnapshot({
+      ...hcmcBase,
+      updatedAtIso: '2026-11-24T08:30:00+07:00',
+      isDay: true,
+      uvIndex: 1,
+      precipMmPerHr: 8.4,
+      precipProbPct: 95,
+      windGustKmh: 42,
+      conditionText: 'Mưa dông kèm gió giật',
+    }),
+    { gender: 'male', sensitivity: 'normal' }
+  );
+  assert.equal(morningHeavyRain.sceneId, 'storm_raincoat');
+  assert.equal(morningHeavyRain.skyTheme, 'day_rain');
+  assert.equal(SKY_PALETTES[morningHeavyRain.skyTheme].isDark, false);
+  assert.equal(resolveAppPalette(morningHeavyRain.skyTheme, 'auto').isDark, false);
+
+  // 2. Early Morning / Bình minh (06:00+07:00, isDay: true) -> 'dawn' (isDark: false)
+  const earlyDawn = evaluateCharacterDecision(
+    makeSnapshot({
+      ...hcmcBase,
+      updatedAtIso: '2026-11-24T06:00:00+07:00',
+      isDay: true,
+      uvIndex: 1,
+      temperatureC: 25,
+      feelsLikeC: 26,
+      precipMmPerHr: 0,
+      precipProbPct: 10,
+      conditionText: 'Nắng nhẹ dễ chịu',
+    }),
+    { gender: 'female', sensitivity: 'normal' }
+  );
+  assert.equal(earlyDawn.skyTheme, 'dawn');
+  assert.equal(SKY_PALETTES[earlyDawn.skyTheme].isDark, false);
+
+  // 3. Late Afternoon / Hoàng hôn (17:00+07:00, isDay: true) -> 'sunset' (isDark: false, golden-hour light!)
+  const goldenSunset = evaluateCharacterDecision(
+    makeSnapshot({
+      ...hcmcBase,
+      updatedAtIso: '2026-11-24T17:00:00+07:00',
+      isDay: true,
+      uvIndex: 2.5,
+      temperatureC: 28,
+      feelsLikeC: 29,
+      precipMmPerHr: 0,
+      precipProbPct: 15,
+      conditionText: 'Có mây rải rác',
+    }),
+    { gender: 'male', sensitivity: 'normal' }
+  );
+  assert.equal(goldenSunset.skyTheme, 'sunset');
+  assert.equal(SKY_PALETTES[goldenSunset.skyTheme].isDark, false);
+  assert.equal(resolveAppPalette(goldenSunset.skyTheme, 'auto').isDark, false);
+
+  // 4. Nighttime clear (20:30+07:00, isDay: false) -> 'night' (isDark: true)
+  const nightClear = evaluateCharacterDecision(
+    makeSnapshot({
+      ...hcmcBase,
+      updatedAtIso: '2026-11-24T20:30:00+07:00',
+      isDay: false,
+      uvIndex: 0,
+      precipMmPerHr: 0,
+      precipProbPct: 10,
+      conditionText: 'Đêm quang đãng',
+    }),
+    { gender: 'female', sensitivity: 'normal' }
+  );
+  assert.equal(nightClear.skyTheme, 'night');
+  assert.equal(SKY_PALETTES[nightClear.skyTheme].isDark, true);
+
+  // 5. Nighttime rain (21:00+07:00, isDay: false) -> 'rain_storm' (isDark: true)
+  const nightRain = evaluateCharacterDecision(
+    makeSnapshot({
+      ...hcmcBase,
+      updatedAtIso: '2026-11-24T21:00:00+07:00',
+      isDay: false,
+      uvIndex: 0,
+      precipMmPerHr: 2.6,
+      precipProbPct: 85,
+      conditionText: 'Mưa rào vừa',
+    }),
+    { gender: 'male', sensitivity: 'normal' }
+  );
+  assert.equal(nightRain.sceneId, 'light_rain_umbrella');
+  assert.equal(nightRain.skyTheme, 'rain_storm');
+  assert.equal(SKY_PALETTES[nightRain.skyTheme].isDark, true);
+
+  // 6. Verify resolveBackdropSkyTheme across light and dark manual overrides
+  for (const lightSky of ['day_sunny', 'dawn', 'day_cloudy', 'day_rain', 'sunset']) {
+    assert.equal(SKY_PALETTES[lightSky].isDark, false);
+    assert.equal(resolveBackdropSkyTheme(lightSky, 'light'), lightSky);
+    const darkMapped = resolveBackdropSkyTheme(lightSky, 'dark');
+    assert.equal(SKY_PALETTES[darkMapped].isDark, true);
+  }
+  assert.equal(resolveBackdropSkyTheme('rain_storm', 'light'), 'day_rain');
+  assert.equal(resolveBackdropSkyTheme('night', 'light'), 'day_sunny');
+  assert.equal(resolveBackdropSkyTheme('day_rain', 'dark'), 'rain_storm');
+  assert.equal(resolveBackdropSkyTheme('sunset', 'dark'), 'night');
+});
+
+test('Open-Meteo, WeatherAPI, and Google clients preserve utcOffsetSeconds from response metadata', async () => {
+  const openMeteoMock = async (url) => {
+    if (String(url).includes('air-quality')) {
+      return new Response(JSON.stringify({ current: { us_aqi: 42 } }), { status: 200 });
+    }
+    return new Response(
+      JSON.stringify({
+        utc_offset_seconds: 25200,
+        current: {
+          time: '2026-11-24T08:30',
+          temperature_2m: 28.4,
+          apparent_temperature: 31.2,
+          relative_humidity_2m: 74,
+          is_day: 1,
+          precipitation: 0.8,
+          precipitation_probability: 70,
+          weather_code: 61,
+          wind_speed_10m: 12,
+          wind_gusts_10m: 20,
+          uv_index: 3,
+        },
+        hourly: {
+          time: ['2026-11-24T08:00', '2026-11-24T09:00'],
+          temperature_2m: [28.4, 29.0],
+          precipitation_probability: [70, 50],
+          precipitation: [0.8, 0.3],
+          weather_code: [61, 61],
+        },
+      }),
+      { status: 200 }
+    );
+  };
+
+  const omSnap = await fetchOpenMeteoWeather(10.8231, 106.6297, 'TP. Hồ Chí Minh', openMeteoMock);
+  assert.equal(omSnap.utcOffsetSeconds, 25200);
+  assert.equal(omSnap.updatedAtIso, '2026-11-24T08:30:00+07:00');
+  assert.equal(resolveLocationLocalHour(omSnap), 8.5);
+  const omDecision = evaluateCharacterDecision(omSnap, { gender: 'male', sensitivity: 'normal' });
+  assert.equal(omDecision.skyTheme, 'day_rain');
+  assert.equal(SKY_PALETTES[omDecision.skyTheme].isDark, false);
+
+  const epochUtc0130 = Math.floor(Date.parse('2026-11-24T01:30:00Z') / 1000);
+  const waMock = async () =>
+    new Response(
+      JSON.stringify({
+        location: {
+          localtime: '2026-11-24 08:30',
+          localtime_epoch: epochUtc0130,
+          tz_id: 'Asia/Ho_Chi_Minh',
+        },
+        current: {
+          last_updated_epoch: epochUtc0130,
+          last_updated: '2026-11-24 08:30',
+          temp_c: 29,
+          feelslike_c: 31,
+          is_day: 1,
+          humidity: 72,
+          wind_kph: 10,
+          gust_kph: 16,
+          precip_mm: 0,
+          uv: 5,
+          condition: { code: 1000, text: 'Trời nắng' },
+        },
+        forecast: { forecastday: [{ hour: [] }] },
+      }),
+      { status: 200 }
+    );
+
+  const waSnap = await fetchWeatherApiWeather(10.8231, 106.6297, 'TP. Hồ Chí Minh', 'WA_KEY', waMock);
+  assert.equal(waSnap.utcOffsetSeconds, 25200);
+  assert.equal(resolveLocationLocalHour(waSnap), 8.5);
 });

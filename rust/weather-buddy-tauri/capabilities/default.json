@@ -1,0 +1,20 @@
+{
+  "identifier": "default",
+  "description": "Default hardened capabilities for WeatherBuddy main dashboard and companion widget windows",
+  "windows": ["main", "companion-widget"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-start-dragging",
+    "core:event:default",
+    "shell:allow-open",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
+  ]
+}

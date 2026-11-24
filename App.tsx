@@ -30,13 +30,18 @@ import { MainStageScreen } from './src/screens/MainStageScreen';
 import { WebDashboardScreen } from './src/screens/WebDashboardScreen';
 import { WidgetStudioScreen } from './src/screens/WidgetStudioScreen';
 
-const THEME_MODE_STORAGE_KEY = 'weather_buddy_theme_mode_v1';
+const THEME_MODE_STORAGE_KEY = 'weather_buddy_theme_mode_v2';
+const LEGACY_THEME_MODE_STORAGE_KEY = 'weather_buddy_theme_mode_v1';
 
 function loadInitialThemeMode(): AppThemeMode {
   try {
     const scope = globalThis as unknown as {
-      localStorage?: { getItem(key: string): string | null };
+      localStorage?: {
+        getItem(key: string): string | null;
+        removeItem?(key: string): void;
+      };
     };
+    scope.localStorage?.removeItem?.(LEGACY_THEME_MODE_STORAGE_KEY);
     const saved = scope.localStorage?.getItem(THEME_MODE_STORAGE_KEY);
     if (saved === 'light' || saved === 'dark' || saved === 'auto') {
       return saved;
@@ -79,6 +84,18 @@ export default function App() {
 
   // Sync Lucian UX/UI `--ux-*` light/dark tokens & `[data-theme="light"|"dark"]` on Web
   useLucianThemeSync(themeMode, skyIsNaturallyDark, palette);
+
+  // Sync page root background with active sky horizon color so tall scrollable pages never show a bottom seam
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      return;
+    }
+    const bottomColor = palette.skyStops[2];
+    document.documentElement.style.backgroundColor = bottomColor;
+    if (document.body) {
+      document.body.style.backgroundColor = bottomColor;
+    }
+  }, [palette.skyStops]);
 
   // Inject Plus Jakarta Sans geometric web font + zero horizontal overflow guard on Web
   useEffect(() => {
@@ -147,6 +164,7 @@ export default function App() {
                 isLiveMode={buddy.activeScenarioId === 'live'}
                 isLoadingLive={buddy.isLoadingLive}
                 gpsLoading={buddy.gpsLoading}
+                gpsSource={buddy.gpsSource}
                 onSelectPresetCity={buddy.selectPresetCity}
                 onRequestGps={buddy.requestDeviceLocation}
                 onRefreshLive={buddy.refreshLiveWeather}

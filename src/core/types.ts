@@ -25,6 +25,7 @@ export type SkyTheme =
   | 'dawn'
   | 'day_sunny'
   | 'day_cloudy'
+  | 'day_rain'
   | 'rain_storm'
   | 'sunset'
   | 'night';
@@ -37,12 +38,30 @@ export interface HourlyForecastPoint {
   conditionCode: string;
 }
 
+export interface WeatherVerificationMeta {
+  primarySource: string;
+  sourcesChecked: string[];
+  consensusLevel: 'verified_multi_source' | 'model_consensus' | 'single_source';
+  confidencePct: number;
+  metarStationIcao?: string;
+  metarStationNameVi?: string;
+  metarDistanceKm?: number;
+  metarObservedAtIso?: string;
+  metarTempC?: number;
+  metarWxString?: string;
+  metNoSymbolCode?: string;
+  metNoPrecipMm?: number;
+  reconciledRainAdjusted?: boolean;
+  summaryVi: string;
+}
+
 export interface WeatherSnapshot {
   provider: 'tomorrow_io' | 'weatherapi' | 'google' | 'open_meteo' | 'demo';
   locationName: string;
   latitude: number;
   longitude: number;
   updatedAtIso: string;
+  utcOffsetSeconds?: number;
   temperatureC: number;
   feelsLikeC: number;
   humidityPct: number;
@@ -55,6 +74,7 @@ export interface WeatherSnapshot {
   isDay: boolean;
   aqi?: number;
   hourly: HourlyForecastPoint[];
+  verification?: WeatherVerificationMeta;
 }
 
 export interface CharacterDecision {

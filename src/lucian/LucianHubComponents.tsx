@@ -7,6 +7,28 @@
 
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ArrowsClockwise,
+  BookmarkSimple,
+  CheckCircle,
+  Circle,
+  Clock,
+  CloudSun,
+  Crosshair,
+  Desktop,
+  DeviceMobile,
+  Flame,
+  Globe,
+  Key,
+  Layout,
+  Lightning,
+  MagnifyingGlass,
+  Shuffle,
+  Snowflake,
+  Stack,
+  SunDim,
+  stripLeadingEmoji,
+} from '../components/AppIcons';
 import type { HourlyForecastPoint } from '../core';
 import {
   FONT_FAMILY_SANS,
@@ -53,7 +75,7 @@ const LUCIAN_HUB_SCOPED_CSS = `
 .u015-opt[aria-checked="true"] .u015-dot::after{transform:scale(1)}
 .u015-ic{width:38px;height:38px;flex:none;border-radius:12px;display:grid;place-items:center;color:#fff;background:var(--g)}
 .u015[data-compact="true"] .u015-ic{width:32px;height:32px;border-radius:10px}
-.u015-ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.u015-ic svg{width:19px;height:19px;display:block;flex:none}
 .u015-txt{flex:1;min-width:0}
 .u015-txt b{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:14.5px;font-weight:720;letter-spacing:-.02em;color:var(--ux-ink)}
 .u015[data-compact="true"] .u015-txt b{font-size:13.5px}
@@ -74,7 +96,7 @@ const LUCIAN_HUB_SCOPED_CSS = `
 .u023-item{border-top:1px solid var(--ux-line)}
 .u023-head{display:flex;align-items:center;gap:12px;padding:13px 4px}
 .u023-ic{width:38px;height:38px;flex:none;border-radius:12px;display:grid;place-items:center;color:#fff;background:var(--g);transition:filter .5s var(--ux-ease),opacity .5s var(--ux-ease)}
-.u023-ic svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.u023-ic svg{width:20px;height:20px;display:block;flex:none}
 .u023-item.is-off .u023-ic{filter:grayscale(1);opacity:.45}
 .u023-t{flex:1;min-width:0}
 .u023-t b{display:block;font-size:14px;font-weight:700;letter-spacing:-.015em;color:var(--ux-ink)}
@@ -95,8 +117,8 @@ const LUCIAN_HUB_SCOPED_CSS = `
 }
 .u023-more.is-open .u023-opts{opacity:1;transform:none;transition-delay:.12s}
 .u023-pill{position:absolute;left:4px;top:4px;bottom:4px;width:calc((100% - 8px) / var(--count,4));border-radius:9px;background:var(--ux-surface);box-shadow:0 1px 0 var(--ux-line),0 4px 10px -6px var(--ux-shadow-strong);transform:translateX(calc(var(--i,0) * 100%));transition:transform .5s var(--ux-spring);pointer-events:none}
-.u023-opt{position:relative;z-index:1;flex:1;min-width:0;height:34px;border:0;background:none;border-radius:9px;padding:0 4px;font-size:12px;font-weight:680;color:var(--ux-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s var(--ux-ease)}
-.u023-opt[aria-checked="true"]{color:var(--ux-ink)}
+.u023-opt{position:relative;z-index:1;flex:1;min-width:0;height:34px;border:0;background:none;border-radius:9px;padding:0 4px;font-size:12px;font-weight:700;color:var(--ux-ink-2,#36455C);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s var(--ux-ease)}
+.u023-opt[aria-checked="true"]{color:var(--ux-ink);font-weight:780}
 .u023-opt:focus-visible{outline:2px solid var(--ux-accent);outline-offset:1px}
 .u023-all{margin-top:10px;height:44px;border:0;border-radius:14px;background:var(--ux-surface-2);font-size:13.5px;font-weight:700;color:var(--ux-ink-2);transition:background-color .3s var(--ux-ease),color .3s var(--ux-ease),transform .4s var(--ux-spring)}
 .u023-all:hover{color:var(--ux-accent);background:var(--ux-accent-soft)}
@@ -173,7 +195,7 @@ const LUCIAN_HUB_SCOPED_CSS = `
   .u095-seg{grid-template-columns:repeat(3,56px)}
   .u095-seg::before{width:56px;transform:translateX(calc(var(--k,0) * 56px))}
 }
-.u095-seg button{position:relative;z-index:1;height:30px;border:0;padding:0 4px;background:transparent;font-size:11.5px;font-weight:800;color:var(--ux-ink-3);transition:color .2s;white-space:nowrap}
+.u095-seg button{position:relative;z-index:1;height:30px;border:0;padding:0 4px;background:transparent;font-size:11.5px;font-weight:800;color:var(--ux-ink-2,#36455C);transition:color .2s;white-space:nowrap}
 .u095-seg button[aria-pressed="true"]{color:var(--ux-ink)}
 .u095-seg button:focus-visible{outline:2px solid var(--ux-accent);outline-offset:1px;border-radius:9px}
 .u095-ch{position:relative;flex:1;margin-top:16px;padding-right:46px;touch-action:pan-y}
@@ -273,110 +295,38 @@ export type LucianIconKind =
 function renderLucianSvgIcon(kind: LucianIconKind): React.ReactNode {
   switch (kind) {
     case 'snowflake':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2v20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1M2 12h20" />
-        </svg>
-      );
+      return <Snowflake size={19} weight="duotone" color="currentColor" />;
     case 'flame':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 3c2.5 3.2 5.5 6 5.5 10.2a5.5 5.5 0 1 1-11 0c0-2.6 1.5-5 3-6.7 0 2 1.2 3 2.5 3 0-2.4-.5-4.3 0-6.5z" />
-        </svg>
-      );
+      return <Flame size={19} weight="duotone" color="currentColor" />;
     case 'zap':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M13 3L5 13.5h6L10 21l8-10.5h-6z" />
-        </svg>
-      );
+      return <Lightning size={19} weight="duotone" color="currentColor" />;
     case 'cloud':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M17.5 19H7a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 11a3.5 3.5 0 0 1-.5 8z" />
-        </svg>
-      );
+      return <CloudSun size={19} weight="duotone" color="currentColor" />;
     case 'globe':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
-        </svg>
-      );
+      return <Globe size={19} weight="duotone" color="currentColor" />;
     case 'key':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="8" cy="15" r="4.5" />
-          <path d="M11.3 11.7L20 3m-3 3l3 3m-5.5-.5l2.5 2.5" />
-        </svg>
-      );
+      return <Key size={19} weight="duotone" color="currentColor" />;
     case 'layout':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="16" rx="3" />
-          <path d="M3 9.5h18M9 9.5V20" />
-        </svg>
-      );
+      return <Layout size={19} weight="duotone" color="currentColor" />;
     case 'bookmark':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1z" />
-        </svg>
-      );
+      return <BookmarkSimple size={19} weight="duotone" color="currentColor" />;
     case 'monitor':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="13" rx="2.5" />
-          <path d="M8 21h8M12 17v4" />
-        </svg>
-      );
+      return <Desktop size={19} weight="duotone" color="currentColor" />;
     case 'smartphone':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
-          <path d="M11 18.5h2" />
-        </svg>
-      );
+      return <DeviceMobile size={19} weight="duotone" color="currentColor" />;
     case 'clock':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v5l3.2 2" />
-        </svg>
-      );
+      return <Clock size={19} weight="duotone" color="currentColor" />;
     case 'search':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.5" />
-          <path d="M16 16l4.5 4.5" />
-        </svg>
-      );
+      return <MagnifyingGlass size={19} weight="duotone" color="currentColor" />;
     case 'shuffle':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M16 4h4v4M4 19L20 4M20 16v4h-4M14.5 14.5L20 20M4 5l5.5 5.5" />
-        </svg>
-      );
+      return <Shuffle size={19} weight="duotone" color="currentColor" />;
     case 'layers':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 3l9 4.5-9 4.5-9-4.5L12 3zM3 12l9 4.5 9-4.5M3 16.5L12 21l9-4.5" />
-        </svg>
-      );
+      return <Stack size={19} weight="duotone" color="currentColor" />;
     case 'refresh':
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M20 11a8 8 0 0 0-14.6-4.5M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5M20 20v-4h-4" />
-        </svg>
-      );
+      return <ArrowsClockwise size={18} weight="bold" color="currentColor" />;
     case 'sun':
     default:
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8" />
-        </svg>
-      );
+      return <SunDim size={19} weight="duotone" color="currentColor" />;
   }
 }
 
@@ -561,7 +511,7 @@ export function LucianPlanRadioCards<T extends string = string>({
                     {
                       '--g':
                         opt.gradient ||
-                        'linear-gradient(140deg,#2F8FE0,#185ADB)',
+                        'linear-gradient(140deg,#2A7AC9,#1E6BB8)',
                     } as React.CSSProperties
                   }
                   aria-hidden="true"
@@ -676,10 +626,14 @@ export const LucianFeatureSettingsCard: React.FC<LucianFeatureSettingsCardProps>
             onPress={() => onToggleRow(row.key, !row.enabled)}
             style={nativeStyles.radioCard}
           >
-            <Text style={nativeStyles.radioTitle}>
-              {row.enabled ? '✓ ' : '○ '}
-              {row.title}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {row.enabled ? (
+                <CheckCircle size={15} weight="duotone" color="#10B981" />
+              ) : (
+                <Circle size={15} weight="regular" color="#94A3B8" />
+              )}
+              <Text style={nativeStyles.radioTitle}>{row.title}</Text>
+            </View>
             <Text style={nativeStyles.radioSub}>{row.subtitle}</Text>
           </Pressable>
         ))}
@@ -831,7 +785,7 @@ export const LucianApiKeyField: React.FC<LucianApiKeyFieldProps> = ({
       return {
         level: 0,
         color: 'var(--ux-line-2)',
-        statusText: 'Trống · Tự dùng Open-Meteo Free',
+        statusText: 'Trống · Tự dùng Open-Meteo miễn phí',
       };
     }
     let score = 0;
@@ -841,10 +795,10 @@ export const LucianApiKeyField: React.FC<LucianApiKeyFieldProps> = ({
     if (!/\s/.test(value) && trimmed.length >= 20) score += 1;
     const clamped = Math.max(1, Math.min(4, score));
     const paletteMap: ReadonlyArray<[string, string]> = [
-      ['var(--ux-line-2)', 'Trống · Tự dùng Open-Meteo Free'],
-      ['#E5484D', 'Khóa quá ngắn'],
-      ['#F07A3E', 'Đang nhập khóa...'],
-      ['#2F8FE0', 'Định dạng hợp lệ'],
+      ['var(--ux-line-2)', 'Trống · Tự dùng Open-Meteo miễn phí'],
+      ['var(--ux-danger)', 'Khóa quá ngắn'],
+      ['var(--ux-warn)', 'Đang nhập khóa...'],
+      ['var(--ux-accent)', 'Định dạng hợp lệ'],
       ['var(--ux-mint)', 'Sẵn sàng · Chỉ lưu cục bộ'],
     ];
     return {
@@ -1072,12 +1026,13 @@ export interface LucianMorphingForecastChartProps {
 
 function formatShortHour(iso: string | undefined, idx: number): string {
   if (!iso) return `+${idx + 1}h`;
-  const hasExplicitTz = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso.trim());
-  if (!hasExplicitTz) {
-    const match = iso.match(/T(\d{2}):(\d{2})/);
+  const trimmed = iso.trim();
+  const endsWithZ = /Z$/i.test(trimmed);
+  if (!endsWithZ) {
+    const match = trimmed.match(/T(\d{2}):(\d{2})/);
     if (match) return `${match[1]}h`;
   }
-  const parsed = new Date(iso);
+  const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
     return `${String(parsed.getHours()).padStart(2, '0')}h`;
   }
@@ -1555,6 +1510,7 @@ export interface LucianLiveSortableTableProps {
   col2Label: string;
   rows: ReadonlyArray<LucianSortableRow>;
   actionButtonLabel?: string;
+  actionButtonIcon?: React.ReactNode;
   onPressActionButton?: () => void;
   onSelectRow?: (rowId: string) => void;
   paused?: boolean;
@@ -1570,6 +1526,7 @@ export const LucianLiveSortableTable: React.FC<LucianLiveSortableTableProps> = (
   col2Label,
   rows,
   actionButtonLabel,
+  actionButtonIcon,
   onPressActionButton,
   onSelectRow,
   paused = false,
@@ -1650,7 +1607,12 @@ export const LucianLiveSortableTable: React.FC<LucianLiveSortableTableProps> = (
             className="u227-pz"
             onClick={onPressActionButton}
           >
-            <span>{actionButtonLabel}</span>
+            {actionButtonIcon ? (
+              actionButtonIcon
+            ) : /^[\p{Extended_Pictographic}\u2600-\u27BF]/u.test(actionButtonLabel) ? (
+              <Crosshair size={13} weight="duotone" color="currentColor" />
+            ) : null}
+            <span>{stripLeadingEmoji(actionButtonLabel) || actionButtonLabel}</span>
           </button>
         ) : null}
       </div>
@@ -1824,39 +1786,39 @@ const nativeStyles = StyleSheet.create({
     padding: 13,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#D6D0C4',
+    backgroundColor: '#FCFBF8',
     gap: 3,
   },
   radioCardActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: '#141D2B',
+    borderColor: '#141D2B',
   },
   radioTitle: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#141D2B',
   },
   radioTitleActive: {
-    color: '#F8FAFC',
+    color: '#FCFBF8',
   },
   radioSub: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 12,
     lineHeight: 17,
-    color: '#475569',
+    color: '#36455C',
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FCFBF8',
     borderWidth: 1,
-    borderColor: '#94A3B8',
+    borderColor: '#8E9BAE',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 13.5,
-    color: '#0F172A',
+    color: '#141D2B',
     ...(WEB_NO_OUTLINE as object),
   },
 });

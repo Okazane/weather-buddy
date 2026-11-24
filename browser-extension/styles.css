@@ -4,14 +4,15 @@
  * Full Control Center (options.html), and Windows Desktop Widget (widget.html).
  *
  * Aesthetic Doctrine:
- * - Perceptually calibrated atmospheric sky themes (day_sunny, dawn, day_cloudy, rain_storm, sunset, night)
+ * - Perceptually calibrated atmospheric sky themes (day_sunny, dawn, day_cloudy, day_rain, sunset, rain_storm, night)
  * - Zero purple/neon AI gradients, zero pure #000000/#ffffff extremes
  * - Tabular numerals (font-variant-numeric: tabular-nums) for clocks, temperatures, countdowns, coordinates
  * - Double-bezel glassmorphic architectural surfaces with 1px hairlines
  * - Organic volume-preserving Chibi NPC breathing + spring stand-up choreography
  */
 
-:root {
+:root,
+[data-theme="day_sunny"] {
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --sky-stop-1: #C4E1FF;
   --sky-stop-2: #E5F1FD;
@@ -52,14 +53,22 @@
   --accent: #B83253;
   --accent-soft: rgba(184, 50, 83, 0.11);
   --accent-contrast: #FDF8F9;
-  --bezel-outer-bg: rgba(255, 255, 255, 0.36);
-  --bezel-outer-border: rgba(255, 255, 255, 0.65);
-  --core-surface-bg: rgba(254, 251, 252, 0.78);
-  --core-elevated-bg: rgba(255, 255, 255, 0.91);
+  --bezel-outer-bg: rgba(255, 255, 255, 0.42);
+  --bezel-outer-border: rgba(255, 255, 255, 0.68);
+  --core-surface-bg: rgba(254, 251, 252, 0.80);
+  --core-elevated-bg: rgba(255, 255, 255, 0.92);
   --hairline: rgba(34, 24, 43, 0.08);
-  --pill-idle-bg: rgba(255, 255, 255, 0.55);
+  --pill-idle-bg: rgba(255, 255, 255, 0.60);
   --pill-active-bg: #22182B;
   --pill-active-ink: #FDF8F9;
+  --rain-alert-bg: #1B2D45;
+  --rain-alert-ink: #F6FAFF;
+  --rain-alert-border: rgba(125, 180, 248, 0.45);
+  --aqi-alert-bg: #7F1D1D;
+  --aqi-alert-ink: #FEF2F2;
+  --aqi-alert-border: rgba(248, 113, 113, 0.45);
+  --shadow-ambient: 0 20px 50px -12px rgba(51, 32, 58, 0.14);
+  --shadow-card: 0 10px 28px -8px rgba(51, 32, 58, 0.10);
 }
 
 [data-theme="day_cloudy"] {
@@ -81,6 +90,72 @@
   --pill-idle-bg: rgba(255, 255, 255, 0.58);
   --pill-active-bg: #14202D;
   --pill-active-ink: #F7FAFC;
+  --rain-alert-bg: #152A42;
+  --rain-alert-ink: #F6FAFF;
+  --rain-alert-border: rgba(110, 172, 245, 0.45);
+  --aqi-alert-bg: #7C1D26;
+  --aqi-alert-ink: #FEF2F2;
+  --aqi-alert-border: rgba(248, 113, 113, 0.45);
+  --shadow-ambient: 0 20px 50px -12px rgba(20, 32, 45, 0.14);
+  --shadow-card: 0 10px 28px -8px rgba(20, 32, 45, 0.10);
+}
+
+[data-theme="day_rain"] {
+  --sky-stop-1: #B8CADB;
+  --sky-stop-2: #D4E0EC;
+  --sky-stop-3: #EEF3F8;
+  --horizon-glow: rgba(186, 214, 242, 0.44);
+  --ink-primary: #151D28;
+  --ink-secondary: #3E4E63;
+  --ink-muted: #5F7187;
+  --accent: #1B5E9E;
+  --accent-soft: rgba(27, 94, 158, 0.12);
+  --accent-contrast: #F8FAFC;
+  --bezel-outer-bg: rgba(255, 255, 255, 0.46);
+  --bezel-outer-border: rgba(255, 255, 255, 0.72);
+  --core-surface-bg: rgba(248, 251, 254, 0.82);
+  --core-elevated-bg: rgba(255, 255, 255, 0.94);
+  --hairline: rgba(21, 29, 40, 0.09);
+  --pill-idle-bg: rgba(255, 255, 255, 0.66);
+  --pill-active-bg: #151D28;
+  --pill-active-ink: #F6F9FC;
+  --rain-alert-bg: #142B47;
+  --rain-alert-ink: #F6FAFF;
+  --rain-alert-border: rgba(96, 165, 250, 0.45);
+  --aqi-alert-bg: #7F1D1D;
+  --aqi-alert-ink: #FEF2F2;
+  --aqi-alert-border: rgba(248, 113, 113, 0.45);
+  --shadow-ambient: 0 20px 50px -12px rgba(21, 29, 40, 0.15);
+  --shadow-card: 0 10px 28px -8px rgba(21, 29, 40, 0.11);
+}
+
+[data-theme="sunset"] {
+  --sky-stop-1: #FAD6A5;
+  --sky-stop-2: #FCE4C4;
+  --sky-stop-3: #FFF5E6;
+  --horizon-glow: rgba(251, 176, 92, 0.42);
+  --ink-primary: #231815;
+  --ink-secondary: #543D34;
+  --ink-muted: #785D52;
+  --accent: #C85A17;
+  --accent-soft: rgba(200, 90, 23, 0.12);
+  --accent-contrast: #FFFDF9;
+  --bezel-outer-bg: rgba(255, 255, 255, 0.48);
+  --bezel-outer-border: rgba(255, 255, 255, 0.74);
+  --core-surface-bg: rgba(255, 252, 247, 0.82);
+  --core-elevated-bg: rgba(255, 255, 255, 0.94);
+  --hairline: rgba(35, 24, 21, 0.09);
+  --pill-idle-bg: rgba(255, 255, 255, 0.68);
+  --pill-active-bg: #231815;
+  --pill-active-ink: #FFF9F2;
+  --rain-alert-bg: #1B2D45;
+  --rain-alert-ink: #F6FAFF;
+  --rain-alert-border: rgba(96, 165, 250, 0.45);
+  --aqi-alert-bg: #7F1D1D;
+  --aqi-alert-ink: #FEF2F2;
+  --aqi-alert-border: rgba(248, 113, 113, 0.45);
+  --shadow-ambient: 0 20px 50px -12px rgba(46, 26, 16, 0.15);
+  --shadow-card: 0 10px 28px -8px rgba(46, 26, 16, 0.10);
 }
 
 [data-theme="rain_storm"] {
@@ -110,30 +185,6 @@
   --aqi-alert-border: rgba(252, 165, 165, 0.70);
   --shadow-ambient: 0 24px 60px -12px rgba(4, 8, 16, 0.55);
   --shadow-card: 0 12px 32px -8px rgba(4, 8, 16, 0.42);
-}
-
-[data-theme="sunset"] {
-  --sky-stop-1: #1A2037;
-  --sky-stop-2: #493048;
-  --sky-stop-3: #945645;
-  --horizon-glow: rgba(246, 165, 108, 0.25);
-  --ink-primary: #FAF5F0;
-  --ink-secondary: #E3D2C8;
-  --ink-muted: #C4ADA2;
-  --accent: #F6A96D;
-  --accent-soft: rgba(246, 169, 109, 0.18);
-  --accent-contrast: #1E1522;
-  --bezel-outer-bg: rgba(255, 255, 255, 0.07);
-  --bezel-outer-border: rgba(255, 255, 255, 0.16);
-  --core-surface-bg: rgba(25, 22, 39, 0.70);
-  --core-elevated-bg: rgba(38, 31, 53, 0.88);
-  --hairline: rgba(250, 245, 240, 0.11);
-  --pill-idle-bg: rgba(32, 26, 46, 0.62);
-  --pill-active-bg: #FAF5F0;
-  --pill-active-ink: #1F192E;
-  --rain-alert-bg: #E6F2FF;
-  --rain-alert-ink: #10243C;
-  --shadow-ambient: 0 24px 60px -12px rgba(9, 7, 16, 0.52);
 }
 
 [data-theme="night"] {
@@ -203,6 +254,13 @@ select:focus-visible {
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+.ph-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  color: currentColor;
 }
 
 /* ============================================================================
@@ -307,6 +365,7 @@ body[data-mode="widget"] .widget-titlebar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   height: 26px;
   padding: 0 8px;
   border-radius: 8px;
@@ -847,8 +906,12 @@ body[data-mode="widget"].widget-compact .character-rig-pivot {
   top: 16%;
   right: 18%;
   font-size: 16px;
+  color: var(--accent);
   pointer-events: none;
-  opacity: 0.85;
+  opacity: 0.88;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   animation: float-accent 2.7s ease-in-out infinite;
 }
 
@@ -1152,6 +1215,10 @@ body[data-mode="widget"].widget-compact .metrics-grid {
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   transition: all 0.14s ease;
 }
 
@@ -1225,6 +1292,9 @@ body[data-mode="options"] .drawer-close-btn {
   font-size: 16px;
   font-weight: 800;
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .drawer-sub {
@@ -1336,6 +1406,9 @@ body[data-mode="options"] .drawer-close-btn {
 .install-card-title {
   font-size: 12.5px;
   font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .install-card-desc {
@@ -1360,4 +1433,11 @@ body[data-mode="options"] .drawer-close-btn {
 
 .hidden {
   display: none !important;
+}
+
+/* Zero idle CPU/GPU cost when browser tab or widget window is hidden */
+body.tab-hidden *,
+body.tab-hidden *::before,
+body.tab-hidden *::after {
+  animation-play-state: paused !important;
 }

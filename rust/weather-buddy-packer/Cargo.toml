@@ -1,0 +1,22 @@
+[package]
+name = "weather-buddy-packer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Multi-core Rayon + image + zip 3D sprite processor, canonical landmark remastering engine, and PC suite packager CLI for WeatherBuddy"
+
+[[bin]]
+name = "weather-buddy-packer"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+image.workspace = true
+rayon.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+walkdir.workspace = true
+zip.workspace = true

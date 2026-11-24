@@ -12,7 +12,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import {
+  AppIcon,
+  CaretDown,
+  Crosshair,
+  MapPin,
+  NavigationArrow,
+  X,
+  type AppIconName,
+} from '../components/AppIcons';
 import type { PresetCity } from '../core';
 import {
   FONT_FAMILY_SANS,
@@ -36,11 +44,13 @@ const LUCIAN_NAV_ELEMENTS_CSS = `
 .u416{position:relative;width:100%;max-width:100%;display:flex;flex-direction:column;color:var(--ux-ink)}
 .u416-tl{position:relative;display:flex;width:100%;padding:4px;border-radius:14px;background:var(--ux-surface-2);box-shadow:inset 0 0 0 1px var(--ux-line)}
 .u416-th{position:absolute;top:4px;bottom:4px;left:var(--l,4px);right:var(--r,4px);border-radius:10px;background:var(--ux-surface);box-shadow:0 0 0 1px var(--ux-line),0 1px 2px var(--ux-shadow),0 6px 14px -8px var(--ux-shadow-strong);transition:left var(--tl,.5s) cubic-bezier(.3,1.25,.45,1),right var(--tr,.5s) cubic-bezier(.3,1.25,.45,1);pointer-events:none}
-.u416-tab{position:relative;z-index:1;flex:1 1 0%;min-width:0;height:38px;padding:0 12px;border:0;border-radius:10px;background:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:650;color:var(--ux-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .25s}
-.u416-tab:hover{color:var(--ux-ink-2)}
-.u416-tab[aria-selected="true"]{color:var(--ux-ink);font-weight:720}
+.u416-tab{position:relative;z-index:1;flex:1 1 0%;min-width:0;height:38px;padding:0 12px;border:0;border-radius:10px;background:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:700;color:var(--ux-ink-2,#36455C);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .25s}
+:root:not([data-theme="dark"]) .u416-tab:not([aria-selected="true"]){color:#36455C}
+.u416-tab:hover{color:var(--ux-ink)}
+.u416-tab[aria-selected="true"]{color:var(--ux-ink);font-weight:780}
 .u416-tab:focus-visible{outline:2px solid var(--ux-accent);outline-offset:2px}
-.u416-ico{display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--ux-ink-3);transition:color .25s}
+.u416-ico{display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--ux-ink-2,#47566E);transition:color .25s}
+:root:not([data-theme="dark"]) .u416-tab:not([aria-selected="true"]) .u416-ico{color:#47566E}
 .u416-tab[aria-selected="true"] .u416-ico{color:var(--ux-accent)}
 @media (max-width:640px){
   .u416-tab{height:36px;padding:0 5px;gap:4px;font-size:12px}
@@ -59,20 +69,21 @@ const LUCIAN_NAV_ELEMENTS_CSS = `
   box-shadow:0 0 0 1px var(--ux-line),0 4px 12px -8px var(--ux-shadow);transition:box-shadow .25s var(--ux-ease),background-color .25s}
 .u031-btn:hover{box-shadow:0 0 0 1.5px var(--ux-line-2),0 6px 14px -8px var(--ux-shadow)}
 .u031-btn:focus-visible,.u031.is-open .u031-btn[aria-expanded="true"]{outline:0;background:var(--ux-surface);box-shadow:inset 0 0 0 2px var(--ux-accent),0 0 0 4px var(--ux-accent-soft)}
-.u031-flag{width:27px;height:27px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:9.5px;font-weight:800;letter-spacing:.02em;color:#fff;background:var(--c)}
+.u031-flag{width:27px;height:27px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:9.5px;font-weight:800;letter-spacing:.02em;color:#FCFBF8;background:var(--c)}
 .u031-v{flex:1;min-width:0}
 .u031-v b{display:block;font-size:13.5px;font-weight:720;line-height:1.18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.u031-v small{display:block;font-size:11px;line-height:1.15;color:var(--ux-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.u031-car{width:17px;height:17px;flex:none;fill:none;stroke:var(--ux-ink-3);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .45s var(--ux-spring)}
+.u031-v small{display:block;font-size:11px;line-height:1.15;color:var(--ux-ink-3,#53647D);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.u031-car{width:17px;height:17px;flex:none;fill:none;stroke:var(--ux-ink-2,#36455C);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .45s var(--ux-spring)}
 .u031-btn[aria-expanded="true"] .u031-car{transform:rotate(180deg)}
-.u031-list{position:absolute;z-index:150;left:0;min-width:252px;max-width:calc(100vw - 28px);width:max(100%,252px);top:calc(100% + 8px);margin:0;padding:6px;list-style:none;border-radius:18px;background:var(--ux-surface);
+.u031-list{position:absolute;z-index:150;left:0;min-width:284px;max-width:calc(100vw - 24px);width:max(100%,308px);top:calc(100% + 8px);margin:0;padding:6px;list-style:none;border-radius:18px;background:var(--ux-surface);
   box-shadow:0 0 0 1px var(--ux-line-2),0 28px 56px -24px var(--ux-shadow-strong);transform-origin:50% 0;outline:none;
   opacity:0;transform:translateY(-6px) scaleY(.92);visibility:hidden;pointer-events:none;transition:opacity .2s var(--ux-ease),transform .4s var(--ux-spring),visibility 0s .4s}
 .u031-list.is-open{opacity:1;transform:none;visibility:visible;pointer-events:auto;transition:opacity .2s var(--ux-ease),transform .45s var(--ux-spring)}
 .u031-hl{position:absolute;left:6px;right:6px;top:6px;height:46px;border-radius:12px;background:var(--ux-surface-2);transform:translateY(calc(var(--i,0) * 46px));transition:transform .35s var(--ux-spring);pointer-events:none}
 .u031-o{position:relative;display:flex;align-items:center;gap:11px;height:46px;padding:0 10px;border-radius:12px;cursor:pointer;font-size:14px;font-weight:640;color:var(--ux-ink);user-select:none}
+.u031-o>span:not(.u031-flag){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u031-o .u031-flag{width:26px;height:26px;border-radius:8px;font-size:9.5px}
-.u031-o small{margin-left:2px;font-size:11.5px;font-weight:500;color:var(--ux-ink-3);white-space:nowrap}
+.u031-o small{margin-left:2px;font-size:11.5px;font-weight:500;color:var(--ux-ink-3,#53647D);white-space:nowrap}
 .u031-ck{margin-left:auto;width:18px;height:18px;flex:none;fill:none;stroke:var(--ux-accent);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.4);transition:opacity .2s,transform .4s var(--ux-spring)}
 .u031-o[aria-selected="true"] .u031-ck{opacity:1;transform:none}
 @media (max-width:640px){
@@ -83,12 +94,15 @@ const LUCIAN_NAV_ELEMENTS_CSS = `
 .u039{position:relative;display:inline-flex;max-width:100%}
 .u039-tabs{position:relative;display:inline-flex;align-items:center;padding:4px;border-radius:999px;background:var(--ux-surface);box-shadow:0 0 0 1px var(--ux-line),0 4px 12px -8px var(--ux-shadow);max-width:100%}
 .u039-pill{position:absolute;left:0;top:4px;bottom:4px;width:var(--w,64px);border-radius:999px;background:var(--ux-ink);transform:translateX(var(--x,4px));box-shadow:0 8px 16px -10px var(--ux-shadow-strong);transition:transform .5s var(--ux-spring),width .5s var(--ux-spring);pointer-events:none}
-.u039-tab{position:relative;z-index:1;flex:none;height:30px;border:0;padding:0 11px;border-radius:999px;background:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:12.5px;font-weight:680;color:var(--ux-ink-2);white-space:nowrap;transition:color .35s var(--ux-ease)}
+.u039-tab{position:relative;z-index:1;flex:none;height:30px;border:0;padding:0 11px;border-radius:999px;background:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:12.5px;font-weight:720;color:var(--ux-ink-2,#36455C);white-space:nowrap;transition:color .35s var(--ux-ease)}
+:root:not([data-theme="dark"]) .u039-tab:not([aria-selected="true"]){color:#36455C}
+:root:not([data-theme="dark"]) .u039-tab:not([aria-selected="true"]) .u039-ico{color:#47566E}
+.u039-ico{display:inline-flex;align-items:center;justify-content:center;flex:none}
 .u039-tab:hover{color:var(--ux-ink)}
-.u039-tab[aria-selected="true"]{color:var(--ux-page)}
+.u039-tab[aria-selected="true"]{color:var(--ux-surface,#FCFBF8)}
 .u039-tab:focus-visible{outline:2px solid var(--ux-accent);outline-offset:2px}
 @media (max-width:440px){
-  .u039-tab{height:28px;padding:0 8.5px;font-size:11.5px}
+  .u039-tab{height:28px;padding:0 8.5px;font-size:11.5px;gap:4px}
 }
 
 /* #242 Category chip bar that follows scroll · https://lucianlabs.dev/uxui-prompt/#242 */
@@ -96,11 +110,14 @@ const LUCIAN_NAV_ELEMENTS_CSS = `
 .u242-cb{position:relative;z-index:2;width:100%;max-width:100%;background:transparent;transition:box-shadow .25s}
 .u242-cr{position:relative;isolation:isolate;display:flex;align-items:center;gap:4px;width:100%;max-width:100%;padding:6px 8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .u242-cr::-webkit-scrollbar{display:none}
-.u242-ch{position:relative;z-index:1;flex:none;height:34px;padding:0 12px;border:0;border-radius:999px;background:none;color:var(--ux-ink-3);font:inherit;font-size:12.5px;font-weight:750;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:color .2s}
-.u242-ch:hover{color:var(--ux-ink-2)}
+.u242-ch{position:relative;z-index:1;flex:none;height:34px;padding:0 12px;border:0;border-radius:999px;background:none;color:var(--ux-ink-2,#36455C);font:inherit;font-size:12.5px;font-weight:750;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:color .2s}
+:root:not([data-theme="dark"]) .u242-ch:not([aria-current="true"]){color:#36455C}
+:root:not([data-theme="dark"]) .u242-ch:not([aria-current="true"]) .u242-ico{color:#47566E}
+.u242-ico{display:inline-flex;align-items:center;justify-content:center;flex:none}
+.u242-ch:hover{color:var(--ux-ink)}
 .u242-ch[aria-current="true"]{color:var(--ux-ink);font-weight:820}
 .u242-ch:focus-visible{outline:2px solid var(--ux-accent);outline-offset:-2px}
-.u242-dot{width:7px;height:7px;border-radius:50%;background:var(--ux-mint);box-shadow:0 0 0 3px rgba(17,156,114,.18);flex:none}
+.u242-dot{width:7px;height:7px;border-radius:50%;background:var(--ux-mint);box-shadow:0 0 0 3px rgba(19,132,94,.20);flex:none}
 .u242-ul{position:absolute;left:0;top:6px;height:34px;border-radius:999px;background:var(--ux-surface-2);box-shadow:inset 0 0 0 1px var(--ux-line-2);transition:transform .35s cubic-bezier(.3,1.2,.5,1),width .35s cubic-bezier(.3,1.2,.5,1);z-index:0;pointer-events:none}
 @media (max-width:480px){
   .u242-cr{padding:5px 6px}
@@ -122,27 +139,27 @@ function normalizeTypeahead(input: string): string {
 const CITY_BADGE_META: Record<string, { code: string; gradient: string }> = {
   ha_noi: {
     code: 'HN',
-    gradient: 'linear-gradient(140deg,#185ADB,#2F8FE0)',
+    gradient: 'linear-gradient(140deg,#1E6BB8,#2A7AC9)',
   },
   tp_hcm: {
     code: 'HCM',
-    gradient: 'linear-gradient(140deg,#EA580C,#F59E0B)',
+    gradient: 'linear-gradient(140deg,#B85D28,#D4822A)',
   },
   da_lat: {
     code: 'ĐL',
-    gradient: 'linear-gradient(140deg,#0D9488,#22C55E)',
+    gradient: 'linear-gradient(140deg,#13845E,#259C74)',
   },
   da_nang: {
     code: 'ĐN',
-    gradient: 'linear-gradient(140deg,#0284C7,#22C3A6)',
+    gradient: 'linear-gradient(140deg,#1F6E9C,#249386)',
   },
   sa_pa: {
     code: 'SP',
-    gradient: 'linear-gradient(140deg,#2563EB,#38BDF8)',
+    gradient: 'linear-gradient(140deg,#26639E,#3D82B8)',
   },
   can_tho: {
     code: 'CT',
-    gradient: 'linear-gradient(140deg,#16A34A,#14B8A6)',
+    gradient: 'linear-gradient(140deg,#177E5A,#1D9384)',
   },
 };
 
@@ -154,7 +171,7 @@ export interface LucianTabOption<T extends string> {
   id: T;
   label: string;
   compactLabel: string;
-  featherIcon: React.ComponentProps<typeof Feather>['name'];
+  icon: AppIconName;
 }
 
 export interface LucianViewTabsProps<T extends string> {
@@ -288,9 +305,10 @@ export function LucianViewTabs<T extends string>({
                 isSelected && { backgroundColor: palette.coreElevatedBg },
               ]}
             >
-              <Feather
-                name={opt.featherIcon}
-                size={13}
+              <AppIcon
+                name={opt.icon}
+                size={14}
+                weight="duotone"
                 color={isSelected ? palette.accent : palette.inkSecondary}
               />
               <Text
@@ -362,7 +380,7 @@ export function LucianViewTabs<T extends string>({
               onClick={() => onChange(opt.id)}
             >
               <span className="u416-ico" aria-hidden="true">
-                <Feather name={opt.featherIcon} size={14} color="currentColor" />
+                <AppIcon name={opt.icon} size={15} weight="duotone" color="currentColor" />
               </span>
               <span>{isCompactLabels ? opt.compactLabel : opt.label}</span>
             </button>
@@ -386,6 +404,7 @@ export interface LucianCityListboxProps {
   onSelectCity: (cityId: string) => void;
   onRequestGps: () => void;
   gpsLoading: boolean;
+  gpsSource?: 'gps' | 'ip' | null;
   palette: AtmosphericPalette;
 }
 
@@ -398,6 +417,7 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
   onSelectCity,
   onRequestGps,
   gpsLoading,
+  gpsSource = null,
   palette,
 }) => {
   const listboxId = useId().replace(/:/g, '');
@@ -406,9 +426,13 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
     () => cities.findIndex((c) => c.id === selectedCityId),
     [cities, selectedCityId]
   );
-  const [activeIndex, setActiveIndex] = useState<number>(
-    selectedPresetIndex >= 0 ? selectedPresetIndex : 0
-  );
+  const selectedOptionIndex = useMemo(() => {
+    if (isGpsActive) {
+      return 0;
+    }
+    return selectedPresetIndex >= 0 ? selectedPresetIndex + 1 : 0;
+  }, [isGpsActive, selectedPresetIndex]);
+  const [activeIndex, setActiveIndex] = useState<number>(selectedOptionIndex);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const fieldRef = useRef<HTMLDivElement | null>(null);
@@ -427,10 +451,8 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
   }, []);
 
   useEffect(() => {
-    if (selectedPresetIndex >= 0) {
-      setActiveIndex(selectedPresetIndex);
-    }
-  }, [selectedPresetIndex]);
+    setActiveIndex(selectedOptionIndex);
+  }, [selectedOptionIndex]);
 
   const closeListbox = useCallback((refocusBtn: boolean) => {
     setIsOpen(false);
@@ -440,35 +462,45 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
   }, []);
 
   const openListbox = useCallback(() => {
-    const startIdx = selectedPresetIndex >= 0 ? selectedPresetIndex : 0;
-    setActiveIndex(startIdx);
+    setActiveIndex(selectedOptionIndex);
     setIsOpen(true);
     requestAnimationFrame(() => {
       listRef.current?.focus({ preventScroll: true });
     });
-  }, [selectedPresetIndex]);
+  }, [selectedOptionIndex]);
 
-  const chooseIndex = useCallback(
-    (idx: number) => {
-      const target = cities[idx];
+  const animateValueSelection = useCallback(() => {
+    const valEl = valueWrapRef.current;
+    if (valEl && typeof valEl.animate === 'function' && !prefersReducedMotionWeb()) {
+      valEl.animate(
+        [
+          { transform: 'translateY(8px)', opacity: 0 },
+          { transform: 'none', opacity: 1 },
+        ],
+        { duration: 380, easing: 'cubic-bezier(.34,1.45,.64,1)' }
+      );
+    }
+  }, []);
+
+  const chooseOption = useCallback(
+    (optionIdx: number) => {
+      if (optionIdx === 0) {
+        setActiveIndex(0);
+        onRequestGps();
+        animateValueSelection();
+        closeListbox(true);
+        return;
+      }
+      const target = cities[optionIdx - 1];
       if (!target) {
         return;
       }
-      setActiveIndex(idx);
+      setActiveIndex(optionIdx);
       onSelectCity(target.id);
-      const valEl = valueWrapRef.current;
-      if (valEl && typeof valEl.animate === 'function' && !prefersReducedMotionWeb()) {
-        valEl.animate(
-          [
-            { transform: 'translateY(8px)', opacity: 0 },
-            { transform: 'none', opacity: 1 },
-          ],
-          { duration: 380, easing: 'cubic-bezier(.34,1.45,.64,1)' }
-        );
-      }
+      animateValueSelection();
       closeListbox(true);
     },
-    [cities, closeListbox, onSelectCity]
+    [animateValueSelection, cities, closeListbox, onRequestGps, onSelectCity]
   );
 
   useEffect(() => {
@@ -499,20 +531,22 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
 
   const matchedPreset = selectedPresetIndex >= 0 ? cities[selectedPresetIndex] : null;
   const activeBadge = isGpsActive
-    ? { code: 'GPS', gradient: 'linear-gradient(140deg,#119C72,#0EA5E9)' }
+    ? { code: 'GPS', gradient: 'linear-gradient(140deg,#13845E,#1F7AB8)' }
     : !isLiveMode
-      ? { code: 'MẪU', gradient: 'linear-gradient(140deg,#2F8FE0,#185ADB)' }
+      ? { code: 'MẪU', gradient: 'linear-gradient(140deg,#2A7AC9,#1E6BB8)' }
       : matchedPreset
         ? CITY_BADGE_META[matchedPreset.id] ?? {
             code: 'VN',
-            gradient: 'linear-gradient(140deg,#185ADB,#2F8FE0)',
+            gradient: 'linear-gradient(140deg,#1E6BB8,#2A7AC9)',
           }
-        : { code: 'VN', gradient: 'linear-gradient(140deg,#185ADB,#2F8FE0)' };
+        : { code: 'VN', gradient: 'linear-gradient(140deg,#1E6BB8,#2A7AC9)' };
 
   const subLabel = !isLiveMode
     ? 'Kịch bản thử nghiệm'
     : isGpsActive
-      ? 'Định vị GPS chính xác'
+      ? gpsSource === 'ip'
+        ? 'Định vị tự động qua mạng'
+        : 'Định vị GPS chính xác'
       : matchedPreset?.regionVi ?? 'Việt Nam';
 
   if (Platform.OS !== 'web') {
@@ -531,18 +565,18 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
             },
           ]}
         >
-          <Feather
-            name={isGpsActive ? 'navigation' : 'map-pin'}
-            size={14}
-            color={palette.accent}
-          />
+          {isGpsActive ? (
+            <NavigationArrow size={14} weight="duotone" color={palette.accent} />
+          ) : (
+            <MapPin size={14} weight="duotone" color={palette.accent} />
+          )}
           <Text
             numberOfLines={1}
             style={[nativeStyles.cityTriggerText, { color: palette.inkPrimary }]}
           >
             {locationLabel}
           </Text>
-          <Feather name="chevron-down" size={14} color={palette.inkSecondary} />
+          <CaretDown size={13} weight="bold" color={palette.inkSecondary} />
         </Pressable>
 
         <Modal
@@ -562,7 +596,7 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
               <View style={nativeStyles.modalHeader}>
                 <Text style={nativeStyles.modalTitle}>Chọn thành phố</Text>
                 <Pressable onPress={() => setIsOpen(false)}>
-                  <Feather name="x" size={18} color="#0F172A" />
+                  <X size={17} weight="bold" color="#141D2B" />
                 </Pressable>
               </View>
               <Pressable
@@ -572,8 +606,11 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
                 }}
                 style={nativeStyles.nativeGpsRow}
               >
+                <Crosshair size={14} weight="duotone" color="#6BA9E8" />
                 <Text style={nativeStyles.nativeGpsText}>
-                  {gpsLoading ? '📍 Đang định vị...' : '📍 Vị trí hiện tại (GPS)'}
+                  {gpsLoading
+                    ? 'Đang định vị...'
+                    : 'Vị trí hiện tại · Tự động định vị'}
                 </Text>
               </Pressable>
               <ScrollView style={{ maxHeight: 280 }}>
@@ -594,7 +631,7 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
                       <Text
                         style={[
                           nativeStyles.nativeCityName,
-                          selected && { color: '#FFFFFF' },
+                          selected && { color: '#FCFBF8' },
                         ]}
                       >
                         {city.nameVi} · {city.regionVi}
@@ -611,13 +648,10 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
   }
 
   const handleListKeyDown = (e: React.KeyboardEvent<HTMLUListElement>) => {
-    const count = cities.length;
-    if (count === 0) {
-      return;
-    }
+    const totalOptions = cities.length + 1;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex((prev) => Math.min(count - 1, prev + 1));
+      setActiveIndex((prev) => Math.min(totalOptions - 1, prev + 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActiveIndex((prev) => Math.max(0, prev - 1));
@@ -626,10 +660,10 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
       setActiveIndex(0);
     } else if (e.key === 'End') {
       e.preventDefault();
-      setActiveIndex(count - 1);
+      setActiveIndex(totalOptions - 1);
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      chooseIndex(activeIndex);
+      chooseOption(activeIndex);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       closeListbox(true);
@@ -644,6 +678,14 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
         typedBufRef.current = '';
       }, 600);
       const query = typedBufRef.current;
+      if (
+        'vi tri hien tai'.startsWith(query) ||
+        'gps'.startsWith(query) ||
+        'tu dong'.startsWith(query)
+      ) {
+        setActiveIndex(0);
+        return;
+      }
       const hit = cities.findIndex((city) => {
         const badge = CITY_BADGE_META[city.id]?.code ?? '';
         return (
@@ -652,7 +694,7 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
         );
       });
       if (hit >= 0) {
-        setActiveIndex(hit);
+        setActiveIndex(hit + 1);
       }
     }
   };
@@ -724,25 +766,65 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
             aria-hidden="true"
             style={{ '--i': activeIndex } as React.CSSProperties}
           />
+          <li
+            id={`${listboxId}-opt-0`}
+            className="u031-o"
+            role="option"
+            aria-selected={isLiveMode && isGpsActive}
+            onPointerMove={() => {
+              if (activeIndex !== 0) {
+                setActiveIndex(0);
+              }
+            }}
+            onClick={() => chooseOption(0)}
+          >
+            <span
+              className="u031-flag"
+              style={
+                {
+                  '--c': 'linear-gradient(140deg,#13845E,#1F7AB8)',
+                } as React.CSSProperties
+              }
+              aria-hidden="true"
+            >
+              GPS
+            </span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                minWidth: 0,
+              }}
+            >
+              <Crosshair size={14} weight="duotone" color="var(--ux-accent)" />
+              <span>{gpsLoading ? 'Đang định vị...' : 'Vị trí hiện tại'}</span>
+            </span>
+            <small>· Tự động định vị</small>
+            <svg className="u031-ck" viewBox="0 0 18 18" aria-hidden="true">
+              <path d="M4 9.5l3.5 3.5L14 6" />
+            </svg>
+          </li>
           {cities.map((city, idx) => {
+            const optionIdx = idx + 1;
             const meta = CITY_BADGE_META[city.id] ?? {
               code: 'VN',
-              gradient: 'linear-gradient(140deg,#185ADB,#2F8FE0)',
+              gradient: 'linear-gradient(140deg,#1E6BB8,#2A7AC9)',
             };
             const isSelected = isLiveMode && !isGpsActive && selectedCityId === city.id;
             return (
               <li
                 key={city.id}
-                id={`${listboxId}-opt-${idx}`}
+                id={`${listboxId}-opt-${optionIdx}`}
                 className="u031-o"
                 role="option"
                 aria-selected={isSelected}
                 onPointerMove={() => {
-                  if (activeIndex !== idx) {
-                    setActiveIndex(idx);
+                  if (activeIndex !== optionIdx) {
+                    setActiveIndex(optionIdx);
                   }
                 }}
-                onClick={() => chooseIndex(idx)}
+                onClick={() => chooseOption(optionIdx)}
               >
                 <span
                   className="u031-flag"
@@ -772,6 +854,7 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
 export interface LucianPillOption<T extends string> {
   id: T;
   label: string;
+  icon?: AppIconName;
   ariaLabel?: string;
 }
 
@@ -893,6 +976,14 @@ export function LucianSlidingPillSwitch<T extends string>({
                 selected && { backgroundColor: palette.pillActiveBg },
               ]}
             >
+              {opt.icon ? (
+                <AppIcon
+                  name={opt.icon}
+                  size={13}
+                  weight="duotone"
+                  color={selected ? palette.pillActiveInk : palette.accent}
+                />
+              ) : null}
               <Text
                 style={[
                   nativeStyles.pillText,
@@ -954,7 +1045,17 @@ export function LucianSlidingPillSwitch<T extends string>({
                 }
               }}
             >
-              {opt.label}
+              {opt.icon ? (
+                <span className="u039-ico" aria-hidden="true">
+                  <AppIcon
+                    name={opt.icon}
+                    size={13.5}
+                    weight="duotone"
+                    color="currentColor"
+                  />
+                </span>
+              ) : null}
+              <span>{opt.label}</span>
             </button>
           );
         })}
@@ -970,6 +1071,7 @@ export function LucianSlidingPillSwitch<T extends string>({
 export interface LucianScenarioChipItem<T extends string> {
   id: T;
   label: string;
+  icon?: React.ReactNode;
   isLive?: boolean;
 }
 
@@ -1124,6 +1226,7 @@ export function LucianScenarioChipBar<T extends string>({
                 },
               ]}
             >
+              {item.icon ? item.icon : null}
               <Text
                 style={[
                   nativeStyles.scenarioChipText,
@@ -1187,6 +1290,10 @@ export function LucianScenarioChipBar<T extends string>({
               >
                 {item.isLive ? (
                   <span className="u242-dot" aria-hidden="true" />
+                ) : item.icon ? (
+                  <span className="u242-ico" aria-hidden="true">
+                    {item.icon}
+                  </span>
                 ) : null}
                 <span>{item.label}</span>
               </button>
@@ -1246,7 +1353,7 @@ const nativeStyles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FCFBF8',
     borderRadius: 22,
     padding: 18,
     gap: 10,
@@ -1260,10 +1367,13 @@ const nativeStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 17,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#141D2B',
   },
   nativeGpsRow: {
-    backgroundColor: '#0F172A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#141D2B',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1272,7 +1382,7 @@ const nativeStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 13,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#FCFBF8',
   },
   nativeCityOption: {
     paddingHorizontal: 12,
@@ -1280,13 +1390,13 @@ const nativeStyles = StyleSheet.create({
     borderRadius: 10,
   },
   nativeCityOptionSelected: {
-    backgroundColor: '#185ADB',
+    backgroundColor: '#1E6BB8',
   },
   nativeCityName: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#0F172A',
+    color: '#141D2B',
   },
   pillGroup: {
     flexDirection: 'row',
@@ -1296,6 +1406,9 @@ const nativeStyles = StyleSheet.create({
     borderWidth: 1,
   },
   pillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 999,
@@ -1312,6 +1425,9 @@ const nativeStyles = StyleSheet.create({
     paddingVertical: 2,
   },
   scenarioChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 13,
     paddingVertical: 7,
     borderRadius: 999,

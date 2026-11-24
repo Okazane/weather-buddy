@@ -1,0 +1,46 @@
+[workspace]
+resolver = "2"
+members = [
+    "weather-buddy-core",
+    "weather-buddy-server",
+    "weather-buddy-packer",
+    "weather-buddy-tauri",
+]
+
+[workspace.package]
+version = "3.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["WeatherBuddy Team"]
+repository = "https://github.com/weather-buddy/weather-buddy"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.40", features = ["full"] }
+axum = { version = "0.7", features = ["json", "macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs", "cors", "limit", "set-header"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+dashmap = "6.1"
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+rand = "0.8"
+regex = "1.11"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+rayon = "1.10"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+walkdir = "2.5"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

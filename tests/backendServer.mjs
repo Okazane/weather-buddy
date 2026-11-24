@@ -242,6 +242,44 @@ test('WeatherBuddy Backend Server E2E contract, caching, dashboard, widget-sync,
     assert.equal(geo2.locationName, geo1.locationName);
   });
 
+  await t.test('GET /api/auto-locate returns 200 OK with valid coordinates, Vietnamese locationName, source: ip, security headers, and hits cache on repeat call', async () => {
+    const auto1Res = await fetch(`${baseUrl}/api/auto-locate`);
+    assert.equal(auto1Res.status, 200);
+    assert.equal(auto1Res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(auto1Res.headers.get('x-frame-options'), 'DENY');
+    assert.equal(auto1Res.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(auto1Res.headers.get('cache-control'), 'no-store');
+
+    const auto1 = await auto1Res.json();
+    assert.equal(auto1.status, 'ok');
+    assert.equal(auto1.source, 'ip');
+    assert.equal(typeof auto1.latitude, 'number');
+    assert.ok(
+      Number.isFinite(auto1.latitude) && auto1.latitude >= -90 && auto1.latitude <= 90,
+      'latitude must be finite in [-90, 90]'
+    );
+    assert.equal(typeof auto1.longitude, 'number');
+    assert.ok(
+      Number.isFinite(auto1.longitude) && auto1.longitude >= -180 && auto1.longitude <= 180,
+      'longitude must be finite in [-180, 180]'
+    );
+    assert.equal(typeof auto1.locationName, 'string');
+    assert.ok(auto1.locationName.trim().length > 0, 'locationName must be non-empty');
+    assert.equal(auto1.cacheHit, false);
+
+    // Repeat call must hit 15-minute auto-locate cache immediately
+    const auto2Res = await fetch(`${baseUrl}/api/auto-locate`);
+    assert.equal(auto2Res.status, 200);
+    assert.equal(auto2Res.headers.get('x-content-type-options'), 'nosniff');
+    const auto2 = await auto2Res.json();
+    assert.equal(auto2.status, 'ok');
+    assert.equal(auto2.source, 'ip');
+    assert.equal(auto2.cacheHit, true);
+    assert.equal(auto2.latitude, auto1.latitude);
+    assert.equal(auto2.longitude, auto1.longitude);
+    assert.equal(auto2.locationName, auto1.locationName);
+  });
+
   await t.test('Static dist/ SPA fallback serves HTML for client routes and 404s missing assets', async () => {
     const rootRes = await fetch(`${baseUrl}/dashboard`);
     assert.equal(rootRes.status, 200);

@@ -12,7 +12,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import type {
   ThermalSensitivity,
   WeatherProviderType,
@@ -24,11 +23,27 @@ import {
   useResolvedLucianDark,
   type LucianRadioOption,
 } from '../lucian/LucianHubComponents';
-import { FONT_FAMILY_SANS, sanitizeCopy, WEB_NO_OUTLINE } from './themeTokens';
+import {
+  Check,
+  CheckCircle,
+  Eye,
+  EyeSlash,
+  Lightning,
+  SlidersHorizontal,
+  Trash,
+  X,
+} from './AppIcons';
+import {
+  FONT_FAMILY_SANS,
+  sanitizeCopy,
+  WEB_NO_OUTLINE,
+  type AtmosphericPalette,
+} from './themeTokens';
 
 interface SettingsModalProps {
   visible: boolean;
   onClose: () => void;
+  palette?: AtmosphericPalette;
   sensitivity: ThermalSensitivity;
   onSelectSensitivity: (s: ThermalSensitivity) => void;
   providerPref: WeatherProviderType;
@@ -50,7 +65,7 @@ const SENSITIVITY_RADIO_OPTIONS: ReadonlyArray<LucianRadioOption<ThermalSensitiv
     title: 'Sợ lạnh',
     subtitle: 'Mặc ấm sớm (-3°C)',
     icon: 'snowflake',
-    gradient: 'linear-gradient(140deg,#38BDF8,#185ADB)',
+    gradient: 'linear-gradient(140deg,#3A7EC2,#1E6BB8)',
   },
   {
     id: 'normal',
@@ -58,14 +73,14 @@ const SENSITIVITY_RADIO_OPTIONS: ReadonlyArray<LucianRadioOption<ThermalSensitiv
     subtitle: 'Chuẩn cảm nhận',
     badge: 'Mặc định',
     icon: 'sun',
-    gradient: 'linear-gradient(140deg,#22C3A6,#0EA5E9)',
+    gradient: 'linear-gradient(140deg,#3B9D7C,#168560)',
   },
   {
     id: 'heat_sensitive',
     title: 'Sợ nóng',
     subtitle: 'Mặc thoáng (+3°C)',
     icon: 'flame',
-    gradient: 'linear-gradient(140deg,#FB923C,#EA580C)',
+    gradient: 'linear-gradient(140deg,#D98A3C,#B86818)',
   },
 ];
 
@@ -73,54 +88,55 @@ const PROVIDER_RADIO_OPTIONS: ReadonlyArray<LucianRadioOption<WeatherProviderTyp
   {
     id: 'auto',
     title: 'Tự động',
-    subtitle: 'Ưu tiên khóa đã nhập, dự phòng Open-Meteo Free',
+    subtitle: 'Ưu tiên khóa đã nhập, dự phòng Open-Meteo miễn phí',
     badge: 'Khuyên dùng',
     metaPrimary: '15p',
     metaSecondary: 'Tự chuyển',
     icon: 'zap',
-    gradient: 'linear-gradient(140deg,#2F8FE0,#185ADB)',
+    gradient: 'linear-gradient(140deg,#3A7EC2,#1E6BB8)',
   },
   {
     id: 'open_meteo',
     title: 'Open-Meteo',
     subtitle: 'Miễn phí 100%, không cần khóa API',
     metaPrimary: 'Miễn phí',
-    metaSecondary: '0 Key',
+    metaSecondary: 'Không cần khóa',
     icon: 'cloud',
-    gradient: 'linear-gradient(140deg,#22C3A6,#119C72)',
+    gradient: 'linear-gradient(140deg,#3B9D7C,#168560)',
   },
   {
     id: 'google',
     title: 'Google Weather API',
-    subtitle: 'Sử dụng Google Weather API Key cá nhân',
-    metaPrimary: 'BYOK',
+    subtitle: 'Sử dụng khóa Google Weather cá nhân',
+    metaPrimary: 'Khóa riêng',
     metaSecondary: 'Tùy chọn',
     icon: 'globe',
-    gradient: 'linear-gradient(140deg,#3B82F6,#1D4ED8)',
+    gradient: 'linear-gradient(140deg,#3A7EC2,#255B96)',
   },
   {
     id: 'tomorrow_io',
     title: 'Tomorrow.io',
-    subtitle: 'Sử dụng Tomorrow.io API Key cá nhân',
-    metaPrimary: 'BYOK',
+    subtitle: 'Sử dụng khóa Tomorrow.io cá nhân',
+    metaPrimary: 'Khóa riêng',
     metaSecondary: 'Tùy chọn',
     icon: 'key',
-    gradient: 'linear-gradient(140deg,#0EA5E9,#0369A1)',
+    gradient: 'linear-gradient(140deg,#4A78A8,#2A5580)',
   },
   {
     id: 'weatherapi',
     title: 'WeatherAPI.com',
-    subtitle: 'Sử dụng WeatherAPI.com Key cá nhân',
-    metaPrimary: 'BYOK',
+    subtitle: 'Sử dụng khóa WeatherAPI.com cá nhân',
+    metaPrimary: 'Khóa riêng',
     metaSecondary: 'Tùy chọn',
     icon: 'key',
-    gradient: 'linear-gradient(140deg,#14B8A6,#0F766E)',
+    gradient: 'linear-gradient(140deg,#388E78,#1F6B59)',
   },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   visible,
   onClose,
+  palette,
   sensitivity,
   onSelectSensitivity,
   providerPref,
@@ -137,7 +153,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isCompactMobile = width < 440;
-  const isDark = useResolvedLucianDark();
+  const isDark = useResolvedLucianDark(palette);
 
   const [draftGoogleKey, setDraftGoogleKey] = useState<string>(googleApiKey);
   const [draftTomorrowKey, setDraftTomorrowKey] = useState<string>(tomorrowIoApiKey);
@@ -165,11 +181,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.stopPropagation();
         onClose();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [visible, onClose]);
 
   const anyRevealed = showGoogleKey || showTomorrowKey || showWeatherApiKey;
@@ -216,23 +233,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     ) {
       onSelectProvider('auto');
     }
-    setFeedbackMessage('Đã xóa khóa API - Tự động dùng Open-Meteo Free.');
+    setFeedbackMessage('Đã xóa khóa API - Tự động dùng Open-Meteo miễn phí.');
   };
 
-  const surfaceCoreBg = isDark ? '#111A2B' : '#F4F6FA';
-  const outerBezelBg = isDark
-    ? 'rgba(255, 255, 255, 0.08)'
-    : 'rgba(255, 255, 255, 0.34)';
-  const outerBezelBorder = isDark
-    ? 'rgba(255, 255, 255, 0.18)'
-    : 'rgba(255, 255, 255, 0.68)';
-  const inkPrimary = isDark ? '#F1F5FB' : '#0F172A';
-  const inkSecondary = isDark ? '#94A3B8' : '#475569';
-  const closeBg = isDark ? '#1E293B' : '#E2E8F0';
-  const keyPanelBg = isDark ? '#162238' : '#EAEEF5';
-  const keyPanelBorder = isDark
-    ? 'rgba(255, 255, 255, 0.10)'
-    : 'rgba(15, 23, 42, 0.08)';
+  const surfaceCoreBg =
+    palette?.coreSurfaceBg ?? (isDark ? '#152033' : '#FCFBF8');
+  const outerBezelBg =
+    palette?.bezelOuterBg ??
+    (isDark ? 'rgba(21, 32, 51, 0.72)' : 'rgba(252, 251, 248, 0.62)');
+  const outerBezelBorder =
+    palette?.bezelOuterBorder ??
+    (isDark ? 'rgba(203, 221, 245, 0.16)' : 'rgba(20, 29, 43, 0.12)');
+  const inkPrimary = palette?.inkPrimary ?? (isDark ? '#EEF3FA' : '#141D2B');
+  const inkSecondary =
+    palette?.inkSecondary ?? (isDark ? '#B2C1D6' : '#384860');
+  const closeBg = palette?.pillIdleBg ?? (isDark ? '#22324D' : '#ECE8DF');
+  const keyPanelBg =
+    palette?.coreElevatedBg ?? (isDark ? '#1C2A42' : '#F3EFE8');
+  const keyPanelBorder =
+    palette?.hairline ??
+    (isDark ? 'rgba(203, 221, 245, 0.10)' : 'rgba(20, 29, 43, 0.09)');
+  const accentColor = palette?.accent ?? (isDark ? '#6BA9E8' : '#1E6BB8');
+  const accentSoftBg =
+    palette?.accentSoftBg ??
+    (isDark ? 'rgba(107, 169, 232, 0.15)' : 'rgba(30, 107, 184, 0.11)');
+  const accentContrastInk =
+    palette?.accentContrastInk ?? (isDark ? '#0B1220' : '#FCFBF8');
+  const safeSoftBg = isDark
+    ? 'rgba(88, 196, 158, 0.16)'
+    : 'rgba(22, 133, 96, 0.12)';
+  const safeInk = isDark ? '#58C49E' : '#146C4F';
+  const hazardInk = isDark ? '#E5737D' : '#C4384B';
 
   return (
     <Modal
@@ -274,16 +305,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={[
                     styles.headerIconBox,
                     {
-                      backgroundColor: isDark
-                        ? 'rgba(99, 173, 255, 0.16)'
-                        : 'rgba(24, 90, 219, 0.12)',
+                      backgroundColor: accentSoftBg,
                     },
                   ]}
                 >
-                  <Feather
-                    name="sliders"
-                    size={16}
-                    color={isDark ? '#63ADFF' : '#185ADB'}
+                  <SlidersHorizontal
+                    size={18}
+                    weight="duotone"
+                    color={accentColor}
                   />
                 </View>
                 <View>
@@ -302,7 +331,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onPress={onClose}
                 style={[styles.closeBtn, { backgroundColor: closeBg }, WEB_NO_OUTLINE]}
               >
-                <Feather name="x" size={17} color={inkPrimary} />
+                <X size={16} weight="bold" color={inkPrimary} />
               </Pressable>
             </View>
 
@@ -337,39 +366,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       styles.statusBadge,
                       {
                         backgroundColor: isCustomProviderActive
-                          ? isDark
-                            ? 'rgba(16, 185, 129, 0.20)'
-                            : '#D1E7DD'
-                          : isDark
-                            ? 'rgba(99, 173, 255, 0.18)'
-                            : '#DBEAFE',
+                          ? safeSoftBg
+                          : accentSoftBg,
                       },
                     ]}
                   >
-                    <Feather
-                      name={isCustomProviderActive ? 'zap' : 'check-circle'}
-                      size={12}
-                      color={
-                        isCustomProviderActive
-                          ? isDark
-                            ? '#6EE7B7'
-                            : '#0F5132'
-                          : isDark
-                            ? '#93C5FD'
-                            : '#1E3A8A'
-                      }
-                    />
+                    {isCustomProviderActive ? (
+                      <Lightning
+                        size={13}
+                        weight="duotone"
+                        color={safeInk}
+                      />
+                    ) : (
+                      <CheckCircle
+                        size={13}
+                        weight="duotone"
+                        color={accentColor}
+                      />
+                    )}
                     <Text
                       style={[
                         styles.statusBadgeText,
                         {
-                          color: isCustomProviderActive
-                            ? isDark
-                              ? '#6EE7B7'
-                              : '#0F5132'
-                            : isDark
-                              ? '#93C5FD'
-                              : '#1E3A8A',
+                          color: isCustomProviderActive ? safeInk : accentColor,
                         },
                       ]}
                     >
@@ -401,7 +420,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               >
                 <View style={styles.labelStatusRow}>
                   <Text style={[styles.fieldLabel, { color: inkPrimary }]}>
-                    3. Khóa API cá nhân (Mặc định trống 100%)
+                    3. Khóa API cá nhân (Tùy chọn)
                   </Text>
                   <Pressable
                     accessibilityRole="button"
@@ -415,11 +434,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       WEB_NO_OUTLINE,
                     ]}
                   >
-                    <Feather
-                      name={anyRevealed ? 'eye-off' : 'eye'}
-                      size={13}
-                      color={inkPrimary}
-                    />
+                    {anyRevealed ? (
+                      <EyeSlash size={14} weight="duotone" color={inkPrimary} />
+                    ) : (
+                      <Eye size={14} weight="duotone" color={inkPrimary} />
+                    )}
                     <Text style={[styles.revealToggleText, { color: inkPrimary }]}>
                       {anyRevealed ? 'Ẩn khóa' : 'Hiện khóa'}
                     </Text>
@@ -432,9 +451,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <View style={styles.keysFieldsStack}>
                   <LucianApiKeyField
-                    label="Google Weather API Key"
+                    label="Khóa Google Weather API"
                     value={draftGoogleKey}
-                    placeholder="Để trống để dùng Open-Meteo Free..."
+                    placeholder="Để trống để dùng Open-Meteo miễn phí..."
                     onChange={(txt) => {
                       setDraftGoogleKey(txt);
                       setFeedbackMessage(null);
@@ -445,9 +464,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
 
                   <LucianApiKeyField
-                    label="Tomorrow.io API Key"
+                    label="Khóa Tomorrow.io API"
                     value={draftTomorrowKey}
-                    placeholder="Để trống để dùng Open-Meteo Free..."
+                    placeholder="Để trống để dùng Open-Meteo miễn phí..."
                     onChange={(txt) => {
                       setDraftTomorrowKey(txt);
                       setFeedbackMessage(null);
@@ -458,9 +477,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
 
                   <LucianApiKeyField
-                    label="WeatherAPI.com Key"
+                    label="Khóa WeatherAPI.com"
                     value={draftWeatherApiKey}
-                    placeholder="Để trống để dùng Open-Meteo Free..."
+                    placeholder="Để trống để dùng Open-Meteo miễn phí..."
                     onChange={(txt) => {
                       setDraftWeatherApiKey(txt);
                       setFeedbackMessage(null);
@@ -479,21 +498,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={({ pressed }) => [
                       styles.saveKeyBtn,
                       {
-                        backgroundColor: isDark ? '#63ADFF' : '#185ADB',
+                        backgroundColor: accentColor,
                       },
                       WEB_NO_OUTLINE,
                       pressed && { transform: [{ scale: 0.98 }] },
                     ]}
                   >
-                    <Feather
-                      name="check"
+                    <Check
                       size={14}
-                      color={isDark ? '#09111F' : '#F8FAFC'}
+                      weight="bold"
+                      color={accentContrastInk}
                     />
                     <Text
                       style={[
                         styles.saveKeyBtnText,
-                        { color: isDark ? '#09111F' : '#F8FAFC' },
+                        { color: accentContrastInk },
                       ]}
                     >
                       Lưu khóa
@@ -513,7 +532,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       pressed && { transform: [{ scale: 0.98 }] },
                     ]}
                   >
-                    <Feather name="trash-2" size={14} color={inkPrimary} />
+                    <Trash size={15} weight="duotone" color={inkPrimary} />
                     <Text style={[styles.clearKeyBtnText, { color: inkPrimary }]}>
                       Xóa khóa
                     </Text>
@@ -524,7 +543,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Text
                     style={[
                       styles.savedFeedbackText,
-                      { color: isDark ? '#6EE7B7' : '#0F5132' },
+                      { color: safeInk },
                     ]}
                   >
                     {feedbackMessage}
@@ -535,7 +554,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Text
                     style={[
                       styles.errorText,
-                      { color: isDark ? '#FCA5A5' : '#991B1B' },
+                      { color: hazardInk },
                     ]}
                   >
                     {sanitizeCopy(liveError)}
@@ -553,7 +572,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(9, 16, 30, 0.62)',
+    backgroundColor: 'rgba(11, 18, 32, 0.60)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,

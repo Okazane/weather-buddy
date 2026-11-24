@@ -6,7 +6,12 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Ellipse,
+  G,
+  Path,
+} from 'react-native-svg';
 import {
   CHARACTER_PROFILES,
   COMPANION_SPRITES,
@@ -17,14 +22,18 @@ import {
   type Gender,
   type NpcActionId,
 } from '../art/characterAssets';
+import type { WeatherSnapshot } from '../core';
 import { useNpcStageController } from '../hooks/useWeatherBuddy';
 import { type AtmosphericPalette } from './themeTokens';
+import { WebGLCharacterDiorama } from './WebGLCharacterDiorama';
 
 export interface LivingCharacterRigProps {
   gender: Gender;
   sceneId: CharacterSceneId;
   palette: AtmosphericPalette;
   size: number;
+  weather?: WeatherSnapshot;
+  customVrmUrl?: string | null;
   reduceMotion?: boolean;
   interactive?: boolean;
   showAmbientProps?: boolean;
@@ -73,10 +82,6 @@ interface InternalMutableState {
   nextSaccadeAtMs: number;
   saccadeX: number;
   saccadeY: number;
-  nextBlinkAtMs: number;
-  blinkStartMs: number;
-  blinkDurationMs: number;
-  pendingDoubleBlink: boolean;
   hopStartMs: number;
   sparkleStartMs: number;
   lastPointerX: number;
@@ -109,6 +114,8 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
   sceneId,
   palette,
   size,
+  weather,
+  customVrmUrl = null,
   reduceMotion = false,
   interactive = true,
   showAmbientProps = true,
@@ -117,6 +124,10 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
   const npcStage = useNpcStageController();
   const isStanding = npcMode ? npcStage.isStanding : true;
   const npcAction: NpcActionId = npcStage.npcAction;
+  const [webglFailed, setWebglFailed] = useState(false);
+
+  const useWebGLDiorama =
+    Platform.OS === 'web' && interactive && size >= 180 && !webglFailed;
 
   const profile = CHARACTER_PROFILES[gender];
   const sceneMeta = SCENE_VISUAL_META[sceneId];
@@ -160,10 +171,6 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
     nextSaccadeAtMs: nowInit + 1300,
     saccadeX: 0,
     saccadeY: 0,
-    nextBlinkAtMs: nowInit + 2500,
-    blinkStartMs: -1,
-    blinkDurationMs: 130,
-    pendingDoubleBlink: false,
     hopStartMs: -1,
     sparkleStartMs: -1,
     lastPointerX: 0,
@@ -216,7 +223,13 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
 
   // Global cursor eye-tracking on Web so living eyes smoothly follow the user's pointer
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined' || reduceMotion || !interactive) {
+    if (
+      useWebGLDiorama ||
+      Platform.OS !== 'web' ||
+      typeof window === 'undefined' ||
+      reduceMotion ||
+      !interactive
+    ) {
       return;
     }
 
@@ -247,11 +260,11 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
     return () => {
       window.removeEventListener('pointermove', onWinMove);
     };
-  }, [reduceMotion, interactive]);
+  }, [useWebGLDiorama, reduceMotion, interactive]);
 
-  // 60fps Live 2.5D Vinyl Animation Loop
+  // 60fps Live 2.5D Vinyl Animation Loop (fallback when not using WebGL Diorama)
   useEffect(() => {
-    if (reduceMotion) {
+    if (useWebGLDiorama || reduceMotion) {
       setFrame(INITIAL_FRAME);
       return;
     }
@@ -270,25 +283,8 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
       st.lastFrameMs = nowMs;
       const elapsedSec = (nowMs - st.startTimeMs) / 1000;
 
-      // 1. Natural autonomous blinking (130ms smooth close-open, occasional double blink)
-      if (st.blinkStartMs < 0 && nowMs >= st.nextBlinkAtMs) {
-        st.blinkStartMs = nowMs;
-        st.blinkDurationMs = 132;
-        st.pendingDoubleBlink = !st.pendingDoubleBlink && Math.random() < 0.2;
-      }
-
-      let blinkAmount = 0;
-      if (st.blinkStartMs >= 0) {
-        const bt = (nowMs - st.blinkStartMs) / st.blinkDurationMs;
-        if (bt >= 1) {
-          st.blinkStartMs = -1;
-          st.nextBlinkAtMs = st.pendingDoubleBlink
-            ? nowMs + 90
-            : nowMs + 2600 + Math.random() * 2800;
-        } else {
-          blinkAmount = Math.sin(bt * Math.PI);
-        }
-      }
+      // 1. Eye blinking permanently disabled: studio 3D eyes stay 100% open and crisp
+      const blinkAmount = 0;
 
       // 2. Living eye saccades when pointer is idle
       const inNpcIdle = p.npcMode && !p.isStanding;
@@ -404,17 +400,49 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
         notePhase: elapsedSec,
       });
 
-      rafId = requestAnimationFrame(tick);
+      if (typeof document === 'undefined' || !document.hidden) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        rafId = null;
+      }
     };
 
-    rafId = requestAnimationFrame(tick);
+    const onVisibilityChange = () => {
+      if (!mounted || typeof document === 'undefined') {
+        return;
+      }
+      if (document.hidden) {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      } else if (rafId === null) {
+        rigRef.current.lastFrameMs =
+          typeof performance !== 'undefined' ? performance.now() : Date.now();
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    }
+    if (Platform.OS !== 'web' || typeof document === 'undefined' || !document.hidden) {
+      rafId = requestAnimationFrame(tick);
+    }
     return () => {
       mounted = false;
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      }
     };
-  }, [reduceMotion]);
+  }, [useWebGLDiorama, reduceMotion]);
+
+  const handleWebGLUnavailable = useCallback(() => {
+    setWebglFailed(true);
+  }, []);
 
   const handleCharacterPress = useCallback(() => {
     if (!interactive) {
@@ -493,13 +521,36 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
     { translateY: -pivotOffsetY },
   ];
 
-  // Live 3D eye gaze shift inside 768x768 coordinate space
+  // Live 3D gaze shift inside 768x768 coordinate space (studio 3D eyes remain 100% open & sharp)
   const gazeShiftX = frame.gazeX * 5.6;
   const gazeShiftY = frame.gazeY * 4.4;
-  const eyelidCoverR = 23 * frame.blinkAmount;
 
   const petSize = Math.round(size * 0.28);
   const solePx = Math.round(size * (CANONICAL_CHIBI_LANDMARKS.soleY / 768));
+
+  if (useWebGLDiorama) {
+    return (
+      <View style={styles.rigOuterStack}>
+        <WebGLCharacterDiorama
+          gender={gender}
+          sceneId={sceneId}
+          palette={palette}
+          size={size}
+          weather={weather}
+          customVrmUrl={customVrmUrl}
+          reduceMotion={reduceMotion}
+          interactive={interactive}
+          showAmbientProps={showAmbientProps}
+          npcMode={npcMode}
+          isStanding={isStanding}
+          npcAction={npcAction}
+          standTriggerCount={npcStage.standTriggerCount}
+          onInteract={handleCharacterPress}
+          onWebGLUnavailable={handleWebGLUnavailable}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.rigOuterStack}>
@@ -606,101 +657,13 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
               style={{ width: size, height: size }}
             />
 
-            {/* Sub-pixel Locked 2.5D Live Eye Catchlights & 3D Eyelid Blink Overlay (768x768 space) */}
+            {/* Ambient Overlay Layer (768x768 space — studio 3D eyes stay 100% open with zero eyelid/eyelash cover) */}
             <View
               pointerEvents="none"
               style={[StyleSheet.absoluteFill, { width: size, height: size }]}
             >
               <Svg width={size} height={size} viewBox="0 0 768 768">
-                <Defs>
-                  <LinearGradient id="wbSkinLid" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0%" stopColor="#F5C3AC" stopOpacity="0.98" />
-                    <Stop offset="100%" stopColor="#FAD6C4" stopOpacity="0.98" />
-                  </LinearGradient>
-                </Defs>
-
-                {!isWearingSunglasses ? (
-                  <G>
-                    {/* Live Moving Glossy Specular Catchlights inside Left (327,296) & Right (441,296) 3D Irises */}
-                    {frame.blinkAmount < 0.72 && (
-                      <G>
-                        {/* Soft espresso mask over static studio dot so the catchlight genuinely moves with gaze */}
-                        <Circle cx={320} cy={289} r={9.5} fill="#2A150E" opacity={0.76} />
-                        <Circle cx={434} cy={289} r={9.5} fill="#2A150E" opacity={0.76} />
-
-                        {/* Primary glossy Pixar specular catchlight following cursor / pet / book */}
-                        <Circle
-                          cx={321 + gazeShiftX}
-                          cy={289 + gazeShiftY}
-                          r={7.4}
-                          fill="#FFFFFF"
-                          opacity={0.96}
-                        />
-                        <Circle
-                          cx={435 + gazeShiftX}
-                          cy={289 + gazeShiftY}
-                          r={7.4}
-                          fill="#FFFFFF"
-                          opacity={0.96}
-                        />
-
-                        {/* Secondary micro rim sparkle */}
-                        <Circle
-                          cx={334 + gazeShiftX * 0.65}
-                          cy={304 + gazeShiftY * 0.65}
-                          r={3.1}
-                          fill="#FFF7ED"
-                          opacity={0.82}
-                        />
-                        <Circle
-                          cx={448 + gazeShiftX * 0.65}
-                          cy={304 + gazeShiftY * 0.65}
-                          r={3.1}
-                          fill="#FFF7ED"
-                          opacity={0.82}
-                        />
-                      </G>
-                    )}
-
-                    {/* Natural 3D Smooth Blinking Eyelids */}
-                    {frame.blinkAmount > 0.06 && (
-                      <G>
-                        <Ellipse
-                          cx={327}
-                          cy={295 - (1 - frame.blinkAmount) * 14}
-                          rx={25}
-                          ry={eyelidCoverR}
-                          fill="url(#wbSkinLid)"
-                        />
-                        <Ellipse
-                          cx={441}
-                          cy={295 - (1 - frame.blinkAmount) * 14}
-                          rx={25}
-                          ry={eyelidCoverR}
-                          fill="url(#wbSkinLid)"
-                        />
-                        {frame.blinkAmount > 0.55 && (
-                          <G>
-                            <Path
-                              d="M 303 299 Q 327 310 351 299"
-                              stroke="#432015"
-                              strokeWidth={4.5}
-                              strokeLinecap="round"
-                              fill="none"
-                            />
-                            <Path
-                              d="M 417 299 Q 441 310 465 299"
-                              stroke="#432015"
-                              strokeWidth={4.5}
-                              strokeLinecap="round"
-                              fill="none"
-                            />
-                          </G>
-                        )}
-                      </G>
-                    )}
-                  </G>
-                ) : (
+                {isWearingSunglasses && (
                   /* Subtle Moving Specular Sun Glint on Hot Sunny Sunglasses Lenses */
                   <G opacity={0.55}>
                     <Ellipse

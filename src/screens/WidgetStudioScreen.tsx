@@ -9,9 +9,21 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
 import type { CharacterSceneId, Gender, SkyTheme } from '../core';
-import { SCENE_VISUAL_META } from '../art/characterAssets';
+import {
+  AppIcon,
+  ArrowClockwise,
+  ArrowsClockwise,
+  Camera,
+  Lightning,
+  LockSimple,
+  MapPin,
+  NavigationArrow,
+  SceneBadgeIcon,
+  ShieldWarning,
+  Umbrella,
+  type AppIconName,
+} from '../components/AppIcons';
 import { LivingCharacterRig } from '../components/LivingCharacterRig';
 import {
   formatWidgetRainAlertVi,
@@ -45,21 +57,28 @@ interface WidgetStudioScreenProps {
   onManualSync: () => void;
 }
 
+function localizeDisplayTermVi(raw: string | null | undefined): string {
+  return sanitizeCopy(raw)
+    .replace(/&\s*UV cao/gi, '· Tia cực tím cao')
+    .replace(/\bUV cao\b/gi, 'Tia cực tím cao')
+    .replace(/\bAQI cao\b/gi, 'Ô nhiễm bụi mịn cao');
+}
+
 function resolveLockWallpaperStops(skyTheme: string): [string, string, string] {
   switch (skyTheme) {
     case 'rain_storm':
-      return ['#0A1322', '#15263E', '#223B59'];
+      return ['#0B1220', '#131E30', '#1E324B'];
     case 'sunset':
-      return ['#191E36', '#462C46', '#8B5040'];
+      return ['#1C2538', '#4F352D', '#9A5B36'];
     case 'night':
-      return ['#070D19', '#101D34', '#1A2F4D'];
+      return ['#0B1220', '#101A2D', '#182A42'];
     case 'dawn':
-      return ['#2B2340', '#583C58', '#8F5E5B'];
+      return ['#1B283A', '#4A4348', '#A16847'];
     case 'day_cloudy':
       return ['#1F2F42', '#324860', '#48627D'];
     case 'day_sunny':
     default:
-      return ['#163B6E', '#245899', '#3D78B8'];
+      return ['#173B66', '#255A94', '#3F7AB5'];
   }
 }
 
@@ -83,36 +102,35 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
 
   const genderKey: Gender = payload.gender === 'male' ? 'male' : 'female';
   const sceneKey = (payload.sceneId as CharacterSceneId) || 'pleasant_sunny';
-  const sceneMeta = SCENE_VISUAL_META[sceneKey];
 
   const widgetSkyKey = (payload.skyTheme as SkyTheme) || 'day_sunny';
   const widgetPalette = SKY_PALETTES[widgetSkyKey] ?? SKY_PALETTES.day_sunny;
   const lockWallpaperStops = resolveLockWallpaperStops(payload.skyTheme);
 
-  const rawRainAlert = sanitizeCopy(formatWidgetRainAlertVi(payload));
+  const rawRainAlert = localizeDisplayTermVi(formatWidgetRainAlertVi(payload));
   const cleanRainAlertText = rawRainAlert
     .replace(/^[☔☂️⛈️🎒]+\s*/u, '')
     .trim();
-  const cleanBadgeText = sanitizeCopy(payload.badgeVi)
+  const cleanBadgeText = localizeDisplayTermVi(payload.badgeVi)
     .replace(/^[☔☂️⛈️🎒😷🌤️☀️🕶️🌡️🍂🧣❄️🌙]+\s*/u, '')
     .trim();
 
   const statusLine = cleanRainAlertText
     ? cleanRainAlertText
     : payload.hasAqiMask
-      ? 'AQI cao'
+      ? 'Ô nhiễm bụi mịn cao'
       : cleanBadgeText;
 
-  const statusIconName: React.ComponentProps<typeof Feather>['name'] =
+  const statusIconName: AppIconName =
     cleanRainAlertText ||
     sceneKey === 'light_rain_umbrella' ||
     sceneKey === 'storm_raincoat'
       ? 'umbrella'
       : payload.hasAqiMask
-        ? 'shield'
+        ? 'shield-warning'
         : sceneKey === 'clear_night' || payload.skyTheme === 'night'
-          ? 'moon'
-          : 'sun';
+          ? 'moon-stars'
+          : 'sun-dim';
 
   const accordionSections: ReadonlyArray<LucianAccordionSection> = useMemo(
     () =>
@@ -126,11 +144,11 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
     []
   );
 
-  const androidSurfaceBg = isDark ? '#162438' : '#EFF4FA';
-  const androidPillBg = isDark ? '#213654' : '#D8E6F8';
-  const androidInkPrimary = isDark ? '#F1F5FB' : '#0F172A';
-  const androidInkSecondary = isDark ? '#B6C6D9' : '#334155';
-  const androidCircleBg = isDark ? '#1D304B' : '#DCE8F7';
+  const androidSurfaceBg = palette.coreElevatedBg;
+  const androidPillBg = palette.pillIdleBg;
+  const androidInkPrimary = palette.inkPrimary;
+  const androidInkSecondary = palette.inkSecondary;
+  const androidCircleBg = palette.coreSurfaceBg;
 
   return (
     <View style={styles.studioStack}>
@@ -162,7 +180,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
               Widget Màn hình khóa & Màn hình chính
             </Text>
             <Text style={[styles.studioSub, { color: palette.inkSecondary }]}>
-              iOS WidgetKit & Android Glance · Tự động cập nhật mỗi 15 phút
+              Xem nhanh thời tiết và trang phục trên iPhone & Android · Cập nhật mỗi 15 phút
             </Text>
           </View>
 
@@ -182,10 +200,10 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                 },
               ]}
             >
-              <Feather
-                name="rotate-cw"
-                size={13}
+              <ArrowClockwise
+                size={14}
                 color={standByMode ? palette.pillActiveInk : palette.accent}
+                weight="bold"
               />
               <Text
                 style={[
@@ -211,10 +229,10 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                 },
               ]}
             >
-              <Feather
-                name="refresh-cw"
-                size={13}
+              <ArrowsClockwise
+                size={14}
                 color={palette.pillActiveInk}
+                weight="bold"
               />
               <Text
                 style={[
@@ -245,7 +263,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
           ]}
         >
           <Text style={[styles.frameCaption, { color: palette.inkSecondary }]}>
-            {standByMode ? 'iPhone StandBy (iOS 17+)' : 'iPhone Màn hình khóa'}
+            {standByMode ? 'iPhone StandBy (Ngang)' : 'iPhone · Màn hình khóa'}
           </Text>
 
           {!standByMode ? (
@@ -260,10 +278,10 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
 
                 <View style={styles.lockClockStack}>
                   <View style={styles.lockDateRow}>
-                    <Feather
-                      name="lock"
-                      size={11}
-                      color="rgba(248, 250, 252, 0.86)"
+                    <LockSimple
+                      size={12}
+                      color="rgba(238, 243, 250, 0.86)"
+                      weight="duotone"
                     />
                     <Text style={styles.lockDateText}>Thứ Hai, 23 tháng 11</Text>
                   </View>
@@ -274,9 +292,15 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                 <View style={styles.iosLockWidgetShelf}>
                   <View style={styles.accessoryCircular}>
                     <View style={styles.circularGaugeRing}>
-                      <Text style={styles.circularEmoji}>
-                        {sceneMeta?.emoji ?? '🌤️'}
-                      </Text>
+                      <SceneBadgeIcon
+                        sceneId={sceneKey}
+                        skyTheme={widgetSkyKey}
+                        hasRainAhead={payload.hasRainAheadProp}
+                        hasAqiMask={payload.hasAqiMask}
+                        isDark
+                        size={16}
+                        color="#EEF3FA"
+                      />
                       <Text style={styles.circularTempText}>
                         {payload.temperatureC}°
                       </Text>
@@ -291,10 +315,11 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     </View>
 
                     <View style={styles.rectAlertRow}>
-                      <Feather
+                      <AppIcon
                         name={statusIconName}
-                        size={11}
-                        color="#BAE6FD"
+                        size={12}
+                        color="#9AC8F5"
+                        weight="duotone"
                       />
                       <Text numberOfLines={1} style={styles.rectAlertLine}>
                         {statusLine}
@@ -302,7 +327,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     </View>
 
                     <Text numberOfLines={1} style={styles.rectAdviceLine}>
-                      {sanitizeCopy(payload.outfitAdviceVi)}
+                      {localizeDisplayTermVi(payload.outfitAdviceVi)}
                     </Text>
                   </View>
                 </View>
@@ -318,7 +343,11 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     npcMode={false}
                   />
                   <View style={styles.lockLocationChip}>
-                    <Feather name="navigation" size={11} color="#F8FAFC" />
+                    <NavigationArrow
+                      size={12}
+                      color="#EEF3FA"
+                      weight="duotone"
+                    />
                     <Text style={styles.lockLocationText}>
                       {payload.locationName} · Cảm giác {payload.feelsLikeC}°C
                     </Text>
@@ -327,11 +356,11 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
 
                 <View style={styles.lockBottomAffordances}>
                   <View style={styles.lockBottomCircle}>
-                    <Feather name="zap" size={15} color="#F8FAFC" />
+                    <Lightning size={15} color="#EEF3FA" weight="duotone" />
                   </View>
                   <View style={styles.homeIndicatorBar} />
                   <View style={styles.lockBottomCircle}>
-                    <Feather name="camera" size={15} color="#F8FAFC" />
+                    <Camera size={15} color="#EEF3FA" weight="duotone" />
                   </View>
                 </View>
               </LinearGradient>
@@ -345,10 +374,11 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     {payload.locationName} · {payload.temperatureC}°C
                   </Text>
                   <View style={styles.standByStatusRow}>
-                    <Feather
+                    <AppIcon
                       name={statusIconName}
-                      size={12}
-                      color="#93C5FD"
+                      size={13}
+                      color="#8BC0F2"
+                      weight="duotone"
                     />
                     <Text numberOfLines={2} style={styles.standByStatus}>
                       {statusLine}
@@ -367,7 +397,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     npcMode={false}
                   />
                   <Text numberOfLines={2} style={styles.standByAdvice}>
-                    {sanitizeCopy(payload.outfitAdviceVi)}
+                    {localizeDisplayTermVi(payload.outfitAdviceVi)}
                   </Text>
                 </View>
               </View>
@@ -380,7 +410,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
           {/* Card A: iOS systemMedium */}
           <View style={styles.widgetShowcaseBlock}>
             <Text style={[styles.frameCaption, { color: palette.inkSecondary }]}>
-              iOS Màn hình chính (Medium)
+              iPhone · Màn hình chính (Cỡ vừa)
             </Text>
 
             <View
@@ -408,10 +438,10 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                 <View style={styles.mediumTopRow}>
                   <View style={styles.mediumLeftInfo}>
                     <View style={styles.mediumLocRow}>
-                      <Feather
-                        name="map-pin"
-                        size={12}
+                      <MapPin
+                        size={13}
                         color={widgetPalette.accent}
+                        weight="duotone"
                       />
                       <Text
                         numberOfLines={1}
@@ -441,7 +471,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                             { color: widgetPalette.accent },
                           ]}
                         >
-                          {sanitizeCopy(payload.headlineVi)}
+                          {localizeDisplayTermVi(payload.headlineVi)}
                         </Text>
                         <Text
                           style={[
@@ -465,15 +495,19 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                           },
                         ]}
                       >
-                        <Feather
-                          name={payload.hasAqiMask ? 'shield' : 'umbrella'}
-                          size={11}
-                          color={
-                            payload.hasAqiMask
-                              ? widgetPalette.aqiAlertInk
-                              : widgetPalette.rainAlertInk
-                          }
-                        />
+                        {payload.hasAqiMask ? (
+                          <ShieldWarning
+                            size={12}
+                            color={widgetPalette.aqiAlertInk}
+                            weight="duotone"
+                          />
+                        ) : (
+                          <Umbrella
+                            size={12}
+                            color={widgetPalette.rainAlertInk}
+                            weight="duotone"
+                          />
+                        )}
                         <Text
                           numberOfLines={1}
                           style={[
@@ -485,7 +519,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                             },
                           ]}
                         >
-                          {cleanRainAlertText || 'AQI cao'}
+                          {cleanRainAlertText || 'Ô nhiễm bụi mịn cao'}
                         </Text>
                       </View>
                     )}
@@ -497,7 +531,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                         { color: widgetPalette.inkPrimary },
                       ]}
                     >
-                      {sanitizeCopy(payload.outfitAdviceVi)}
+                      {localizeDisplayTermVi(payload.outfitAdviceVi)}
                     </Text>
                   </View>
 
@@ -562,7 +596,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
           {/* Card B: Android 12+ Jetpack Glance */}
           <View style={styles.widgetShowcaseBlock}>
             <Text style={[styles.frameCaption, { color: palette.inkSecondary }]}>
-              Android 12+ Jetpack Glance
+              Android · Màn hình chính
             </Text>
 
             <View
@@ -604,22 +638,37 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                         <View
                           style={[
                             styles.glanceAlertChip,
-                            payload.hasAqiMask && styles.glanceAlertChipAqi,
+                            {
+                              backgroundColor: payload.hasAqiMask
+                                ? palette.aqiAlertBg
+                                : palette.rainAlertBg,
+                            },
                           ]}
                         >
-                          <Feather
-                            name={payload.hasAqiMask ? 'shield' : 'umbrella'}
-                            size={11}
-                            color={payload.hasAqiMask ? '#FEF2F2' : '#F8FAFC'}
-                          />
+                          {payload.hasAqiMask ? (
+                            <ShieldWarning
+                              size={12}
+                              color={palette.aqiAlertInk}
+                              weight="duotone"
+                            />
+                          ) : (
+                            <Umbrella
+                              size={12}
+                              color={palette.rainAlertInk}
+                              weight="duotone"
+                            />
+                          )}
                           <Text
                             style={[
                               styles.glanceAlertChipText,
-                              payload.hasAqiMask &&
-                                styles.glanceAlertChipTextAqi,
+                              {
+                                color: payload.hasAqiMask
+                                  ? palette.aqiAlertInk
+                                  : palette.rainAlertInk,
+                              },
                             ]}
                           >
-                            {cleanRainAlertText || 'AQI cao'}
+                            {cleanRainAlertText || 'Ô nhiễm bụi mịn cao'}
                           </Text>
                         </View>
                       )}
@@ -632,7 +681,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                         { color: androidInkPrimary },
                       ]}
                     >
-                      {sanitizeCopy(payload.headlineVi)}
+                      {localizeDisplayTermVi(payload.headlineVi)}
                     </Text>
 
                     <Text
@@ -642,7 +691,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                         { color: androidInkSecondary },
                       ]}
                     >
-                      {sanitizeCopy(payload.outfitAdviceVi)}
+                      {localizeDisplayTermVi(payload.outfitAdviceVi)}
                     </Text>
                   </View>
 
@@ -655,7 +704,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                     <LivingCharacterRig
                       gender={genderKey}
                       sceneId={sceneKey}
-                      palette={isDark ? SKY_PALETTES.night : SKY_PALETTES.day_sunny}
+                      palette={palette}
                       size={isNarrowMobile ? 84 : 94}
                       interactive={false}
                       showAmbientProps={false}
@@ -668,9 +717,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                   style={[
                     styles.glanceFooterRow,
                     {
-                      borderTopColor: isDark
-                        ? 'rgba(255, 255, 255, 0.10)'
-                        : 'rgba(15, 23, 42, 0.08)',
+                      borderTopColor: palette.hairline,
                     },
                   ]}
                 >
@@ -680,7 +727,7 @@ export const WidgetStudioScreen: React.FC<WidgetStudioScreenProps> = ({
                       { color: androidInkSecondary },
                     ]}
                   >
-                    Tự làm mới 15 phút
+                    Cập nhật mỗi 15 phút
                   </Text>
                   <Text
                     style={[
@@ -852,9 +899,9 @@ const styles = StyleSheet.create({
     maxWidth: 344,
     padding: 9,
     borderRadius: 48,
-    backgroundColor: '#1E2633',
+    backgroundColor: '#1C2533',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(203, 221, 245, 0.22)',
   },
   iphoneScreenInner: {
     borderRadius: 39,
@@ -870,7 +917,7 @@ const styles = StyleSheet.create({
     width: 92,
     height: 23,
     borderRadius: 999,
-    backgroundColor: '#070B12',
+    backgroundColor: '#0B1220',
   },
   lockClockStack: {
     alignItems: 'center',
@@ -886,7 +933,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(248, 250, 252, 0.90)',
+    color: 'rgba(238, 243, 250, 0.90)',
   },
   lockTimeText: {
     fontFamily: FONT_FAMILY_DISPLAY,
@@ -894,7 +941,7 @@ const styles = StyleSheet.create({
     lineHeight: 62,
     fontWeight: '700',
     letterSpacing: -2,
-    color: '#F8FAFC',
+    color: '#EEF3FA',
     fontVariant: ['tabular-nums'],
   },
   iosLockWidgetShelf: {
@@ -909,9 +956,9 @@ const styles = StyleSheet.create({
     width: 66,
     height: 66,
     borderRadius: 33,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(238, 243, 250, 0.16)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.30)',
+    borderColor: 'rgba(238, 243, 250, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -920,7 +967,7 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 27,
     borderWidth: 2.5,
-    borderColor: 'rgba(248, 250, 252, 0.72)',
+    borderColor: 'rgba(238, 243, 250, 0.72)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -931,7 +978,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_DISPLAY,
     fontSize: 13,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#EEF3FA',
     fontVariant: ['tabular-nums'],
   },
   accessoryRectangular: {
@@ -939,9 +986,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 66,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(238, 243, 250, 0.16)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.30)',
+    borderColor: 'rgba(238, 243, 250, 0.28)',
     paddingHorizontal: 11,
     paddingVertical: 8,
     justifyContent: 'center',
@@ -956,7 +1003,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 12,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#EEF3FA',
     fontVariant: ['tabular-nums'],
   },
   rectAlertRow: {
@@ -969,13 +1016,13 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#BAE6FD',
+    color: '#9AC8F5',
   },
   rectAdviceLine: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 11,
     fontWeight: '500',
-    color: 'rgba(248, 250, 252, 0.86)',
+    color: 'rgba(238, 243, 250, 0.86)',
   },
   lockCharacterPeekWrap: {
     alignItems: 'center',
@@ -990,13 +1037,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(9, 16, 29, 0.44)',
+    backgroundColor: 'rgba(11, 18, 32, 0.46)',
   },
   lockLocationText: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#F8FAFC',
+    color: '#EEF3FA',
   },
   lockBottomAffordances: {
     flexDirection: 'row',
@@ -1009,7 +1056,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(238, 243, 250, 0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1017,7 +1064,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(248, 250, 252, 0.82)',
+    backgroundColor: 'rgba(238, 243, 250, 0.82)',
     marginBottom: 4,
   },
   standByHardwareShell: {
@@ -1025,12 +1072,12 @@ const styles = StyleSheet.create({
     maxWidth: 380,
     padding: 8,
     borderRadius: 36,
-    backgroundColor: '#1B2330',
+    backgroundColor: '#1C2533',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderColor: 'rgba(203, 221, 245, 0.22)',
   },
   standByScreenCore: {
-    backgroundColor: '#090E17',
+    backgroundColor: '#0B1220',
     borderRadius: 28,
     padding: 16,
     flexDirection: 'row',
@@ -1049,7 +1096,7 @@ const styles = StyleSheet.create({
     fontSize: 46,
     lineHeight: 50,
     fontWeight: '700',
-    color: '#FDBA74',
+    color: '#E8A849',
     letterSpacing: -1.6,
     fontVariant: ['tabular-nums'],
   },
@@ -1057,7 +1104,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 12.5,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#EEF3FA',
   },
   standByStatusRow: {
     flexDirection: 'row',
@@ -1069,7 +1116,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#93C5FD',
+    color: '#8BC0F2',
   },
   standByRightWidgetCol: {
     width: 128,
@@ -1080,7 +1127,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 10.5,
     lineHeight: 14,
-    color: '#CBD5E1',
+    color: '#B2C1D6',
     textAlign: 'center',
   },
   widgetBezelTray: {
@@ -1236,22 +1283,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#102A43',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-  },
-  glanceAlertChipAqi: {
-    backgroundColor: '#7F1D1D',
   },
   glanceAlertChipText: {
     fontFamily: FONT_FAMILY_SANS,
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#F8FAFC',
-  },
-  glanceAlertChipTextAqi: {
-    color: '#FEF2F2',
   },
   glanceHeadline: {
     fontFamily: FONT_FAMILY_SANS,

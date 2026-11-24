@@ -17,7 +17,7 @@ function clampPct(val) {
  * Formats an ISO timestamp into a concise local-clock `HH:mm` label while preserving
  * explicit timezone offsets embedded in Open-Meteo / provider ISO strings.
  */
-export function formatHourLabelVi(timeIso, fallbackIndex = 0) {
+export function formatHourLabelVi(timeIso, fallbackIndex = 0, utcOffsetSeconds) {
   if (typeof timeIso !== 'string' || !timeIso.trim()) {
     return `+${fallbackIndex + 1}h`;
   }
@@ -32,10 +32,13 @@ export function formatHourLabelVi(timeIso, fallbackIndex = 0) {
 
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
-    // Convert UTC timestamps to ICT (+07:00) for Vietnam-centric display consistency
-    const ictDate = new Date(parsed.getTime() + 7 * 3600_000);
-    const hh = String(ictDate.getUTCHours()).padStart(2, '0');
-    const mm = String(ictDate.getUTCMinutes()).padStart(2, '0');
+    const offsetMs =
+      typeof utcOffsetSeconds === 'number' && Number.isFinite(utcOffsetSeconds)
+        ? utcOffsetSeconds * 1000
+        : 7 * 3600_000;
+    const localDate = new Date(parsed.getTime() + offsetMs);
+    const hh = String(localDate.getUTCHours()).padStart(2, '0');
+    const mm = String(localDate.getUTCMinutes()).padStart(2, '0');
     return `${hh}:${mm}`;
   }
 
@@ -51,6 +54,7 @@ export function computeComfortIndexVi(snapshot, stats) {
   const aqi = Number(snapshot?.aqi ?? 0);
   const precipNow = Number(snapshot?.precipMmPerHr ?? 0);
   const windGust = Number(snapshot?.windGustKmh ?? 0);
+  const isDay = snapshot?.isDay !== false;
 
   if (precipNow >= 4.5 || (stats.maxPrecipProbPct >= 80 && windGust >= 32)) {
     return 'Mưa dông ẩm ướt · Hạn chế di chuyển ngoài trời';
@@ -61,8 +65,11 @@ export function computeComfortIndexVi(snapshot, stats) {
   if (aqi >= 150) {
     return 'Chất lượng không khí kém · Nên đeo khẩu trang lọc bụi';
   }
-  if (feelsLike >= 35 || uv >= 9) {
+  if (isDay && (uv >= 8 || (feelsLike >= 35 && uv >= 5))) {
     return 'Oi bức & tia UV gắt · Cần chống nắng và bù nước';
+  }
+  if (feelsLike >= 35) {
+    return 'Trời oi bức, độ ẩm cao · Ưu tiên đồ thoáng mát và bù nước';
   }
   if (feelsLike >= 31) {
     return stats.rainHoursCount > 0
@@ -99,7 +106,7 @@ export function computeAnalytics24h(snapshot) {
 
   const hourlySeries = sourceSeries.map((pt, idx) => ({
     timeIso: String(pt?.timeIso || fallbackPoint.timeIso),
-    hourLabel: formatHourLabelVi(pt?.timeIso, idx),
+    hourLabel: formatHourLabelVi(pt?.timeIso, idx, snapshot?.utcOffsetSeconds),
     temperatureC: round1(Number(pt?.temperatureC ?? fallbackPoint.temperatureC)),
     precipProbPct: clampPct(Number(pt?.precipProbPct ?? 0)),
     precipMm: round2(Math.max(0, Number(pt?.precipMm ?? 0))),
