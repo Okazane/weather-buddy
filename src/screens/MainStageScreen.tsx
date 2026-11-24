@@ -1,6 +1,7 @@
 /* Lucian UX/UI Prompt #094 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#094 */
 /* Lucian UX/UI Prompt #228 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#228 */
 /* Lucian UX/UI Prompt #047 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#047 */
+/* Lucian UX/UI Prompt #096 & #095 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#096 · https://lucianlabs.dev/uxui-prompt/#095 */
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -14,6 +15,7 @@ import type { ScenarioSelection } from '../hooks/useWeatherBuddy';
 import { CharacterStageCard } from '../components/CharacterStageCard';
 import { ScenarioStrip } from '../components/ScenarioStrip';
 import { WeatherBentoTelemetry } from '../components/WeatherBentoTelemetry';
+import { LucianInteractiveForecastChart } from '../lucian/LucianInteractiveForecastChart';
 import {
   FONT_FAMILY_SANS,
   sanitizeCopy,
@@ -83,7 +85,15 @@ export const MainStageScreen: React.FC<MainStageScreenProps> = ({
         reduceMotion={reduceMotion}
       />
 
-      {/* Row 2: Lucian #094 Interactive 24h Sky Scrubber + Lucian #228 Cursor-Lit 6-Metric Weather Telemetry Bento */}
+      {/* Row 2: Full-Width 3-Column Bento Forecast Charts (Lucian #096 & #095) */}
+      <LucianInteractiveForecastChart
+        palette={palette}
+        weather={weather}
+        decision={decision}
+        reduceMotion={reduceMotion}
+      />
+
+      {/* Row 3: Lucian #094 Interactive 24h Sky Scrubber + Lucian #228 Cursor-Lit 6-Metric Weather Telemetry Bento */}
       <WeatherBentoTelemetry
         palette={palette}
         weather={weather}

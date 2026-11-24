@@ -33,6 +33,7 @@ export type SkyTheme =
 export interface HourlyForecastPoint {
   timeIso: string;
   temperatureC: number;
+  humidityPct?: number;
   precipProbPct: number;
   precipMm: number;
   conditionCode: string;

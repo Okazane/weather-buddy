@@ -44,7 +44,6 @@ import {
 } from './AppIcons';
 import { LivingCharacterRig } from './LivingCharacterRig';
 import { TermTooltip } from './TermTooltip';
-import { LucianInteractiveForecastChart } from '../lucian/LucianInteractiveForecastChart';
 import {
   FONT_FAMILY_DISPLAY,
   FONT_FAMILY_SANS,
@@ -1766,14 +1765,6 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
                 );
               })}
             </ScrollView>
-
-            {/* Ported Lucian #095 Interactive Shape-Morphing Forecast Bar Chart */}
-            <LucianInteractiveForecastChart
-              palette={palette}
-              weather={weather}
-              decision={decision}
-              reduceMotion={reduceMotion}
-            />
           </View>
         </View>
       </View>

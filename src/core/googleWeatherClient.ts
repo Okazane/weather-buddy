@@ -103,6 +103,7 @@ interface GoogleForecastHourItem {
   isDaytime?: boolean;
   weatherCondition?: GoogleWeatherCondition;
   temperature?: GoogleTemperatureValue;
+  relativeHumidity?: number;
   precipitation?: GooglePrecipitation;
 }
 
@@ -272,6 +273,7 @@ export function mapGoogleWeatherResponses(
     return {
       timeIso: h.interval?.startTime || fallbackIso,
       temperatureC: toCelsius(h.temperature, temperatureC),
+      humidityPct: clampPct(h.relativeHumidity ?? humidityPct),
       precipProbPct: clampPct(h.precipitation?.probability?.percent ?? 0),
       precipMm:
         typeof h.precipitation?.qpf?.quantity === 'number' &&

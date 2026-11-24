@@ -32,6 +32,7 @@ interface WeatherApiHour {
   time_epoch?: number;
   time?: string;
   temp_c?: number;
+  humidity?: number;
   precip_mm?: number;
   chance_of_rain?: number;
   condition?: WeatherApiCondition;
@@ -231,6 +232,7 @@ export function mapWeatherApiResponse(
       ? new Date(h.time_epoch * 1000).toISOString()
       : new Date().toISOString(),
     temperatureC: round1(h.temp_c ?? temperatureC),
+    humidityPct: clampPct(h.humidity ?? humidityPct),
     precipProbPct: clampPct(h.chance_of_rain ?? 0),
     precipMm: Math.max(0, round2(h.precip_mm ?? 0)),
     conditionCode: mapWeatherApiConditionCode(h.condition?.code),

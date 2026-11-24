@@ -201,6 +201,7 @@ export function mapTomorrowIoResponse(
     return {
       timeIso,
       temperatureC: round1(hv.temperature ?? temperatureC),
+      humidityPct: clampPct(hv.humidity ?? humidityPct),
       precipProbPct: clampPct(hv.precipitationProbability ?? 0),
       precipMm: Math.max(0, round2(hv.precipitationIntensity ?? 0)),
       conditionCode: mapped.conditionCode,

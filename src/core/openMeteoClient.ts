@@ -23,6 +23,7 @@ interface OpenMeteoForecastResponse {
   hourly?: {
     time?: string[];
     temperature_2m?: number[];
+    relative_humidity_2m?: number[];
     precipitation_probability?: number[];
     precipitation?: number[];
     weather_code?: number[];
@@ -226,6 +227,7 @@ export async function fetchOpenMeteoWeather(
     ].join(','),
     hourly: [
       'temperature_2m',
+      'relative_humidity_2m',
       'precipitation_probability',
       'precipitation',
       'weather_code',
@@ -291,6 +293,7 @@ export async function fetchOpenMeteoWeather(
 
   const hourlyTimes = data.hourly?.time ?? [];
   const hourlyTemps = data.hourly?.temperature_2m ?? [];
+  const hourlyHumidities = data.hourly?.relative_humidity_2m ?? [];
   const hourlyProbs = data.hourly?.precipitation_probability ?? [];
   const hourlyPrecip = data.hourly?.precipitation ?? [];
   const hourlyCodes = data.hourly?.weather_code ?? [];
@@ -309,6 +312,7 @@ export async function fetchOpenMeteoWeather(
     hourly.push({
       timeIso: normalizeOpenMeteoIso(hourlyTimes[i], offsetSuffix),
       temperatureC: round1(hourlyTemps[i] ?? temperatureC),
+      humidityPct: clampPct(hourlyHumidities[i] ?? humidityPct),
       precipProbPct: clampPct(hourlyProbs[i] ?? 0),
       precipMm: Math.max(0, round2(hourlyPrecip[i] ?? 0)),
       conditionCode: codeInfo.conditionCode,

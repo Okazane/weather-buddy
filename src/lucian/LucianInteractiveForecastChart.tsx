@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { Sparkle } from '../components/AppIcons';
+import { CloudRain, Drop, Thermometer } from '../components/AppIcons';
 import type {
   CharacterDecision,
   HourlyForecastPoint,
@@ -22,112 +22,120 @@ export interface LucianInteractiveForecastChartProps {
   reduceMotion?: boolean;
 }
 
-const STYLE_ELEMENT_ID = 'lucian-u096-u095-mixed24h-css';
+const STYLE_ELEMENT_ID = 'lucian-u096-u095-three-charts-24h-css';
 
 /**
- * Genuine Lucian UX/UI Prompt #096 ("Stock line that splits as you scrub") + #095 ("Bar chart that changes shape")
- * combined into a clean, non-overlapping Two-Lane 24-Hour Weather Chart:
- * - Upper Lane (124px): Nhiệt độ (°C) scrub-split curve in Warm Sunlight Amber-Gold (--temp)
- * - Middle Micro-Divider (18px): Calm hairline & caption separating the two lanes
- * - Lower Lane (58px): Lượng mưa (mm & %) solid rounded bars in Cool Sky-Cyan (--rain)
+ * Genuine Lucian UX/UI Prompt #096 ("Stock line that splits as you scrub")
+ * and #095 ("Bar chart that changes shape") ported into 3 dedicated, synchronized
+ * 24-hour forecast cards:
+ * 1. Nhiệt độ 24 giờ (°C) — #096 Scrub-Split Line Chart in Warm Sunlight Amber-Gold
+ * 2. Độ ẩm không khí 24 giờ (%) — #096 Scrub-Split Area-Line Chart in Mineral Emerald-Teal
+ * 3. Mưa & Lượng mưa 24 giờ (% & mm/h) — Combined #096 Sky-Cobalt Probability Line + #095 Aqua-Cyan Rainfall Columns
  */
-const LUCIAN_U096_U095_MIXED_CSS = `/* Lucian UX/UI Prompt #096 & #095 · Two-Lane 24h Temperature & Rainfall Chart */
-.u096{--temp:var(--u096-temp,#F0AE43);--c:var(--temp);--rain:var(--u096-rain,#38BDF8);position:relative;width:100%;max-width:100%;height:auto;display:flex;flex-direction:column;padding:14px 16px 13px;border-radius:22px;background:var(--ux-surface);box-shadow:0 0 0 1px var(--ux-line),0 24px 52px -34px var(--ux-shadow-strong);overflow:hidden}
-.u096-h{display:flex;flex-direction:column;gap:6px}
-.u096-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.u096-h small{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:730;color:var(--ux-ink-2);line-height:1.35;min-width:0;flex:1}
-.u096-h small i{width:13px;height:13px;border-radius:4px;background:linear-gradient(145deg,var(--temp),var(--rain));flex:none}
-.u096-sub{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.u096-head-right{display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex:none}
-.u096-legend{display:inline-flex;align-items:center;gap:9px;padding:3px 9px;border-radius:999px;background:var(--ux-surface-2);border:1px solid var(--ux-line)}
-.u096-leg-item{display:inline-flex;align-items:center;gap:4px;font-size:10.3px;font-weight:760;color:var(--ux-ink-2);white-space:nowrap}
-.u096-leg-line{position:relative;width:14px;height:2.2px;border-radius:2px;background:var(--temp);display:inline-block}
-.u096-leg-line::after{content:"";position:absolute;left:4px;top:-2px;width:6px;height:6px;border-radius:50%;background:var(--temp);border:1.2px solid var(--ux-surface)}
-.u096-leg-bar{width:7px;height:10px;border-radius:2.5px 2.5px 1px 1px;background:linear-gradient(180deg,var(--rain),color-mix(in srgb,var(--rain) 42%,transparent));display:inline-block}
-.u096-help-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border-radius:50%;border:1px solid var(--ux-line-2);background:var(--ux-surface-2);color:var(--ux-ink-3);font-size:11px;font-weight:800;flex:none;transition:background-color .2s,color .2s,border-color .2s}
-.u096-help-btn:hover,.u096-help-btn:focus-visible,.u096-help-btn.on{background:var(--ux-accent-soft);color:var(--ux-ink);border-color:var(--temp)}
-.u096-p-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.u096-p-wrap{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
-.u096-p-lead{display:inline-flex;align-items:center;gap:6px}
-.u096-p-dot{width:8px;height:8px;border-radius:50%;background:var(--temp);box-shadow:0 0 0 3px color-mix(in srgb,var(--temp) 20%,transparent);flex:none}
-.u096-p{display:block;margin:0;font-size:17px;font-weight:830;letter-spacing:-.02em;line-height:1.2;font-variant-numeric:tabular-nums;color:var(--ux-ink);transition:font-size .15s}
-.u096.scrub .u096-p{font-size:21px;font-weight:860;letter-spacing:-.035em}
-.u096-rain-badge{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;font-size:11.3px;font-weight:790;color:var(--rain);background:color-mix(in srgb,var(--rain) 13%,transparent);border:1px solid color-mix(in srgb,var(--rain) 28%,transparent);font-variant-numeric:tabular-nums;white-space:nowrap;transition:background-color .25s,border-color .25s}
-.u096-rain-badge.wet{background:color-mix(in srgb,var(--rain) 20%,transparent);border-color:color-mix(in srgb,var(--rain) 46%,transparent)}
-.u096-pin-hint{font-size:10.8px;font-weight:720;color:var(--ux-ink-3);font-variant-numeric:tabular-nums;white-space:nowrap}
-.u096-ch{position:relative;flex:none;height:224px;margin:8px 0 0;padding:0 42px 0 2px;touch-action:pan-y;user-select:none;cursor:crosshair;outline:none;border-radius:12px}
-.u096-ch:focus,.u096-ch:focus-visible{outline:none;box-shadow:0 0 0 1.5px color-mix(in srgb,var(--temp) 48%,transparent)}
-.u096-plot{position:relative;width:100%;height:200px;display:flex;flex-direction:column}
-.u096-lane-temp{position:relative;width:100%;height:124px;flex:none}
-.u096-lane-temp svg{position:relative;z-index:3;display:block;width:100%;height:124px;overflow:visible}
+const LUCIAN_U096_U095_SUITE_CSS = `/* Lucian UX/UI Prompt #096 & #095 · 3-Card Synchronized 24h Weather Suite */
+.u096-suite{--temp:var(--u096-temp,#F0AE43);--hum:var(--u096-hum,#38B889);--rain-prob:var(--u096-rain-prob,#60A5FA);--rain-mm:var(--u096-rain-mm,#22D3EE);position:relative;width:100%;max-width:100%;display:flex;flex-direction:column;gap:10px}
+.u096-suite-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:2px 4px}
+.u096-suite-title-wrap{display:flex;align-items:center;gap:8px;min-width:0}
+.u096-suite-pip{width:9px;height:9px;border-radius:3px;background:linear-gradient(135deg,var(--temp),var(--hum),var(--rain-prob));flex:none}
+.u096-suite-title{margin:0;font-size:13.5px;font-weight:820;letter-spacing:-.015em;color:var(--ux-ink);line-height:1.3}
+.u096-suite-sync{display:inline-flex;align-items:center;gap:6px;height:25px;padding:0 10px;border-radius:999px;background:var(--ux-surface-2);border:1px solid var(--ux-line);font-size:11.2px;font-weight:750;color:var(--ux-ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;transition:background-color .2s,border-color .2s,color .2s}
+.u096-suite.scrub .u096-suite-sync{background:var(--ux-accent-soft);border-color:color-mix(in srgb,var(--ux-accent) 42%,transparent);color:var(--ux-ink)}
+.u096-suite.pinned .u096-suite-sync{cursor:pointer;background:color-mix(in srgb,var(--temp) 16%,var(--ux-surface-2));border-color:color-mix(in srgb,var(--temp) 48%,transparent);color:var(--ux-ink)}
+.u096-suite-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;width:100%;max-width:100%}
+@media (min-width:1080px){
+  .u096-suite-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+}
+.u096{--c:var(--temp);position:relative;width:100%;max-width:100%;height:auto;display:flex;flex-direction:column;justify-content:space-between;padding:14px 15px 13px;border-radius:22px;background:var(--ux-surface);box-shadow:0 0 0 1px var(--ux-line),0 22px 48px -34px var(--ux-shadow-strong);overflow:hidden;min-width:0}
+.u096[data-card="temp"]{--c:var(--temp)}
+.u096[data-card="hum"]{--c:var(--hum)}
+.u096[data-card="rain"]{--c:var(--rain-prob)}
+.u096-h{display:flex;flex-direction:column;gap:5px;min-width:0}
+.u096-top{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.u096-h small{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:770;color:var(--ux-ink-2);line-height:1.3;min-width:0;flex:1}
+.u096-h small i{width:10px;height:10px;border-radius:3.5px;background:var(--c);box-shadow:0 0 0 2.5px color-mix(in srgb,var(--c) 20%,transparent);flex:none}
+.u096[data-card="rain"] .u096-h small i{background:linear-gradient(135deg,var(--rain-prob),var(--rain-mm))}
+.u096-card-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.u096-head-right{display:flex;align-items:center;gap:5px;flex:none}
+.u096-mini-leg{display:inline-flex;align-items:center;gap:7px;padding:2px 7px;border-radius:999px;background:var(--ux-surface-2);border:1px solid var(--ux-line)}
+.u096-leg-i{display:inline-flex;align-items:center;gap:3.5px;font-size:10px;font-weight:770;color:var(--ux-ink-2);white-space:nowrap}
+.u096-leg-ln{width:11px;height:2.2px;border-radius:2px;background:var(--rain-prob);display:inline-block}
+.u096-leg-br{width:6px;height:9px;border-radius:2px 2px 1px 1px;background:var(--rain-mm);display:inline-block}
+.u096-help-btn{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;padding:0;border-radius:50%;border:1px solid var(--ux-line-2);background:var(--ux-surface-2);color:var(--ux-ink-3);font-size:10.8px;font-weight:800;flex:none;transition:background-color .2s,color .2s,border-color .2s}
+.u096-help-btn:hover,.u096-help-btn:focus-visible,.u096-help-btn.on{background:var(--ux-accent-soft);color:var(--ux-ink);border-color:var(--c)}
+.u096-p-row{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px;min-width:0}
+.u096-p-wrap{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-width:0}
+.u096-p{display:block;margin:0;font-size:21px;font-weight:860;letter-spacing:-.035em;line-height:1.15;font-variant-numeric:tabular-nums;color:var(--ux-ink)}
+.u096-badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8.5px;border-radius:999px;font-size:10.8px;font-weight:780;color:var(--c);background:color-mix(in srgb,var(--c) 13%,transparent);border:1px solid color-mix(in srgb,var(--c) 28%,transparent);font-variant-numeric:tabular-nums;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.u096[data-card="rain"] .u096-badge.wet{color:var(--rain-mm);background:color-mix(in srgb,var(--rain-mm) 15%,transparent);border-color:color-mix(in srgb,var(--rain-mm) 36%,transparent)}
+.u096-sub-meta{font-size:10.6px;font-weight:730;color:var(--ux-ink-3);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.u096-ch{position:relative;flex:none;height:180px;margin:6px 0 0;padding:0 38px 0 4px;touch-action:pan-y;user-select:none;cursor:crosshair;outline:none;border-radius:12px}
+.u096[data-card="rain"] .u096-ch{padding:0 40px 0 34px}
+.u096-ch:focus,.u096-ch:focus-visible{outline:none;box-shadow:0 0 0 1.5px color-mix(in srgb,var(--c) 52%,transparent)}
+.u096-plot{position:relative;width:100%;height:156px}
+.u096-plot svg{position:relative;z-index:3;display:block;width:100%;height:156px;overflow:visible}
 .u096-grid{position:absolute;inset:0;pointer-events:none;z-index:0}
-.u096-gl{position:absolute;left:0;right:-42px;height:0;border-top:1px dashed var(--ux-line-2)}
-.u096-gl span{position:absolute;right:0;top:-7px;width:38px;text-align:right;font-size:10.2px;font-weight:750;color:var(--ux-ink-3);font-variant-numeric:tabular-nums;transition:opacity .2s}
-.u096-avg-pill{position:absolute;right:-42px;top:0;width:38px;text-align:right;font-size:9.8px;font-weight:820;color:var(--temp);font-variant-numeric:tabular-nums;white-space:nowrap;transform:translateY(-50%);pointer-events:none;z-index:3}
+.u096-gl{position:absolute;left:0;right:0;height:0;border-top:1px dashed var(--ux-line-2)}
+.u096-gl:last-child{border-top-style:solid}
+.u096-gl-r{position:absolute;right:-38px;top:-7px;width:35px;text-align:right;font-size:9.8px;font-weight:750;color:var(--ux-ink-3);font-variant-numeric:tabular-nums;white-space:nowrap;transition:opacity .2s}
+.u096[data-card="rain"] .u096-gl-r{right:-40px;width:37px;color:var(--rain-mm)}
+.u096-gl-l{position:absolute;left:-34px;top:-7px;width:30px;text-align:left;font-size:9.8px;font-weight:760;color:var(--rain-prob);font-variant-numeric:tabular-nums;white-space:nowrap}
+.u096-avg-pill{position:absolute;right:-38px;top:0;width:35px;text-align:right;font-size:9.5px;font-weight:820;color:var(--c);font-variant-numeric:tabular-nums;white-space:nowrap;transform:translateY(-50%);pointer-events:none;z-index:4}
 .u096-base{fill:none;stroke:var(--ux-ink-3);stroke-opacity:.32;stroke-width:2.1;stroke-linejoin:round;stroke-linecap:round}
-.u096-line{fill:none;stroke:var(--temp);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;transition:stroke .3s}
-.u096-gd stop{stop-color:var(--temp);transition:stop-color .3s}
-.u096-ref{stroke:var(--temp);stroke-opacity:.42;stroke-width:1.15;stroke-dasharray:3 4}
+.u096-line{fill:none;stroke:var(--c);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;transition:stroke .3s}
+.u096-gd stop{stop-color:var(--c);transition:stop-color .3s}
+.u096-ref{stroke:var(--c);stroke-opacity:.44;stroke-width:1.15;stroke-dasharray:3 4}
 .u096-cur{stroke:var(--ux-ink-3);stroke-width:1.15;stroke-dasharray:2 3;opacity:0;transition:opacity .18s}
-.u096.scrub .u096-cur{opacity:.78}
-.u096-ev-peak{fill:var(--temp);stroke:var(--ux-surface);stroke-width:1.6}
-.u096-ev-low{fill:var(--ux-surface);stroke:var(--temp);stroke-width:1.8}
-.u096-dot{fill:var(--temp);stroke:var(--ux-surface);stroke-width:2.2;opacity:.9;transition:opacity .18s,transform .18s;transform-box:fill-box;transform-origin:center}
-.u096-ring{fill:none;stroke:var(--temp);stroke-width:1.6;opacity:0;transform-box:fill-box;transform-origin:center;transition:opacity .18s,transform .18s}
+.u096.scrub .u096-cur{opacity:.82}
+.u096-ev-peak{fill:var(--c);stroke:var(--ux-surface);stroke-width:1.6}
+.u096-ev-low{fill:var(--ux-surface);stroke:var(--c);stroke-width:1.8}
+.u096-dot{fill:var(--c);stroke:var(--ux-surface);stroke-width:2.2;opacity:.92;transition:opacity .18s,transform .18s;transform-box:fill-box;transform-origin:center}
+.u096-ring{fill:none;stroke:var(--c);stroke-width:1.6;opacity:0;transform-box:fill-box;transform-origin:center;transition:opacity .18s,transform .18s}
 .u096.scrub .u096-dot{opacity:1;transform:scale(1.12)}
-.u096.scrub .u096-ring{opacity:.42;transform:scale(1.38)}
-.u096.pinned .u096-ring{opacity:.85;transform:scale(1.5)}
-.u096-callout{position:absolute;left:0;top:0;z-index:4;font-size:10.3px;font-weight:840;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none;text-shadow:0 1px 4px var(--ux-surface),0 0 8px var(--ux-surface);transform:translate(var(--tx,0),var(--ty,0));transition:opacity .18s}
-.u096-callout.peak{color:var(--temp)}
+.u096.scrub .u096-ring{opacity:.44;transform:scale(1.38)}
+.u096.pinned .u096-ring{opacity:.86;transform:scale(1.52)}
+.u096-callout{position:absolute;left:0;top:0;z-index:4;font-size:10px;font-weight:840;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none;text-shadow:0 1px 4px var(--ux-surface),0 0 8px var(--ux-surface);transform:translate(var(--tx,0),var(--ty,0));transition:opacity .18s}
+.u096-callout.peak{color:var(--c)}
 .u096-callout.low{color:var(--ux-ink-2)}
 .u096-callout.off,.u096.scrub .u096-callout{opacity:0}
-.u096-lane-div{position:relative;width:100%;height:18px;padding-left:2px;flex:none;display:flex;align-items:center;border-top:1px solid var(--ux-line);pointer-events:none;z-index:1}
-.u096-lane-div span{font-size:10px;font-weight:720;color:var(--ux-ink-3);letter-spacing:.01em;white-space:nowrap}
-.u096-lane-rain{position:relative;width:100%;height:58px;flex:none;border-bottom:1px solid var(--ux-line-2)}
-.u096-rain-axis{position:absolute;top:0;bottom:0;right:-42px;width:38px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;pointer-events:none;z-index:1}
-.u096-rain-tick{font-size:9.6px;font-weight:760;color:var(--rain);opacity:.85;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1}
-.u095-bars{position:absolute;inset:0;z-index:2;pointer-events:none}
-.u095-b{position:absolute;bottom:0;height:44px;width:var(--bw,8px);transform:translateX(-50%);display:flex;flex-direction:column;justify-content:flex-end;align-items:center;pointer-events:none}
-.u095-b i{display:block;width:100%;height:calc(var(--h,0) * 100%);border-radius:4px 4px 1px 1px;background:linear-gradient(180deg,var(--rain),color-mix(in srgb,var(--rain) 44%,transparent));opacity:.92;transition:height .55s var(--ux-spring),opacity .22s,transform .18s;transition-delay:calc(var(--d,0) * 12ms),0s,0s}
-.u095-b.drizzle i{background:linear-gradient(180deg,color-mix(in srgb,var(--rain) 85%,transparent),color-mix(in srgb,var(--rain) 35%,transparent));opacity:.34}
+.u095-bars{position:absolute;left:0;right:0;top:18px;bottom:16px;z-index:2;pointer-events:none}
+.u095-b{position:absolute;bottom:0;height:100%;width:var(--bw,7px);transform:translateX(-50%);display:flex;flex-direction:column;justify-content:flex-end;align-items:center;pointer-events:none}
+.u095-b i{display:block;width:100%;height:calc(var(--h,0) * 100%);border-radius:4px 4px 1px 1px;background:linear-gradient(180deg,var(--rain-mm),color-mix(in srgb,var(--rain-mm) 38%,transparent));opacity:.88;transition:height .55s var(--ux-spring),opacity .2s,transform .18s;transition-delay:calc(var(--d,0) * 10ms),0s,0s}
 .u095-b.dry i{height:0;opacity:0}
-.u095-b-val{position:absolute;bottom:calc(var(--h,0) * 100% + 2px);left:50%;transform:translateX(-50%);font-size:9.3px;font-weight:830;color:var(--rain);text-decoration:none;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.1;text-shadow:0 1px 4px var(--ux-surface);opacity:0;transition:opacity .18s}
+.u095-b-val{position:absolute;bottom:calc(var(--h,0) * 100% + 3px);left:50%;transform:translateX(-50%);font-size:9.1px;font-weight:830;color:var(--rain-mm);text-decoration:none;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1;text-shadow:0 1px 4px var(--ux-surface);opacity:0;transition:opacity .18s}
 .u095-b.edge-l .u095-b-val{left:0;transform:none}
 .u095-b.edge-r .u095-b-val{left:auto;right:0;transform:none}
-.u095-b.show-val .u095-b-val{opacity:.96}
-.u096.scrub .u095-b:not(.on) i{opacity:.26}
+.u095-b.show-val:not(.dry) .u095-b-val{opacity:.95}
+.u096.scrub .u095-b:not(.on) i{opacity:.28}
 .u096.scrub .u095-b.dry:not(.on) i{opacity:0}
 .u096.scrub .u095-b:not(.on) .u095-b-val{opacity:0}
-.u095-b.on i{opacity:1;transform:scaleX(1.22)}
-.u095-b.drizzle.on i{opacity:.68}
+.u095-b.on:not(.dry) i{opacity:1;transform:scaleX(1.22)}
 .u095-b.on:not(.dry) .u095-b-val{opacity:1}
-.u095-b.pin:not(.dry) i{box-shadow:0 0 0 1.5px var(--ux-surface),0 0 0 2.5px var(--rain)}
-.u096-tag{position:absolute;top:-4px;left:0;z-index:6;height:22px;padding:0 8px;border-radius:6px;display:flex;align-items:center;gap:5px;background:var(--ux-ink);color:var(--ux-page);font-size:10.8px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none;box-shadow:0 6px 14px -6px var(--ux-shadow-strong);transform:translateX(var(--tx,0));opacity:0;transition:opacity .18s}
+.u095-b.pin:not(.dry) i{box-shadow:0 0 0 1.5px var(--ux-surface),0 0 0 2.5px var(--rain-mm)}
+.u096-tag{position:absolute;top:-3px;left:0;z-index:6;height:21px;padding:0 7.5px;border-radius:6px;display:flex;align-items:center;gap:4px;background:var(--ux-ink);color:var(--ux-page);font-size:10.3px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none;box-shadow:0 6px 14px -6px var(--ux-shadow-strong);transform:translateX(var(--tx,0));opacity:0;transition:opacity .18s}
 .u096.scrub .u096-tag{opacity:1}
 .u096-x{position:relative;height:22px;margin-top:2px;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
-.u096-x-tick{position:absolute;top:4px;transform:translateX(-50%);font-size:10.2px;font-weight:730;color:var(--ux-ink-3);font-variant-numeric:tabular-nums;white-space:nowrap;transition:color .2s,font-weight .2s}
+.u096-x-tick{position:absolute;top:4px;transform:translateX(-50%);font-size:9.8px;font-weight:730;color:var(--ux-ink-3);font-variant-numeric:tabular-nums;white-space:nowrap;transition:color .2s,font-weight .2s}
 .u096-x-tick.first{transform:none}
 .u096-x-tick.last{transform:translateX(-100%)}
 .u096-x-tick.on{color:var(--ux-ink);font-weight:850}
-.u096-adv{display:flex;align-items:flex-start;gap:7px;margin-top:8px;padding:8px 10px;border-radius:12px;background:linear-gradient(125deg,color-mix(in srgb,var(--temp) 10%,transparent),transparent 90%),var(--ux-surface-2);border:1px solid var(--ux-line);font-size:11.5px;line-height:1.42;font-weight:650;color:var(--ux-ink-2)}
-.u096-adv-ic{display:inline-grid;place-items:center;flex:none;margin-top:1.5px}
+.u096-adv{display:flex;align-items:flex-start;gap:6.5px;margin-top:7px;padding:7.5px 9.5px;border-radius:11px;background:linear-gradient(125deg,color-mix(in srgb,var(--c) 10%,transparent),transparent 90%),var(--ux-surface-2);border:1px solid var(--ux-line);font-size:11.1px;line-height:1.38;font-weight:640;color:var(--ux-ink-2)}
+.u096-adv-ic{display:inline-grid;place-items:center;flex:none;margin-top:1px}
 .u096-adv-txt{min-width:0;flex:1}
-.u096-tip-pop{position:absolute;left:12px;right:12px;top:68px;z-index:30;padding:10px 12px;border-radius:14px;background:var(--ux-surface);border:1px solid var(--ux-line-2);box-shadow:0 16px 34px -12px var(--ux-shadow-strong),0 0 0 1px var(--ux-accent-soft);backdrop-filter:blur(12px);pointer-events:none;opacity:0;visibility:hidden;transform:translateY(-4px) scale(.985);transition:opacity .18s var(--ux-ease),transform .22s var(--ux-spring),visibility 0s .18s}
+.u096-tip-pop{position:absolute;left:10px;right:10px;top:64px;z-index:30;padding:10px 11px;border-radius:13px;background:var(--ux-surface);border:1px solid var(--ux-line-2);box-shadow:0 16px 34px -12px var(--ux-shadow-strong),0 0 0 1px var(--ux-accent-soft);backdrop-filter:blur(12px);pointer-events:none;opacity:0;visibility:hidden;transform:translateY(-4px) scale(.985);transition:opacity .18s var(--ux-ease),transform .22s var(--ux-spring),visibility 0s .18s}
 .u096-tip-pop.on{opacity:1;visibility:visible;transform:translateY(0) scale(1);transition:opacity .18s var(--ux-ease),transform .22s var(--ux-spring)}
 .u096-tip-hdr{display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.u096-tip-dot{width:6.5px;height:6.5px;border-radius:50%;background:var(--temp);flex:none}
-.u096-tip-title{font-size:12px;font-weight:800;color:var(--ux-ink)}
-.u096-tip-body{margin:0;font-size:11.4px;line-height:1.44;font-weight:580;color:var(--ux-ink-2)}
+.u096-tip-dot{width:6.5px;height:6.5px;border-radius:50%;background:var(--c);flex:none}
+.u096-tip-title{font-size:11.6px;font-weight:800;color:var(--ux-ink)}
+.u096-tip-body{margin:0;font-size:11.1px;line-height:1.42;font-weight:580;color:var(--ux-ink-2)}
 @media (max-width:460px){
   .u096{padding:12px 12px 11px}
-  .u096-p{font-size:15.5px}
-  .u096.scrub .u096-p{font-size:18.5px}
-  .u096-legend{padding:2px 7px;gap:6px}
-  .u096-leg-item{font-size:9.7px}
-  .u096-ch{padding-right:38px}
-  .u096-gl,.u096-avg-pill,.u096-rain-axis{right:-38px}
-  .u096-gl span,.u096-avg-pill,.u096-rain-axis{width:35px}
-  .u096-x-tick{font-size:9.6px}
+  .u096-p{font-size:19px}
+  .u096-ch{padding-right:35px}
+  .u096-gl-r,.u096-avg-pill{right:-35px;width:32px;font-size:9.3px}
+  .u096[data-card="rain"] .u096-ch{padding:0 37px 0 31px}
+  .u096[data-card="rain"] .u096-gl-r{right:-37px;width:34px}
+  .u096-gl-l{left:-31px;width:28px;font-size:9.3px}
+  .u096-x-tick{font-size:9.3px}
 }
 `;
 
@@ -153,8 +161,12 @@ function buildPaletteUxVars(palette: AtmosphericPalette): Record<string, string>
       '--ux-shadow-strong': 'rgba(5, 10, 20, 0.64)',
       '--temp': '#F0AE43',
       '--u096-temp': '#F0AE43',
-      '--rain': '#38BDF8',
-      '--u096-rain': '#38BDF8',
+      '--hum': '#38B889',
+      '--u096-hum': '#38B889',
+      '--rain-prob': '#60A5FA',
+      '--u096-rain-prob': '#60A5FA',
+      '--rain-mm': '#22D3EE',
+      '--u096-rain-mm': '#22D3EE',
     };
   }
   return {
@@ -177,8 +189,12 @@ function buildPaletteUxVars(palette: AtmosphericPalette): Record<string, string>
     '--ux-shadow-strong': 'rgba(20, 29, 43, 0.18)',
     '--temp': '#C87416',
     '--u096-temp': '#C87416',
-    '--rain': '#0284C7',
-    '--u096-rain': '#0284C7',
+    '--hum': '#13845E',
+    '--u096-hum': '#13845E',
+    '--rain-prob': '#2563EB',
+    '--u096-rain-prob': '#2563EB',
+    '--rain-mm': '#0891B2',
+    '--u096-rain-mm': '#0891B2',
   };
 }
 
@@ -267,10 +283,12 @@ function describeShortConditionVi(code: string | undefined, hour: number): strin
   return isDay ? 'Trời quang' : 'Đêm quang';
 }
 
-/**
- * Computes a clean temperature Y-axis range `[axisMin, axisMax]` for the Upper Lane
- * where `(axisMax - axisMin)` is an even integer (so `axisMax`, `axisMid`, `axisMin` are whole numbers).
- */
+function describeHumidityStateVi(humidityPct: number): string {
+  if (humidityPct < 40) return 'Hanh khô';
+  if (humidityPct <= 68) return 'Dễ chịu';
+  return 'Độ ẩm cao';
+}
+
 function computeTempAxisBounds(values: number[]): {
   axisMin: number;
   axisMax: number;
@@ -290,18 +308,46 @@ function computeTempAxisBounds(values: number[]): {
   return { axisMin, axisMax, axisMid };
 }
 
+function computeHumidityAxisBounds(values: number[]): {
+  axisMin: number;
+  axisMid: number;
+  axisMax: number;
+} {
+  const safe = values.filter((v) => Number.isFinite(v));
+  const lo = safe.length > 0 ? Math.min(...safe) : 50;
+  const hi = safe.length > 0 ? Math.max(...safe) : 85;
+  let axisMin = Math.max(0, Math.floor((lo - 4) / 10) * 10);
+  let axisMax = Math.min(100, Math.ceil((hi + 4) / 10) * 10);
+  if (axisMax - axisMin < 20) {
+    if (axisMax <= 90) axisMax += 10;
+    else if (axisMin >= 10) axisMin -= 10;
+  }
+  if ((axisMax - axisMin) % 20 !== 0) {
+    if (axisMin >= 10) axisMin -= 10;
+    else if (axisMax <= 90) axisMax += 10;
+  }
+  const axisMid = Math.round((axisMin + axisMax) / 2);
+  return { axisMin, axisMid, axisMax };
+}
+
 function computeNiceRainMaxMm(peakMm: number): number {
   if (!Number.isFinite(peakMm) || peakMm <= 2) return 2;
-  if (peakMm <= 5) return 5;
+  if (peakMm <= 4) return 4;
+  if (peakMm <= 6) return 6;
   if (peakMm <= 10) return 10;
   return Math.ceil(peakMm / 5) * 5;
+}
+
+function formatRainAxisMm(val: number): string {
+  if (val <= 0) return '0 mm';
+  return Number.isInteger(val) ? `${val} mm` : `${val.toFixed(1)} mm`;
 }
 
 /**
  * Monotone cubic Hermite interpolation (Fritsch-Carlson) resampling `raw` (length 25)
  * onto `targetN = 49` dense curve samples (`24 * 2 + 1`).
  */
-function resampleMonotoneCubic(raw: number[], targetN: number): number[] {
+function resampleMonotoneCubic(raw: number[], targetN: number, clampBounds?: [number, number]): number[] {
   const M = raw.length;
   if (M === 0) return new Array(targetN).fill(0);
   if (M === 1) return new Array(targetN).fill(raw[0]);
@@ -351,7 +397,11 @@ function resampleMonotoneCubic(raw: number[], targetN: number): number[] {
     const h10 = t3 - 2 * t2 + t;
     const h01 = -2 * t3 + 3 * t2;
     const h11 = t3 - t2;
-    out[i] = h00 * raw[k] + h10 * m[k] + h01 * raw[k + 1] + h11 * m[k + 1];
+    let val = h00 * raw[k] + h10 * m[k] + h01 * raw[k + 1] + h11 * m[k + 1];
+    if (clampBounds) {
+      val = Math.max(clampBounds[0], Math.min(clampBounds[1], val));
+    }
+    out[i] = val;
   }
   return out;
 }
@@ -362,64 +412,110 @@ export interface ForecastAxisTick {
   label: string;
 }
 
-export interface Mixed24hSlotPoint {
+export interface Suite24hSlotPoint {
   plusHours: number;
   tempC: number;
+  humidityPct: number;
+  humidityStateVi: string;
   rainMm: number;
   rainPct: number;
+  isWetMm: boolean;
   barHeightRatio: number;
-  barMode: 'wet' | 'drizzle' | 'dry';
   barInlineLabel: string;
   showInlineLabel: boolean;
   hh00: string;
   hhShort: string;
   ddMm: string;
   condVi: string;
-  subtitleVi: string;
+  tempPrimaryVi: string;
+  tempBadgeVi: string;
+  tempMetaVi: string;
+  tempTagVi: string;
+  humPrimaryVi: string;
+  humBadgeVi: string;
+  humMetaVi: string;
+  humTagVi: string;
+  rainPrimaryVi: string;
   rainBadgeVi: string;
-  tagLabelVi: string;
+  rainMetaVi: string;
+  rainTagVi: string;
 }
 
-export interface Mixed24hForecastModel {
-  titleVi: string;
-  restSubtitle: string;
-  restPrimaryReadout: string;
-  restRainBadge: string;
-  restHasWetRain: boolean;
-  meanTempC: number;
-  totalRain24hMm: number;
-  peakRainMm: number;
-  maxRainPct: number;
-  axisMinTemp: number;
-  axisMidTemp: number;
-  axisMaxTemp: number;
-  axisMaxRainMm: number;
-  slots: Mixed24hSlotPoint[];
-  denseTempCurve: number[];
+export interface Suite24hForecastModel {
+  sectionTitleVi: string;
+  restSyncHintVi: string;
   sampleStep: number;
+  slots: Suite24hSlotPoint[];
   xTicks: ForecastAxisTick[];
-  peakTempSlotIdx: number;
-  lowTempSlotIdx: number;
-  peakTempSampleIdx: number;
-  lowTempSampleIdx: number;
-  peakRainSlotIdx: number;
-  peakTempCallout: string;
-  lowTempCallout: string;
-  adviceVi: string;
-  explainVi: string;
+  tempCard: {
+    titleVi: string;
+    restPrimaryVi: string;
+    restBadgeVi: string;
+    restMetaVi: string;
+    meanVal: number;
+    axisMin: number;
+    axisMid: number;
+    axisMax: number;
+    denseCurve: number[];
+    peakSlotIdx: number;
+    lowSlotIdx: number;
+    peakSampleIdx: number;
+    lowSampleIdx: number;
+    peakCallout: string;
+    lowCallout: string;
+    adviceVi: string;
+    explainVi: string;
+  };
+  humCard: {
+    titleVi: string;
+    restPrimaryVi: string;
+    restBadgeVi: string;
+    restMetaVi: string;
+    meanVal: number;
+    axisMin: number;
+    axisMid: number;
+    axisMax: number;
+    denseCurve: number[];
+    peakSlotIdx: number;
+    lowSlotIdx: number;
+    peakSampleIdx: number;
+    lowSampleIdx: number;
+    peakCallout: string;
+    lowCallout: string;
+    adviceVi: string;
+    explainVi: string;
+  };
+  rainCard: {
+    titleVi: string;
+    restPrimaryVi: string;
+    restBadgeVi: string;
+    restMetaVi: string;
+    restHasWetRain: boolean;
+    totalRain24hMm: number;
+    peakRainMm: number;
+    maxRainPct: number;
+    axisMaxRainMm: number;
+    axisMidRainMm: number;
+    denseProbCurve: number[];
+    peakProbSlotIdx: number;
+    peakProbSampleIdx: number;
+    peakProbCallout: string;
+    adviceVi: string;
+    explainVi: string;
+  };
 }
 
 const SAMPLE_COUNT = 49; // 24 hourly intervals * 2 + 1
 const SLOT_INDICES = Array.from({ length: 25 }, (_, i) => i);
-const X_TICK_SLOTS = [0, 1, 2, 3, 4, 5, 6] as const;
-const TEMP_GRID_INDICES = [0, 1, 2] as const;
+const X_TICK_SLOT_INDICES = [0, 5, 10, 15, 20, 24] as const;
+const GRID_LEVEL_INDICES = [0, 1, 2] as const;
 
 export const LucianInteractiveForecastChart: React.FC<
   LucianInteractiveForecastChartProps
 > = ({ palette, weather, reduceMotion = false }) => {
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const suiteRef = useRef<HTMLDivElement | null>(null);
 
-  const model: Mixed24hForecastModel = useMemo(() => {
+  const model: Suite24hForecastModel = useMemo(() => {
     const rawHourly: HourlyForecastPoint[] = (weather.hourly ?? []).slice(0, 24);
     const nowTime = parseSlotLocalTime(
       weather.updatedAtIso,
@@ -432,6 +528,10 @@ export const LucianInteractiveForecastChart: React.FC<
     ).padStart(2, '0')}`;
     const nowHh = String(nowTime.hour).padStart(2, '0');
     const nowHhMm = `${nowHh}:00`;
+    const baseHumidity =
+      typeof weather.humidityPct === 'number' && Number.isFinite(weather.humidityPct)
+        ? Math.max(15, Math.min(100, Math.round(weather.humidityPct)))
+        : 72;
 
     const buildRawPoint = (plusHours: number) => {
       if (plusHours === 0) {
@@ -447,6 +547,7 @@ export const LucianInteractiveForecastChart: React.FC<
         return {
           plusHours: 0,
           tempC,
+          humidityPct: baseHumidity,
           rainMm,
           rainPct,
           hh00: nowHhMm,
@@ -483,6 +584,23 @@ export const LucianInteractiveForecastChart: React.FC<
               Math.round(lastKnown?.precipProbPct ?? weather.precipProbPct ?? 0)
             )
           );
+
+      const rawSlotHum = (slot as { humidityPct?: number } | undefined)?.humidityPct;
+      const humidityPct =
+        typeof rawSlotHum === 'number' && Number.isFinite(rawSlotHum)
+          ? Math.max(15, Math.min(100, Math.round(rawSlotHum)))
+          : Math.max(
+              25,
+              Math.min(
+                99,
+                Math.round(
+                  baseHumidity -
+                    (tempC - weather.temperatureC) * 2.6 +
+                    rainPct * 0.16
+                )
+              )
+            );
+
       const tParts = parseSlotLocalTime(
         slot?.timeIso,
         weather.utcOffsetSeconds,
@@ -500,6 +618,7 @@ export const LucianInteractiveForecastChart: React.FC<
       return {
         plusHours,
         tempC,
+        humidityPct,
         rainMm,
         rainPct,
         hh00: `${hh}:00`,
@@ -511,6 +630,7 @@ export const LucianInteractiveForecastChart: React.FC<
 
     const rawPts = SLOT_INDICES.map((plusHours) => buildRawPoint(plusHours));
     const temps = rawPts.map((p) => p.tempC);
+    const hums = rawPts.map((p) => p.humidityPct);
     const rainMms = rawPts.map((p) => p.rainMm);
     const rainPcts = rawPts.map((p) => p.rainPct);
 
@@ -521,6 +641,12 @@ export const LucianInteractiveForecastChart: React.FC<
     const spanTemp = Number((hiTemp - loTemp).toFixed(1));
     const tempBounds = computeTempAxisBounds(temps);
 
+    const loHum = Math.min(...hums);
+    const hiHum = Math.max(...hums);
+    const meanHum =
+      hums.reduce((sum, v) => sum + v, 0) / Math.max(1, hums.length);
+    const humBounds = computeHumidityAxisBounds(hums);
+
     const upcomingMmSum = rawPts
       .slice(1)
       .reduce((sum, p) => sum + p.rainMm, 0);
@@ -530,133 +656,213 @@ export const LucianInteractiveForecastChart: React.FC<
     const peakRainMm = Math.max(...rainMms);
     const maxRainPct = Math.max(...rainPcts);
     const axisMaxRainMm = computeNiceRainMaxMm(peakRainMm);
+    const axisMidRainMm = Number((axisMaxRainMm / 2).toFixed(1));
 
     let peakTempSlotIdx = 0;
     let lowTempSlotIdx = 0;
-    let peakRainSlotIdx = 0;
-    let bestRainScore = -1;
+    let peakHumSlotIdx = 0;
+    let lowHumSlotIdx = 0;
+    let peakProbSlotIdx = 0;
+    let peakWetBarSlotIdx = -1;
+    let bestWetMm = 0;
 
     rawPts.forEach((pt, idx) => {
       if (pt.tempC > rawPts[peakTempSlotIdx].tempC) peakTempSlotIdx = idx;
       if (pt.tempC < rawPts[lowTempSlotIdx].tempC) lowTempSlotIdx = idx;
-      const rainScore = pt.rainMm * 1000 + pt.rainPct;
-      if (rainScore > bestRainScore) {
-        bestRainScore = rainScore;
-        peakRainSlotIdx = idx;
+      if (pt.humidityPct > rawPts[peakHumSlotIdx].humidityPct) peakHumSlotIdx = idx;
+      if (pt.humidityPct < rawPts[lowHumSlotIdx].humidityPct) lowHumSlotIdx = idx;
+      if (
+        pt.rainPct > rawPts[peakProbSlotIdx].rainPct ||
+        (pt.rainPct === rawPts[peakProbSlotIdx].rainPct &&
+          pt.rainMm > rawPts[peakProbSlotIdx].rainMm)
+      ) {
+        peakProbSlotIdx = idx;
+      }
+      if (pt.rainMm >= 0.05 && pt.rainMm > bestWetMm) {
+        bestWetMm = pt.rainMm;
+        peakWetBarSlotIdx = idx;
       }
     });
 
-    const slots: Mixed24hSlotPoint[] = rawPts.map((pt, idx) => {
-      const isWet = pt.rainMm >= 0.05;
-      const isDrizzleProb = !isWet && pt.rainPct >= 10;
-      const barMode: 'wet' | 'drizzle' | 'dry' = isWet
-        ? 'wet'
-        : isDrizzleProb
-          ? 'drizzle'
-          : 'dry';
+    const slots: Suite24hSlotPoint[] = rawPts.map((pt, idx) => {
+      const isWetMm = pt.rainMm >= 0.05;
+      const barHeightRatio = isWetMm
+        ? Math.max(0.12, Math.min(1, pt.rainMm / Math.max(0.5, axisMaxRainMm)))
+        : 0;
+      const barInlineLabel = isWetMm
+        ? `${Math.max(0.1, pt.rainMm).toFixed(1)} mm`
+        : '';
+      const showInlineLabel =
+        isWetMm &&
+        idx === peakWetBarSlotIdx &&
+        Math.abs(peakWetBarSlotIdx - peakProbSlotIdx) > 3;
 
-      let barHeightRatio = 0;
-      if (isWet) {
-        const mmNorm = Math.min(1, pt.rainMm / Math.max(0.5, axisMaxRainMm));
-        barHeightRatio = Math.max(0.16, Math.min(1, mmNorm));
-      } else if (isDrizzleProb) {
-        barHeightRatio = Math.max(0.1, (pt.rainPct / 100) * 0.42);
-      }
+      const humidityStateVi = describeHumidityStateVi(pt.humidityPct);
 
-      const isSingleHighestRainBar =
-        idx === peakRainSlotIdx && (peakRainMm >= 0.1 || maxRainPct >= 30);
+      const rainMmPartVi = isWetMm
+        ? `${pt.rainMm.toFixed(1)} mm/h`
+        : pt.rainPct >= 30
+          ? '<0.1 mm/h'
+          : '0.0 mm/h';
 
-      const barInlineLabel =
-        pt.rainMm >= 0.1
-          ? `${pt.rainMm.toFixed(1)} mm`
-          : pt.rainMm >= 0.05
-            ? '0.1 mm'
-            : `<0.1 mm · ${pt.rainPct}%`;
-
-      const rainBadgeVi =
-        pt.rainMm >= 0.05
-          ? `${pt.rainMm.toFixed(1)} mm · ${pt.rainPct}% mưa`
-          : pt.rainPct >= 20
-            ? `<0.1 mm · ${pt.rainPct}% khả năng mưa`
-            : '0.0 mm · Không mưa';
-
-      const tagRainPart =
-        pt.rainMm >= 0.05
-          ? `${pt.rainMm.toFixed(1)} mm (${pt.rainPct}%)`
-          : pt.rainPct >= 10
-            ? `<0.1 mm (${pt.rainPct}%)`
-            : '0.0 mm';
+      const rainStateVi =
+        pt.rainMm >= 2.5
+          ? 'Mưa vừa – to'
+          : isWetMm
+            ? 'Có mưa'
+            : pt.rainPct >= 40
+              ? 'Dễ có mưa nhỏ'
+              : pt.rainPct >= 20
+                ? 'Khả năng mưa thấp'
+                : 'Tạnh ráo';
 
       return {
         ...pt,
+        humidityStateVi,
+        isWetMm,
         barHeightRatio,
-        barMode,
         barInlineLabel,
-        showInlineLabel: isSingleHighestRainBar,
-        subtitleVi: `Dự báo ${pt.hh00} (${pt.ddMm}) · ${pt.condVi}`,
-        rainBadgeVi,
-        tagLabelVi: `${pt.hh00} · ${pt.tempC.toFixed(1)}°C · ${tagRainPart}`,
+        showInlineLabel,
+        tempPrimaryVi: `${pt.tempC.toFixed(1)}°C`,
+        tempBadgeVi: `Cao ${hiTemp.toFixed(1)}° · Thấp ${loTemp.toFixed(1)}°`,
+        tempMetaVi: `${pt.hh00} (${pt.ddMm}) · ${pt.condVi}`,
+        tempTagVi: `${pt.hh00} · ${pt.tempC.toFixed(1)}°C · ${pt.condVi}`,
+        humPrimaryVi: `${pt.humidityPct}%`,
+        humBadgeVi: humidityStateVi,
+        humMetaVi: `${pt.hh00} (${pt.ddMm}) · Cao ${hiHum}% / Thấp ${loHum}%`,
+        humTagVi: `${pt.hh00} · Độ ẩm ${pt.humidityPct}% · ${humidityStateVi}`,
+        rainPrimaryVi: `${pt.rainPct}% · ${rainMmPartVi}`,
+        rainBadgeVi: rainStateVi,
+        rainMetaVi: `${pt.hh00} (${pt.ddMm}) · Tổng 24h ${totalRain24hMm.toFixed(1)} mm`,
+        rainTagVi: `${pt.hh00} · Mưa ${pt.rainPct}% · ${rainMmPartVi}`,
       };
     });
 
     const endDdMm = slots[slots.length - 1].ddMm;
     const spanDates = `${nowDdMm} – ${endDdMm}`;
-    const peakRainPt = slots[peakRainSlotIdx];
+    const peakTempPt = slots[peakTempSlotIdx];
+    const lowTempPt = slots[lowTempSlotIdx];
+    const peakHumPt = slots[peakHumSlotIdx];
+    const lowHumPt = slots[lowHumSlotIdx];
+    const peakProbPt = slots[peakProbSlotIdx];
 
-    const restRainBadge =
-      totalRain24hMm >= 0.1 || peakRainMm >= 0.1
-        ? `Tổng mưa 24h: ${totalRain24hMm.toFixed(1)} mm · Đỉnh ${peakRainPt.rainMm.toFixed(1)} mm/h (${peakRainPt.rainPct}%)`
-        : maxRainPct >= 40
-          ? `Mưa nhỏ rải rác (<0.1 mm · Đỉnh ${maxRainPct}%)`
-          : 'Tổng mưa 24h: 0.0 mm';
+    const xTicks: ForecastAxisTick[] = X_TICK_SLOT_INDICES.map((slotIdx) => ({
+      slotIdx,
+      pct: (slotIdx / 24) * 100,
+      label: slotIdx === 0 ? 'Nay' : slots[slotIdx].hhShort,
+    }));
 
-    const adviceVi =
+    const tempAdviceVi =
+      hiTemp >= 34
+        ? `Đỉnh nhiệt đạt ${hiTemp.toFixed(1)}°C lúc ${peakTempPt.hh00}, thấp nhất ${loTemp.toFixed(1)}°C lúc ${lowTempPt.hh00} — ưu tiên đồ thoáng mát và uống đủ nước.`
+        : spanTemp >= 7
+          ? `Biên độ nhiệt 24h chênh ${spanTemp.toFixed(1)}°C (${loTemp.toFixed(1)}°–${hiTemp.toFixed(1)}°C) — nên mang áo khoác nhẹ khi ra ngoài sáng sớm hoặc tối.`
+          : loTemp <= 18
+            ? `Nhiệt độ hạ thấp ${loTemp.toFixed(1)}°C lúc ${lowTempPt.hh00} (cao nhất ${hiTemp.toFixed(1)}°C) — lưu ý giữ ấm khi di chuyển.`
+            : `Nhiệt độ 24 giờ dao động ổn định ${loTemp.toFixed(1)}°C – ${hiTemp.toFixed(1)}°C (trung bình ${meanTempC.toFixed(1)}°C).`;
+
+    const humAdviceVi =
+      hiHum >= 82 || meanHum > 68
+        ? `Độ ẩm đạt đỉnh ${hiHum}% lúc ${peakHumPt.hh00} (trung bình ${Math.round(meanHum)}%) — không khí khá ẩm, ưu tiên trang phục thoáng khí.`
+        : loHum < 42
+          ? `Độ ẩm giảm còn ${loHum}% lúc ${lowHumPt.hh00} — trời hanh khô, chú ý bổ sung nước và dưỡng ẩm.`
+          : `Độ ẩm 24h từ ${loHum}% đến ${hiHum}% (trung bình ${Math.round(meanHum)}%), duy trì mức dễ chịu.`;
+
+    const rainRestPrimaryVi =
+      totalRain24hMm >= 0.1 || peakRainMm >= 0.05
+        ? `Tổng 24h: ${totalRain24hMm.toFixed(1)} mm`
+        : maxRainPct >= 30
+          ? `<0.1 mm · Đỉnh ${maxRainPct}%`
+          : 'Tổng 24h: 0.0 mm';
+
+    const rainRestBadgeVi =
+      peakRainMm >= 0.05
+        ? `Đỉnh mưa ${maxRainPct}% (${peakRainMm.toFixed(1)} mm/h)`
+        : `Đỉnh mưa ${maxRainPct}%`;
+
+    const rainAdviceVi =
       peakRainMm >= 2.5 || totalRain24hMm >= 5.0
-        ? `Tổng lượng mưa 24 giờ tới dự báo khoảng ${totalRain24hMm.toFixed(1)} mm, đỉnh mưa đạt ${peakRainPt.rainMm.toFixed(1)} mm/giờ (${peakRainPt.rainPct}%) lúc ${peakRainPt.hh00} — nên chuẩn bị sẵn áo mưa hoặc ô chắc chắn.`
-        : peakRainMm >= 0.1
-          ? `Trong 24 giờ tới có mưa nhẹ với lượng mưa đỉnh ${peakRainPt.rainMm.toFixed(1)} mm/giờ (xác suất ${peakRainPt.rainPct}%) vào khoảng ${peakRainPt.hh00}, tổng mưa 24h ${totalRain24hMm.toFixed(1)} mm — nên mang sẵn ô gấp gọn.`
-          : maxRainPct >= 40
-            ? `Trong 24 giờ tới có khả năng mưa nhỏ rải rác (<0.1 mm/giờ, xác suất đỉnh ${maxRainPct}% lúc ${peakRainPt.hh00}) — nên mang theo ô nhẹ khi ra ngoài.`
-            : spanTemp >= 7
-              ? `Trời 24 giờ tới khô ráo (tổng mưa 0.0 mm) nhưng biên độ nhiệt ngày – đêm khá lớn (${spanTemp.toFixed(1)}°C: cao ${hiTemp.toFixed(1)}° · thấp ${loTemp.toFixed(1)}°), nên mặc trang phục dễ điều chỉnh.`
-              : `Xu hướng 24 giờ tới ổn định: nhiệt độ cao nhất ${hiTemp.toFixed(1)}°C, thấp nhất ${loTemp.toFixed(1)}°C (trung bình ${meanTempC.toFixed(1)}°C), trời tạnh ráo.`;
-
-    const xTicks: ForecastAxisTick[] = [0, 4, 8, 12, 16, 20, 24].map(
-      (slotIdx) => ({
-        slotIdx,
-        pct: (slotIdx / 24) * 100,
-        label: slotIdx === 0 ? 'Nay' : slots[slotIdx].hhShort,
-      })
-    );
+        ? `Tổng mưa 24h khoảng ${totalRain24hMm.toFixed(1)} mm, đỉnh mưa ${peakRainMm.toFixed(1)} mm/h (${maxRainPct}%) lúc ${peakProbPt.hh00} — nên mang áo mưa hoặc ô chắc chắn.`
+        : peakRainMm >= 0.05
+          ? `Có mưa rải rác (tổng ${totalRain24hMm.toFixed(1)} mm), đỉnh ${peakRainMm.toFixed(1)} mm/h (${maxRainPct}%) lúc ${peakProbPt.hh00} — nên mang sẵn ô gấp gọn.`
+          : maxRainPct >= 30
+            ? `Lượng mưa dự báo <0.1 mm nhưng xác suất mưa đạt ${maxRainPct}% lúc ${peakProbPt.hh00} — nên mang ô nhẹ dự phòng.`
+            : `Trời 24 giờ tới tạnh ráo (0.0 mm, xác suất mưa tối đa ${maxRainPct}%) — thuận lợi hoạt động ngoài trời.`;
 
     return {
-      titleVi: 'Biểu đồ 2 tầng Nhiệt độ (°C) & Lượng mưa (mm · %) 24 giờ',
-      restSubtitle: `Xu hướng 24 giờ · ${spanDates}`,
-      restPrimaryReadout: `Cao ${hiTemp.toFixed(1)}° · Thấp ${loTemp.toFixed(1)}°`,
-      restRainBadge,
-      restHasWetRain: totalRain24hMm >= 0.1 || peakRainMm >= 0.1 || maxRainPct >= 40,
-      meanTempC,
-      totalRain24hMm,
-      peakRainMm,
-      maxRainPct,
-      axisMinTemp: tempBounds.axisMin,
-      axisMidTemp: tempBounds.axisMid,
-      axisMaxTemp: tempBounds.axisMax,
-      axisMaxRainMm,
-      slots,
-      denseTempCurve: resampleMonotoneCubic(temps, SAMPLE_COUNT),
+      sectionTitleVi: `Dự báo chi tiết 24 giờ · ${spanDates}`,
+      restSyncHintVi: 'Đồng bộ 3 biểu đồ · Lướt hoặc chạm để xem theo giờ',
       sampleStep: 2,
+      slots,
       xTicks,
-      peakTempSlotIdx,
-      lowTempSlotIdx,
-      peakTempSampleIdx: peakTempSlotIdx * 2,
-      lowTempSampleIdx: lowTempSlotIdx * 2,
-      peakRainSlotIdx,
-      peakTempCallout: `${hiTemp.toFixed(1)}°`,
-      lowTempCallout: `${loTemp.toFixed(1)}°`,
-      adviceVi,
-      explainVi:
-        'Biểu đồ 24 giờ tách thành 2 tầng độc lập: tầng trên hiển thị đường Nhiệt độ (°C) màu vàng ấm cùng mức trung bình (TB); tầng dưới hiển thị cột Lượng mưa (mm/giờ) và xác suất mưa (%) màu xanh lam. Lướt hoặc chạm vào bất kỳ giờ nào để xem chi tiết.',
+      tempCard: {
+        titleVi: 'Nhiệt độ 24 giờ',
+        restPrimaryVi: `${slots[0].tempC.toFixed(1)}°C`,
+        restBadgeVi: `Cao ${hiTemp.toFixed(1)}° · Thấp ${loTemp.toFixed(1)}°`,
+        restMetaVi: `TB ${meanTempC.toFixed(1)}°C · Đỉnh ${peakTempPt.hh00}`,
+        meanVal: meanTempC,
+        axisMin: tempBounds.axisMin,
+        axisMid: tempBounds.axisMid,
+        axisMax: tempBounds.axisMax,
+        denseCurve: resampleMonotoneCubic(temps, SAMPLE_COUNT),
+        peakSlotIdx: peakTempSlotIdx,
+        lowSlotIdx: lowTempSlotIdx,
+        peakSampleIdx: peakTempSlotIdx * 2,
+        lowSampleIdx: lowTempSlotIdx * 2,
+        peakCallout: `${hiTemp.toFixed(1)}°`,
+        lowCallout: `${loTemp.toFixed(1)}°`,
+        adviceVi: tempAdviceVi,
+        explainVi:
+          'Biểu đồ Nhiệt độ (°C) 24 giờ tới với đường trung bình (TB) nét đứt và điểm Cao nhất / Thấp nhất. Khi bạn lướt trên biểu đồ này, cả Độ ẩm và Lượng mưa cũng di chuyển theo đúng giờ tương ứng.',
+      },
+      humCard: {
+        titleVi: 'Độ ẩm không khí 24 giờ',
+        restPrimaryVi: `${slots[0].humidityPct}%`,
+        restBadgeVi: slots[0].humidityStateVi,
+        restMetaVi: `Cao ${hiHum}% · Thấp ${loHum}% · TB ${Math.round(meanHum)}%`,
+        meanVal: meanHum,
+        axisMin: humBounds.axisMin,
+        axisMid: humBounds.axisMid,
+        axisMax: humBounds.axisMax,
+        denseCurve: resampleMonotoneCubic(hums, SAMPLE_COUNT, [0, 100]),
+        peakSlotIdx: peakHumSlotIdx,
+        lowSlotIdx: lowHumSlotIdx,
+        peakSampleIdx: peakHumSlotIdx * 2,
+        lowSampleIdx: lowHumSlotIdx * 2,
+        peakCallout: `${hiHum}%`,
+        lowCallout: `${loHum}%`,
+        adviceVi: humAdviceVi,
+        explainVi:
+          'Biểu đồ Độ ẩm không khí (%) trong 24 giờ tới. Mức 40–68% là ngưỡng dễ chịu; dưới 40% trời hanh khô, trên 68% không khí ẩm dễ gây cảm giác oi hoặc nồm ẩm.',
+      },
+      rainCard: {
+        titleVi: 'Mưa & Lượng mưa 24 giờ',
+        restPrimaryVi: rainRestPrimaryVi,
+        restBadgeVi: rainRestBadgeVi,
+        restMetaVi:
+          peakRainMm >= 0.05
+            ? `Cao nhất lúc ${peakProbPt.hh00} (${peakProbPt.ddMm})`
+            : maxRainPct >= 20
+              ? `Khả năng mưa cao nhất lúc ${peakProbPt.hh00}`
+              : 'Không có mưa đáng kể trong 24h',
+        restHasWetRain:
+          totalRain24hMm >= 0.1 || peakRainMm >= 0.05 || maxRainPct >= 30,
+        totalRain24hMm,
+        peakRainMm,
+        maxRainPct,
+        axisMaxRainMm,
+        axisMidRainMm,
+        denseProbCurve: resampleMonotoneCubic(rainPcts, SAMPLE_COUNT, [0, 100]),
+        peakProbSlotIdx,
+        peakProbSampleIdx: peakProbSlotIdx * 2,
+        peakProbCallout:
+          peakRainMm >= 0.05 && Math.abs(peakWetBarSlotIdx - peakProbSlotIdx) <= 3
+            ? `${maxRainPct}% · ${peakRainMm.toFixed(1)} mm`
+            : `${maxRainPct}%`,
+        adviceVi: rainAdviceVi,
+        explainVi:
+          'Biểu đồ gộp Xác suất mưa (%) và Lượng mưa (mm/giờ): đường màu xanh dương (trục trái 0–100%) thể hiện khả năng mưa; cột màu xanh ngọc (trục phải mm) thể hiện lượng mưa thực tế từng giờ khi trời có mưa.',
+      },
     };
   }, [weather]);
 
@@ -664,91 +870,19 @@ export const LucianInteractiveForecastChart: React.FC<
     if (Platform.OS !== 'web') {
       return;
     }
-    injectLucianElementCss(STYLE_ELEMENT_ID, LUCIAN_U096_U095_MIXED_CSS);
-    const root = rootRef.current;
-    if (!root) {
+    injectLucianElementCss(STYLE_ELEMENT_ID, LUCIAN_U096_U095_SUITE_CSS);
+    const suite = suiteRef.current;
+    if (!suite) {
       return;
     }
 
-    const q = <T extends Element = HTMLElement>(s: string) =>
-      root.querySelector(s) as T | null;
+    const syncPill = suite.querySelector('.u096-suite-sync') as HTMLElement | null;
+    const tempRoot = suite.querySelector('.u096[data-card="temp"]') as HTMLElement | null;
+    const humRoot = suite.querySelector('.u096[data-card="hum"]') as HTMLElement | null;
+    const rainRoot = suite.querySelector('.u096[data-card="rain"]') as HTMLElement | null;
 
-    const sub = q<HTMLElement>('.u096-sub');
-    const price = q<HTMLElement>('.u096-p');
-    const rainBadge = q<HTMLElement>('.u096-rain-badge');
-    const pinHint = q<HTMLElement>('.u096-pin-hint');
-    const ch = q<HTMLElement>('.u096-ch');
-    const plot = q<HTMLElement>('.u096-plot');
-    const tempLane = q<HTMLElement>('.u096-lane-temp');
-    const svg = q<SVGSVGElement>('.u096-lane-temp svg');
-    const tag = q<HTMLElement>('.u096-tag');
-    const base = q<SVGPathElement>('.u096-base');
-    const line = q<SVGPathElement>('.u096-line');
-    const area = q<SVGPathElement>('.u096-area');
-    const ref = q<SVGLineElement>('.u096-ref');
-    const cur = q<SVGLineElement>('.u096-cur');
-    const dot = q<SVGCircleElement>('.u096-dot');
-    const ring = q<SVGCircleElement>('.u096-ring');
-    const evPeak = q<SVGCircleElement>('.u096-ev-peak');
-    const evLow = q<SVGCircleElement>('.u096-ev-low');
-    const rect = q<SVGRectElement>('.u096-cp rect');
-    const gd = q<SVGLinearGradientElement>('.u096-gd');
-    const cp = q<SVGClipPathElement>('.u096-cp');
-    const clipG = q<SVGGElement>('.u096-clip');
-    const avgPill = q<HTMLElement>('.u096-avg-pill');
-    const pkCallout = q<HTMLElement>('.u096-callout.peak');
-    const loCallout = q<HTMLElement>('.u096-callout.low');
-    const helpBtn = q<HTMLButtonElement>('.u096-help-btn');
-    const tipPop = q<HTMLElement>('.u096-tip-pop');
-
-    const gls = Array.prototype.slice.call(
-      root.querySelectorAll('.u096-gl')
-    ) as HTMLElement[];
-    const barEls = Array.prototype.slice.call(
-      root.querySelectorAll('.u095-b')
-    ) as HTMLElement[];
-    const xTickEls = Array.prototype.slice.call(
-      root.querySelectorAll('.u096-x-tick')
-    ) as HTMLElement[];
-
-    if (
-      !sub ||
-      !price ||
-      !rainBadge ||
-      !ch ||
-      !plot ||
-      !tempLane ||
-      !svg ||
-      !tag ||
-      !base ||
-      !line ||
-      !area ||
-      !ref ||
-      !cur ||
-      !dot ||
-      !ring ||
-      !evPeak ||
-      !evLow ||
-      !rect ||
-      !gd ||
-      !cp ||
-      !clipG
-    ) {
+    if (!tempRoot || !humRoot || !rainRoot) {
       return;
-    }
-
-    const uid = 'u096m' + Math.random().toString(36).slice(2, 7);
-    gd.id = uid + 'g';
-    cp.id = uid + 'c';
-    area.setAttribute('fill', 'url(#' + uid + 'g)');
-    clipG.setAttribute('clip-path', 'url(#' + uid + 'c)');
-
-    const tipId = uid + '-explain';
-    if (tipPop) {
-      tipPop.id = tipId;
-    }
-    if (helpBtn) {
-      helpBtn.setAttribute('aria-describedby', tipId);
     }
 
     const rm = Boolean(
@@ -759,69 +893,213 @@ export const LucianInteractiveForecastChart: React.FC<
     );
 
     const N = SAMPLE_COUNT;
-    let W = Math.max(220, Math.round(tempLane.clientWidth || 320));
-    const H_TEMP = 124;
-    const H_TOTAL = 200; // 124 (temp) + 18 (divider) + 58 (rain)
+    const H_PLOT = 156;
     const PT = 18;
     const PB = 16;
-    const PL = 10;
-    const PR = 10;
+    const PL = 8;
+    const PR = 8;
 
-    let ys: number[] | null = null;
     let at = N - 1;
     let scrub = false;
     let pinnedSlot = -1;
     let tw = 0;
     let back = 0;
-    let explainPinned = false;
 
-    function syncSvgViewport(): void {
-      const nextW = Math.max(220, Math.round(tempLane!.clientWidth || 320));
-      W = nextW;
-      svg!.setAttribute('viewBox', `0 0 ${W} ${H_TEMP}`);
-      ref!.setAttribute('x1', String(PL));
-      ref!.setAttribute('x2', String(W - PR));
-      cur!.setAttribute('y1', '6');
-      cur!.setAttribute('y2', String(H_TOTAL));
-      rect!.setAttribute('height', String(H_TEMP + 30));
+    interface CardDomRefs {
+      kind: 'temp' | 'hum' | 'rain';
+      root: HTMLElement;
+      primary: HTMLElement;
+      badge: HTMLElement;
+      meta: HTMLElement;
+      ch: HTMLElement;
+      plot: HTMLElement;
+      svg: SVGSVGElement;
+      tag: HTMLElement;
+      base: SVGPathElement;
+      line: SVGPathElement;
+      area: SVGPathElement;
+      refLine: SVGLineElement | null;
+      cur: SVGLineElement;
+      dot: SVGCircleElement;
+      ring: SVGCircleElement;
+      evPeak: SVGCircleElement;
+      evLow: SVGCircleElement | null;
+      rect: SVGRectElement;
+      gd: SVGLinearGradientElement;
+      cp: SVGClipPathElement;
+      clipG: SVGGElement;
+      avgPill: HTMLElement | null;
+      pkCallout: HTMLElement | null;
+      loCallout: HTMLElement | null;
+      helpBtn: HTMLButtonElement | null;
+      tipPop: HTMLElement | null;
+      gls: HTMLElement[];
+      barEls: HTMLElement[];
+      xTickEls: HTMLElement[];
+      W: number;
+      ys: number[] | null;
+      fromYs: number[];
+      targetYs: number[];
+      explainPinned: boolean;
     }
 
-    function setExplainVisible(visible: boolean): void {
-      if (!tipPop) return;
-      tipPop.classList.toggle('on', visible);
-      tipPop.setAttribute('aria-hidden', visible ? 'false' : 'true');
-      if (helpBtn) {
-        helpBtn.classList.toggle('on', visible);
-        helpBtn.setAttribute('aria-expanded', visible ? 'true' : 'false');
+    function queryCardRefs(root: HTMLElement, kind: 'temp' | 'hum' | 'rain'): CardDomRefs | null {
+      const q = <T extends Element = HTMLElement>(s: string) =>
+        root.querySelector(s) as T | null;
+
+      const primary = q<HTMLElement>('.u096-p');
+      const badge = q<HTMLElement>('.u096-badge');
+      const meta = q<HTMLElement>('.u096-sub-meta');
+      const ch = q<HTMLElement>('.u096-ch');
+      const plot = q<HTMLElement>('.u096-plot');
+      const svg = q<SVGSVGElement>('.u096-plot svg');
+      const tag = q<HTMLElement>('.u096-tag');
+      const base = q<SVGPathElement>('.u096-base');
+      const line = q<SVGPathElement>('.u096-line');
+      const area = q<SVGPathElement>('.u096-area');
+      const refLine = q<SVGLineElement>('.u096-ref');
+      const cur = q<SVGLineElement>('.u096-cur');
+      const dot = q<SVGCircleElement>('.u096-dot');
+      const ring = q<SVGCircleElement>('.u096-ring');
+      const evPeak = q<SVGCircleElement>('.u096-ev-peak');
+      const evLow = q<SVGCircleElement>('.u096-ev-low');
+      const rect = q<SVGRectElement>('.u096-cp rect');
+      const gd = q<SVGLinearGradientElement>('.u096-gd');
+      const cp = q<SVGClipPathElement>('.u096-cp');
+      const clipG = q<SVGGElement>('.u096-clip');
+      const avgPill = q<HTMLElement>('.u096-avg-pill');
+      const pkCallout = q<HTMLElement>('.u096-callout.peak');
+      const loCallout = q<HTMLElement>('.u096-callout.low');
+      const helpBtn = q<HTMLButtonElement>('.u096-help-btn');
+      const tipPop = q<HTMLElement>('.u096-tip-pop');
+
+      const gls = Array.prototype.slice.call(
+        root.querySelectorAll('.u096-gl')
+      ) as HTMLElement[];
+      const barEls = Array.prototype.slice.call(
+        root.querySelectorAll('.u095-b')
+      ) as HTMLElement[];
+      const xTickEls = Array.prototype.slice.call(
+        root.querySelectorAll('.u096-x-tick')
+      ) as HTMLElement[];
+
+      if (
+        !primary ||
+        !badge ||
+        !meta ||
+        !ch ||
+        !plot ||
+        !svg ||
+        !tag ||
+        !base ||
+        !line ||
+        !area ||
+        !cur ||
+        !dot ||
+        !ring ||
+        !evPeak ||
+        !rect ||
+        !gd ||
+        !cp ||
+        !clipG
+      ) {
+        return null;
       }
+
+      const uid = `u096-${kind}-${Math.random().toString(36).slice(2, 7)}`;
+      gd.id = `${uid}-g`;
+      cp.id = `${uid}-c`;
+      area.setAttribute('fill', `url(#${uid}-g)`);
+      clipG.setAttribute('clip-path', `url(#${uid}-c)`);
+
+      const tipId = `${uid}-explain`;
+      if (tipPop) tipPop.id = tipId;
+      if (helpBtn) helpBtn.setAttribute('aria-describedby', tipId);
+
+      return {
+        kind,
+        root,
+        primary,
+        badge,
+        meta,
+        ch,
+        plot,
+        svg,
+        tag,
+        base,
+        line,
+        area,
+        refLine,
+        cur,
+        dot,
+        ring,
+        evPeak,
+        evLow,
+        rect,
+        gd,
+        cp,
+        clipG,
+        avgPill,
+        pkCallout,
+        loCallout,
+        helpBtn,
+        tipPop,
+        gls,
+        barEls,
+        xTickEls,
+        W: Math.max(200, Math.round(plot.clientWidth || 300)),
+        ys: null,
+        fromYs: [],
+        targetYs: [],
+        explainPinned: false,
+      };
     }
 
-    function yForTemp(val: number): number {
-      const span = Math.max(1, model.axisMaxTemp - model.axisMinTemp);
-      const norm = (val - model.axisMinTemp) / span;
-      return PT + (1 - norm) * (H_TEMP - PT - PB);
+    const tempRefs = queryCardRefs(tempRoot, 'temp');
+    const humRefs = queryCardRefs(humRoot, 'hum');
+    const rainRefs = queryCardRefs(rainRoot, 'rain');
+    if (!tempRefs || !humRefs || !rainRefs) {
+      return;
     }
 
-    function proj(): number[] {
-      return model.denseTempCurve.map((val) => yForTemp(val));
+    const cards: CardDomRefs[] = [tempRefs, humRefs, rainRefs];
+
+    function yForValue(val: number, axisMin: number, axisMax: number): number {
+      const span = Math.max(1, axisMax - axisMin);
+      const norm = (val - axisMin) / span;
+      return PT + (1 - norm) * (H_PLOT - PT - PB);
     }
 
-    function X(i: number): number {
-      return PL + (i / (N - 1)) * (W - PL - PR);
+    function projectCard(card: CardDomRefs): number[] {
+      if (card.kind === 'temp') {
+        return model.tempCard.denseCurve.map((v) =>
+          yForValue(v, model.tempCard.axisMin, model.tempCard.axisMax)
+        );
+      }
+      if (card.kind === 'hum') {
+        return model.humCard.denseCurve.map((v) =>
+          yForValue(v, model.humCard.axisMin, model.humCard.axisMax)
+        );
+      }
+      return model.rainCard.denseProbCurve.map((v) => yForValue(v, 0, 100));
     }
 
-    function buildPath(yArr: number[]): string {
+    function X(card: CardDomRefs, i: number): number {
+      return PL + (i / (N - 1)) * (card.W - PL - PR);
+    }
+
+    function buildPath(card: CardDomRefs, yArr: number[]): string {
       return yArr
-        .map((v, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + v.toFixed(1))
+        .map((v, i) => (i ? 'L' : 'M') + X(card, i).toFixed(1) + ' ' + v.toFixed(1))
         .join('');
     }
 
-    function yAt(i: number): number {
-      if (!ys || ys.length === 0) return H_TEMP - PB;
+    function yAt(card: CardDomRefs, i: number): number {
+      if (!card.ys || card.ys.length === 0) return H_PLOT - PB;
       const clamped = Math.max(0, Math.min(N - 1, i));
       const a = Math.floor(clamped);
       const b = Math.min(N - 1, a + 1);
-      return ys[a] + (ys[b] - ys[a]) * (clamped - a);
+      return card.ys[a] + (card.ys[b] - card.ys[a]) * (clamped - a);
     }
 
     function nearestSlotIndex(sampleIndex: number): number {
@@ -832,49 +1110,78 @@ export const LucianInteractiveForecastChart: React.FC<
       );
     }
 
-    function syncAxesAndBars(): void {
-      const tickVals = [model.axisMinTemp, model.axisMidTemp, model.axisMaxTemp];
-      const yMeanEst = yForTemp(model.meanTempC);
+    function syncCardViewportAndAxes(card: CardDomRefs): void {
+      card.W = Math.max(200, Math.round(card.plot.clientWidth || 300));
+      card.svg.setAttribute('viewBox', `0 0 ${card.W} ${H_PLOT}`);
+      if (card.refLine) {
+        card.refLine.setAttribute('x1', String(PL));
+        card.refLine.setAttribute('x2', String(card.W - PR));
+      }
+      card.cur.setAttribute('y1', String(PT - 6));
+      card.cur.setAttribute('y2', String(H_PLOT - PB + 4));
+      card.rect.setAttribute('height', String(H_PLOT + 30));
 
-      gls.forEach((g, j) => {
-        const yGrid = PT + (1 - j / 2) * (H_TEMP - PT - PB);
-        g.style.top = `${yGrid.toFixed(1)}px`;
-        const spanEl = g.firstElementChild as HTMLElement | null;
-        if (!spanEl) return;
-        const tickVal = tickVals[j] ?? model.axisMinTemp;
-        spanEl.textContent = `${Math.round(tickVal)}°`;
-        spanEl.style.opacity = Math.abs(yGrid - yMeanEst) < 14 ? '0' : '1';
-      });
+      if (card.kind === 'temp' || card.kind === 'hum') {
+        const cfg = card.kind === 'temp' ? model.tempCard : model.humCard;
+        const unit = card.kind === 'temp' ? '°' : '%';
+        const tickVals = [cfg.axisMin, cfg.axisMid, cfg.axisMax];
+        const yMeanEst = yForValue(cfg.meanVal, cfg.axisMin, cfg.axisMax);
 
-      const slotSpacing = (W - PL - PR) / Math.max(1, model.slots.length - 1);
-      const barWidth = Math.max(4.5, Math.min(11, slotSpacing * 0.62));
+        card.gls.forEach((g, j) => {
+          const yGrid = PT + (1 - j / 2) * (H_PLOT - PT - PB);
+          g.style.top = `${yGrid.toFixed(1)}px`;
+          const rSpan = g.querySelector('.u096-gl-r') as HTMLElement | null;
+          if (rSpan) {
+            const tv = tickVals[j] ?? cfg.axisMin;
+            rSpan.textContent = `${Math.round(tv)}${unit}`;
+            rSpan.style.opacity = Math.abs(yGrid - yMeanEst) < 14 ? '0' : '1';
+          }
+        });
+      } else {
+        const leftLabels = ['0%', '50%', '100%'];
+        const rightLabels = [
+          '0 mm',
+          formatRainAxisMm(model.rainCard.axisMidRainMm),
+          formatRainAxisMm(model.rainCard.axisMaxRainMm),
+        ];
+        card.gls.forEach((g, j) => {
+          const yGrid = PT + (1 - j / 2) * (H_PLOT - PT - PB);
+          g.style.top = `${yGrid.toFixed(1)}px`;
+          const lSpan = g.querySelector('.u096-gl-l') as HTMLElement | null;
+          const rSpan = g.querySelector('.u096-gl-r') as HTMLElement | null;
+          if (lSpan) lSpan.textContent = leftLabels[j] ?? '';
+          if (rSpan) rSpan.textContent = rightLabels[j] ?? '';
+        });
 
-      barEls.forEach((bEl, m) => {
-        const slot = model.slots[m];
-        if (!slot) return;
-        const xPx = X(m * model.sampleStep);
-        const leftPct = (xPx / W) * 100;
-        bEl.style.left = `${leftPct.toFixed(3)}%`;
-        bEl.style.setProperty('--bw', `${barWidth.toFixed(1)}px`);
-        bEl.style.setProperty('--d', String(m));
-        bEl.style.setProperty('--h', slot.barHeightRatio.toFixed(3));
-        bEl.classList.toggle('wet', slot.barMode === 'wet');
-        bEl.classList.toggle('drizzle', slot.barMode === 'drizzle');
-        bEl.classList.toggle('dry', slot.barMode === 'dry');
-        bEl.classList.toggle('edge-l', m <= 3);
-        bEl.classList.toggle('edge-r', m >= model.slots.length - 4);
-        bEl.classList.toggle('show-val', slot.showInlineLabel);
-        const valEl = bEl.querySelector('.u095-b-val');
-        if (valEl) {
-          valEl.textContent = slot.barInlineLabel;
-        }
-      });
+        const slotSpacing =
+          (card.W - PL - PR) / Math.max(1, model.slots.length - 1);
+        const barWidth = Math.max(4.5, Math.min(10.5, slotSpacing * 0.58));
 
-      xTickEls.forEach((el, idx) => {
+        card.barEls.forEach((bEl, m) => {
+          const slot = model.slots[m];
+          if (!slot) return;
+          const xPx = X(card, m * model.sampleStep);
+          const leftPct = (xPx / card.W) * 100;
+          bEl.style.left = `${leftPct.toFixed(3)}%`;
+          bEl.style.setProperty('--bw', `${barWidth.toFixed(1)}px`);
+          bEl.style.setProperty('--d', String(m));
+          bEl.style.setProperty('--h', slot.barHeightRatio.toFixed(3));
+          bEl.classList.toggle('dry', !slot.isWetMm);
+          bEl.classList.toggle('edge-l', m <= 3);
+          bEl.classList.toggle('edge-r', m >= model.slots.length - 4);
+          bEl.classList.toggle('show-val', slot.showInlineLabel);
+          const valEl = bEl.querySelector('.u095-b-val');
+          if (valEl) {
+            valEl.textContent = slot.barInlineLabel;
+          }
+        });
+      }
+
+      card.xTickEls.forEach((el, idx) => {
         const tick = model.xTicks[idx];
         if (!tick) return;
-        const xPx = X(tick.slotIdx * model.sampleStep);
-        const leftPct = (xPx / W) * 100;
+        const xPx = X(card, tick.slotIdx * model.sampleStep);
+        const leftPct = (xPx / card.W) * 100;
         el.classList.toggle('first', idx === 0);
         el.classList.toggle('last', idx === model.xTicks.length - 1);
         el.style.left = `${leftPct.toFixed(2)}%`;
@@ -882,158 +1189,245 @@ export const LucianInteractiveForecastChart: React.FC<
       });
     }
 
-    function place(): void {
-      if (!ys) return;
-      const x = X(at);
-      const y = yAt(at);
-      const slotIdx = nearestSlotIndex(at);
+    function placeCard(card: CardDomRefs, slotIdx: number, isActiveScrub: boolean): void {
+      if (!card.ys) return;
+      const x = X(card, at);
+      const y = yAt(card, at);
       const slot = model.slots[slotIdx];
-      const isActiveScrub = scrub || pinnedSlot >= 0;
 
-      const clipW = at >= N - 1.05 ? W : x;
-      rect!.setAttribute('width', clipW.toFixed(1));
-      cur!.setAttribute('x1', x.toFixed(1));
-      cur!.setAttribute('x2', x.toFixed(1));
-      dot!.setAttribute('cx', x.toFixed(1));
-      dot!.setAttribute('cy', y.toFixed(1));
-      ring!.setAttribute('cx', x.toFixed(1));
-      ring!.setAttribute('cy', y.toFixed(1));
+      const clipW = at >= N - 1.05 ? card.W : x;
+      card.rect.setAttribute('width', clipW.toFixed(1));
+      card.cur.setAttribute('x1', x.toFixed(1));
+      card.cur.setAttribute('x2', x.toFixed(1));
+      card.dot.setAttribute('cx', x.toFixed(1));
+      card.dot.setAttribute('cy', y.toFixed(1));
+      card.ring.setAttribute('cx', x.toFixed(1));
+      card.ring.setAttribute('cy', y.toFixed(1));
 
-      barEls.forEach((bEl, m) => {
-        bEl.classList.toggle('on', isActiveScrub && m === slotIdx);
-        bEl.classList.toggle('pin', m === pinnedSlot);
-      });
+      card.root.classList.toggle('scrub', isActiveScrub);
+      card.root.classList.toggle('pinned', pinnedSlot >= 0);
 
-      xTickEls.forEach((el, idx) => {
+      if (card.kind === 'rain') {
+        card.barEls.forEach((bEl, m) => {
+          bEl.classList.toggle('on', isActiveScrub && m === slotIdx);
+          bEl.classList.toggle('pin', m === pinnedSlot);
+        });
+      }
+
+      card.xTickEls.forEach((el, idx) => {
         const tick = model.xTicks[idx];
         if (!tick) return;
         const dist = Math.abs(tick.slotIdx - slotIdx);
         el.classList.toggle('on', isActiveScrub && dist <= 1);
       });
 
-      if (isActiveScrub) {
-        sub!.textContent = slot.subtitleVi;
-        price!.textContent = `${slot.tempC.toFixed(1)}°C`;
-        rainBadge!.textContent = slot.rainBadgeVi;
-        rainBadge!.classList.toggle('wet', slot.rainMm >= 0.05 || slot.rainPct >= 20);
-        if (pinHint) {
-          pinHint.textContent =
-            pinnedSlot >= 0 ? `Đã ghim ${slot.hh00} · Chạm để bỏ ghim` : '';
+      if (card.kind === 'temp') {
+        if (isActiveScrub) {
+          card.primary.textContent = slot.tempPrimaryVi;
+          card.badge.textContent = slot.tempBadgeVi;
+          card.meta.textContent = slot.tempMetaVi;
+        } else {
+          card.primary.textContent = model.tempCard.restPrimaryVi;
+          card.badge.textContent = model.tempCard.restBadgeVi;
+          card.meta.textContent = model.tempCard.restMetaVi;
         }
+        card.tag.textContent = slot.tempTagVi;
+      } else if (card.kind === 'hum') {
+        if (isActiveScrub) {
+          card.primary.textContent = slot.humPrimaryVi;
+          card.badge.textContent = slot.humBadgeVi;
+          card.meta.textContent = slot.humMetaVi;
+        } else {
+          card.primary.textContent = model.humCard.restPrimaryVi;
+          card.badge.textContent = model.humCard.restBadgeVi;
+          card.meta.textContent = model.humCard.restMetaVi;
+        }
+        card.tag.textContent = slot.humTagVi;
       } else {
-        sub!.textContent = model.restSubtitle;
-        price!.textContent = model.restPrimaryReadout;
-        rainBadge!.textContent = model.restRainBadge;
-        rainBadge!.classList.toggle('wet', model.restHasWetRain);
-        if (pinHint) {
-          pinHint.textContent = '';
+        if (isActiveScrub) {
+          card.primary.textContent = slot.rainPrimaryVi;
+          card.badge.textContent = slot.rainBadgeVi;
+          card.badge.classList.toggle('wet', slot.isWetMm || slot.rainPct >= 30);
+          card.meta.textContent = slot.rainMetaVi;
+        } else {
+          card.primary.textContent = model.rainCard.restPrimaryVi;
+          card.badge.textContent = model.rainCard.restBadgeVi;
+          card.badge.classList.toggle('wet', model.rainCard.restHasWetRain);
+          card.meta.textContent = model.rainCard.restMetaVi;
         }
+        card.tag.textContent = slot.rainTagVi;
       }
 
-      tag!.textContent = slot.tagLabelVi;
-
-      const cw = tempLane!.clientWidth || W;
-      const tw2 = tag!.offsetWidth || 156;
-      const px = (x / W) * cw;
-      tag!.style.setProperty(
+      const cw = card.plot.clientWidth || card.W;
+      const tw2 = card.tag.offsetWidth || 136;
+      const px = (x / card.W) * cw;
+      card.tag.style.setProperty(
         '--tx',
         Math.max(2, Math.min(cw - tw2 - 2, px - tw2 / 2)).toFixed(1) + 'px'
       );
 
       const maxSlots = model.slots.length - 1;
-      ch!.setAttribute('aria-valuemax', String(maxSlots));
-      ch!.setAttribute('aria-valuenow', String(slotIdx));
-      ch!.setAttribute('aria-valuetext', slot.tagLabelVi);
+      card.ch.setAttribute('aria-valuemax', String(maxSlots));
+      card.ch.setAttribute('aria-valuenow', String(slotIdx));
+      card.ch.setAttribute(
+        'aria-valuetext',
+        card.kind === 'temp'
+          ? slot.tempTagVi
+          : card.kind === 'hum'
+            ? slot.humTagVi
+            : slot.rainTagVi
+      );
     }
 
-    function paint(): void {
-      if (!ys) return;
-      const p = buildPath(ys);
-      const baseBottom = H_TEMP - PB + 4;
-      base!.setAttribute('d', p);
-      line!.setAttribute('d', p);
-      area!.setAttribute(
+    function placeAll(): void {
+      const slotIdx = nearestSlotIndex(at);
+      const slot = model.slots[slotIdx];
+      const isActiveScrub = scrub || pinnedSlot >= 0;
+
+      suite!.classList.toggle('scrub', isActiveScrub);
+      suite!.classList.toggle('pinned', pinnedSlot >= 0);
+
+      if (syncPill) {
+        if (pinnedSlot >= 0) {
+          syncPill.textContent = `Đang ghim mốc ${slot.hh00} (${slot.ddMm}) · Chạm hoặc nhấn Esc để bỏ ghim`;
+        } else if (isActiveScrub) {
+          syncPill.textContent = `Đang xem mốc ${slot.hh00} (${slot.ddMm}) · ${slot.tempC.toFixed(1)}°C · Ẩm ${slot.humidityPct}% · Mưa ${slot.rainPct}%`;
+        } else {
+          syncPill.textContent = model.restSyncHintVi;
+        }
+      }
+
+      cards.forEach((c) => placeCard(c, slotIdx, isActiveScrub));
+    }
+
+    function paintCard(card: CardDomRefs): void {
+      if (!card.ys) return;
+      const p = buildPath(card, card.ys);
+      const baseBottom = H_PLOT - PB;
+      card.base.setAttribute('d', p);
+      card.line.setAttribute('d', p);
+      card.area.setAttribute(
         'd',
-        `${p}L${X(N - 1).toFixed(1)} ${baseBottom.toFixed(1)}L${X(0).toFixed(1)} ${baseBottom.toFixed(1)}Z`
+        `${p}L${X(card, N - 1).toFixed(1)} ${baseBottom.toFixed(1)}L${X(card, 0).toFixed(1)} ${baseBottom.toFixed(1)}Z`
       );
 
-      const vertexCount = model.slots.length;
-      let sumY = 0;
-      for (let m = 0; m < vertexCount; m += 1) {
-        sumY += ys[m * model.sampleStep];
-      }
-      const yMean = sumY / Math.max(1, vertexCount);
-      ref!.setAttribute('y1', yMean.toFixed(1));
-      ref!.setAttribute('y2', yMean.toFixed(1));
-      if (avgPill) {
-        avgPill.style.top = `${yMean.toFixed(1)}px`;
-        avgPill.textContent = `TB ${Math.round(model.meanTempC)}°`;
-      }
+      const cw = card.plot.clientWidth || card.W;
 
-      gls.forEach((g, j) => {
-        const yGrid = PT + (1 - j / 2) * (H_TEMP - PT - PB);
-        const spanEl = g.firstElementChild as HTMLElement | null;
-        if (spanEl) {
-          spanEl.style.opacity = Math.abs(yGrid - yMean) < 14 ? '0' : '1';
+      if (card.kind === 'temp' || card.kind === 'hum') {
+        const cfg = card.kind === 'temp' ? model.tempCard : model.humCard;
+        const unit = card.kind === 'temp' ? '°' : '%';
+        const vertexCount = model.slots.length;
+        let sumY = 0;
+        for (let m = 0; m < vertexCount; m += 1) {
+          sumY += card.ys[m * model.sampleStep];
         }
-      });
+        const yMean = sumY / Math.max(1, vertexCount);
+        if (card.refLine) {
+          card.refLine.setAttribute('y1', yMean.toFixed(1));
+          card.refLine.setAttribute('y2', yMean.toFixed(1));
+        }
+        if (card.avgPill) {
+          card.avgPill.style.top = `${yMean.toFixed(1)}px`;
+          card.avgPill.textContent = `TB ${Math.round(cfg.meanVal)}${unit}`;
+        }
 
-      const ePeak = model.peakTempSampleIdx;
-      const pkX = X(ePeak);
-      const pkY = ys[ePeak];
-      evPeak!.setAttribute('cx', pkX.toFixed(1));
-      evPeak!.setAttribute('cy', pkY.toFixed(1));
+        card.gls.forEach((g, j) => {
+          const yGrid = PT + (1 - j / 2) * (H_PLOT - PT - PB);
+          const rSpan = g.querySelector('.u096-gl-r') as HTMLElement | null;
+          if (rSpan) {
+            rSpan.style.opacity = Math.abs(yGrid - yMean) < 14 ? '0' : '1';
+          }
+        });
 
-      const eLow = model.lowTempSampleIdx;
-      const loX = X(eLow);
-      const loY = ys[eLow];
-      evLow!.setAttribute('cx', loX.toFixed(1));
-      evLow!.setAttribute('cy', loY.toFixed(1));
+        const ePeak = cfg.peakSampleIdx;
+        const pkX = X(card, ePeak);
+        const pkY = card.ys[ePeak];
+        card.evPeak.setAttribute('cx', pkX.toFixed(1));
+        card.evPeak.setAttribute('cy', pkY.toFixed(1));
 
-      const cw = tempLane!.clientWidth || W;
-      if (pkCallout) {
-        pkCallout.textContent = model.peakTempCallout;
-        const pkW = pkCallout.offsetWidth || 30;
-        const pkTx = Math.max(
-          2,
-          Math.min(cw - pkW - 2, (pkX / W) * cw - pkW / 2)
-        );
-        const pkTy = Math.max(1, pkY - 17);
-        pkCallout.style.setProperty('--tx', `${pkTx.toFixed(1)}px`);
-        pkCallout.style.setProperty('--ty', `${pkTy.toFixed(1)}px`);
-      }
+        const eLow = cfg.lowSampleIdx;
+        const loX = X(card, eLow);
+        const loY = card.ys[eLow];
+        if (card.evLow) {
+          card.evLow.setAttribute('cx', loX.toFixed(1));
+          card.evLow.setAttribute('cy', loY.toFixed(1));
+        }
 
-      if (loCallout) {
-        const sameAsPeak = model.lowTempSlotIdx === model.peakTempSlotIdx;
-        loCallout.classList.toggle('off', sameAsPeak);
-        if (!sameAsPeak) {
-          loCallout.textContent = model.lowTempCallout;
-          const loW = loCallout.offsetWidth || 30;
-          const loTx = Math.max(
+        if (card.pkCallout) {
+          card.pkCallout.textContent = cfg.peakCallout;
+          const pkW = card.pkCallout.offsetWidth || 28;
+          const pkTx = Math.max(
             2,
-            Math.min(cw - loW - 2, (loX / W) * cw - loW / 2)
+            Math.min(cw - pkW - 2, (pkX / card.W) * cw - pkW / 2)
           );
-          const loTy = Math.min(H_TEMP - 13, loY + 7);
-          loCallout.style.setProperty('--tx', `${loTx.toFixed(1)}px`);
-          loCallout.style.setProperty('--ty', `${loTy.toFixed(1)}px`);
+          const pkTy = Math.max(1, pkY - 16);
+          card.pkCallout.style.setProperty('--tx', `${pkTx.toFixed(1)}px`);
+          card.pkCallout.style.setProperty('--ty', `${pkTy.toFixed(1)}px`);
+        }
+
+        if (card.loCallout) {
+          const sameAsPeak = cfg.lowSlotIdx === cfg.peakSlotIdx;
+          card.loCallout.classList.toggle('off', sameAsPeak);
+          if (!sameAsPeak) {
+            card.loCallout.textContent = cfg.lowCallout;
+            const loW = card.loCallout.offsetWidth || 28;
+            const loTx = Math.max(
+              2,
+              Math.min(cw - loW - 2, (loX / card.W) * cw - loW / 2)
+            );
+            const loTy = Math.min(H_PLOT - 13, loY + 7);
+            card.loCallout.style.setProperty('--tx', `${loTx.toFixed(1)}px`);
+            card.loCallout.style.setProperty('--ty', `${loTy.toFixed(1)}px`);
+          }
+        }
+      } else {
+        const ePeak = model.rainCard.peakProbSampleIdx;
+        const pkX = X(card, ePeak);
+        const pkY = card.ys[ePeak];
+        card.evPeak.setAttribute('cx', pkX.toFixed(1));
+        card.evPeak.setAttribute('cy', pkY.toFixed(1));
+
+        if (card.pkCallout) {
+          const hidePeak = model.rainCard.maxRainPct <= 0;
+          card.pkCallout.classList.toggle('off', hidePeak);
+          if (!hidePeak) {
+            card.pkCallout.textContent = model.rainCard.peakProbCallout;
+            const pkW = card.pkCallout.offsetWidth || 26;
+            const pkTx = Math.max(
+              2,
+              Math.min(cw - pkW - 2, (pkX / card.W) * cw - pkW / 2)
+            );
+            const pkTy = Math.max(1, pkY - 16);
+            card.pkCallout.style.setProperty('--tx', `${pkTx.toFixed(1)}px`);
+            card.pkCallout.style.setProperty('--ty', `${pkTy.toFixed(1)}px`);
+          }
         }
       }
-
-      place();
     }
 
-    function morph(to: number[]): void {
+    function paintAll(): void {
+      cards.forEach((c) => paintCard(c));
+      placeAll();
+    }
+
+    function morphAll(): void {
       cancelAnimationFrame(tw);
-      const from = ys ? ys.slice() : to.map(() => H_TEMP - PB);
+      cards.forEach((c) => {
+        const target = projectCard(c);
+        c.targetYs = target;
+        c.fromYs = c.ys ? c.ys.slice() : target.map(() => H_PLOT - PB);
+      });
       const t0 = performance.now();
       const dur = rm ? 1 : 620;
       const step = (n: number) => {
-        if (!root || !root.isConnected) return;
+        if (!suite || !suite.isConnected) return;
         const t = Math.min(1, (n - t0) / dur);
         const e =
           t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        ys = from.map((y, i) => y + (to[i] - y) * e);
-        paint();
+        cards.forEach((c) => {
+          c.ys = c.fromYs.map((y, i) => y + (c.targetYs[i] - y) * e);
+        });
+        paintAll();
         if (t < 1) {
           tw = requestAnimationFrame(step);
         }
@@ -1047,11 +1441,11 @@ export const LucianInteractiveForecastChart: React.FC<
       const t0 = performance.now();
       const dur = rm ? 1 : 420;
       const step = (n: number) => {
-        if (!root || !root.isConnected) return;
+        if (!suite || !suite.isConnected) return;
         const t = Math.min(1, (n - t0) / dur);
         const e = 1 - Math.pow(1 - t, 3);
         at = from + (targetAt - from) * e;
-        place();
+        placeAll();
         if (t < 1) {
           back = requestAnimationFrame(step);
         }
@@ -1059,202 +1453,235 @@ export const LucianInteractiveForecastChart: React.FC<
       step(t0);
     }
 
-    function idx(clientX: number): number {
-      const r = tempLane!.getBoundingClientRect();
+    function idxForCard(card: CardDomRefs, clientX: number): number {
+      const r = card.plot.getBoundingClientRect();
       const width = Math.max(1, r.width);
-      const relX = ((clientX - r.left) / width) * W;
-      const ratio = (relX - PL) / Math.max(1, W - PL - PR);
+      const relX = ((clientX - r.left) / width) * card.W;
+      const ratio = (relX - PL) / Math.max(1, card.W - PL - PR);
       return Math.max(0, Math.min(N - 1, ratio * (N - 1)));
     }
 
-    function start(clientX: number): void {
+    function startOnCard(card: CardDomRefs, clientX: number): void {
       cancelAnimationFrame(back);
       scrub = true;
-      root!.classList.add('scrub');
-      at = idx(clientX);
-      place();
+      at = idxForCard(card, clientX);
+      placeAll();
     }
 
-    function end(): void {
+    function endScrub(): void {
       if (!scrub && pinnedSlot < 0) return;
       scrub = false;
       if (pinnedSlot >= 0) {
         const targetSample = pinnedSlot * model.sampleStep;
-        root!.classList.add('scrub', 'pinned');
         goBack(targetSample);
       } else {
-        root!.classList.remove('scrub', 'pinned');
         goBack(N - 1);
       }
     }
 
-    const cleanups: Array<() => void> = [];
-    let touching = false;
-    let downX = 0;
-    let downY = 0;
-
-    const onPointerDown = (e: PointerEvent) => {
-      downX = e.clientX;
-      downY = e.clientY;
-      if (e.pointerType === 'mouse') return;
-      touching = true;
-      try {
-        ch.setPointerCapture(e.pointerId);
-      } catch {
-        // ignore if unsupported
-      }
-      start(e.clientX);
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse' || touching) {
-        start(e.clientX);
-      }
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      const moved = Math.hypot(e.clientX - downX, e.clientY - downY);
-      if (moved < 8) {
-        const clickedSlot = nearestSlotIndex(idx(e.clientX));
-        if (pinnedSlot === clickedSlot) {
-          pinnedSlot = -1;
-          root.classList.remove('pinned');
-        } else {
-          pinnedSlot = clickedSlot;
-          root.classList.add('scrub', 'pinned');
-          at = pinnedSlot * model.sampleStep;
-          place();
-        }
-      }
-      if (touching) {
-        touching = false;
-        end();
-      }
-    };
-
-    const onPointerCancel = () => {
-      touching = false;
-      end();
-    };
-
-    const onPointerLeave = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') {
-        end();
-      }
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      const step = model.sampleStep;
-      const stepMap: Record<string, number | undefined> = {
-        ArrowLeft: -step,
-        ArrowRight: step,
-      };
-      let s = stepMap[e.key];
-      if (e.key === 'Escape') {
-        pinnedSlot = -1;
-        root.classList.remove('pinned');
-        end();
-        return;
-      }
-      if (e.key === 'Home') s = -N;
-      else if (e.key === 'End') s = N;
-      if (s === undefined) return;
-      e.preventDefault();
-      cancelAnimationFrame(back);
-      scrub = true;
-      root.classList.add('scrub');
-      const curSlot = nearestSlotIndex(at);
-      const nextSample = Math.max(0, Math.min(N - 1, curSlot * step + s));
-      at = nextSample;
-      place();
-    };
-
-    const onBlur = () => {
-      end();
-    };
-
-    ch.addEventListener('pointerdown', onPointerDown);
-    ch.addEventListener('pointermove', onPointerMove);
-    ch.addEventListener('pointerup', onPointerUp);
-    ch.addEventListener('pointercancel', onPointerCancel);
-    ch.addEventListener('pointerleave', onPointerLeave);
-    ch.addEventListener('keydown', onKeyDown);
-    ch.addEventListener('blur', onBlur);
-
-    cleanups.push(() => {
-      ch.removeEventListener('pointerdown', onPointerDown);
-      ch.removeEventListener('pointermove', onPointerMove);
-      ch.removeEventListener('pointerup', onPointerUp);
-      ch.removeEventListener('pointercancel', onPointerCancel);
-      ch.removeEventListener('pointerleave', onPointerLeave);
-      ch.removeEventListener('keydown', onKeyDown);
-      ch.removeEventListener('blur', onBlur);
-    });
-
-    if (helpBtn) {
-      const onHelpClick = (e: MouseEvent) => {
-        e.stopPropagation();
-        explainPinned = !explainPinned;
-        setExplainVisible(explainPinned);
-      };
-      const onHelpEnter = (e: PointerEvent) => {
-        if (e.pointerType !== 'touch') setExplainVisible(true);
-      };
-      const onHelpLeave = (e: PointerEvent) => {
-        if (e.pointerType !== 'touch' && !explainPinned) setExplainVisible(false);
-      };
-      const onHelpFocus = () => setExplainVisible(true);
-      const onHelpBlur = () => {
-        if (!explainPinned) setExplainVisible(false);
-      };
-      helpBtn.addEventListener('click', onHelpClick);
-      helpBtn.addEventListener('pointerenter', onHelpEnter);
-      helpBtn.addEventListener('pointerleave', onHelpLeave);
-      helpBtn.addEventListener('focus', onHelpFocus);
-      helpBtn.addEventListener('blur', onHelpBlur);
-      cleanups.push(() => {
-        helpBtn.removeEventListener('click', onHelpClick);
-        helpBtn.removeEventListener('pointerenter', onHelpEnter);
-        helpBtn.removeEventListener('pointerleave', onHelpLeave);
-        helpBtn.removeEventListener('focus', onHelpFocus);
-        helpBtn.removeEventListener('blur', onHelpBlur);
-      });
+    function unpinAll(): void {
+      if (pinnedSlot < 0 && !scrub) return;
+      pinnedSlot = -1;
+      scrub = false;
+      goBack(N - 1);
     }
 
+    function setCardExplainVisible(card: CardDomRefs, visible: boolean): void {
+      if (!card.tipPop) return;
+      card.tipPop.classList.toggle('on', visible);
+      card.tipPop.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      if (card.helpBtn) {
+        card.helpBtn.classList.toggle('on', visible);
+        card.helpBtn.setAttribute('aria-expanded', visible ? 'true' : 'false');
+      }
+    }
+
+    const cleanups: Array<() => void> = [];
+
+    if (syncPill) {
+      const onSyncClick = () => {
+        if (pinnedSlot >= 0) {
+          unpinAll();
+        }
+      };
+      syncPill.addEventListener('click', onSyncClick);
+      cleanups.push(() => syncPill.removeEventListener('click', onSyncClick));
+    }
+
+    cards.forEach((card) => {
+      let touching = false;
+      let downX = 0;
+      let downY = 0;
+
+      const onPointerDown = (e: PointerEvent) => {
+        downX = e.clientX;
+        downY = e.clientY;
+        if (e.pointerType === 'mouse') return;
+        touching = true;
+        try {
+          card.ch.setPointerCapture(e.pointerId);
+        } catch {
+          // ignore if unsupported
+        }
+        startOnCard(card, e.clientX);
+      };
+
+      const onPointerMove = (e: PointerEvent) => {
+        if (e.pointerType === 'mouse' || touching) {
+          startOnCard(card, e.clientX);
+        }
+      };
+
+      const onPointerUp = (e: PointerEvent) => {
+        const moved = Math.hypot(e.clientX - downX, e.clientY - downY);
+        if (moved < 8) {
+          const clickedSlot = nearestSlotIndex(idxForCard(card, e.clientX));
+          if (pinnedSlot === clickedSlot) {
+            pinnedSlot = -1;
+          } else {
+            pinnedSlot = clickedSlot;
+            at = pinnedSlot * model.sampleStep;
+            placeAll();
+          }
+        }
+        if (touching) {
+          touching = false;
+          endScrub();
+        }
+      };
+
+      const onPointerCancel = () => {
+        touching = false;
+        endScrub();
+      };
+
+      const onPointerLeave = (e: PointerEvent) => {
+        if (e.pointerType === 'mouse') {
+          endScrub();
+        }
+      };
+
+      const onKeyDown = (e: KeyboardEvent) => {
+        const step = model.sampleStep;
+        const stepMap: Record<string, number | undefined> = {
+          ArrowLeft: -step,
+          ArrowRight: step,
+        };
+        let s = stepMap[e.key];
+        if (e.key === 'Escape') {
+          pinnedSlot = -1;
+          endScrub();
+          return;
+        }
+        if (e.key === 'Home') s = -N;
+        else if (e.key === 'End') s = N;
+        if (s === undefined) return;
+        e.preventDefault();
+        cancelAnimationFrame(back);
+        scrub = true;
+        const curSlot = nearestSlotIndex(at);
+        const nextSample = Math.max(0, Math.min(N - 1, curSlot * step + s));
+        at = nextSample;
+        placeAll();
+      };
+
+      const onBlur = () => {
+        endScrub();
+      };
+
+      card.ch.addEventListener('pointerdown', onPointerDown);
+      card.ch.addEventListener('pointermove', onPointerMove);
+      card.ch.addEventListener('pointerup', onPointerUp);
+      card.ch.addEventListener('pointercancel', onPointerCancel);
+      card.ch.addEventListener('pointerleave', onPointerLeave);
+      card.ch.addEventListener('keydown', onKeyDown);
+      card.ch.addEventListener('blur', onBlur);
+
+      cleanups.push(() => {
+        card.ch.removeEventListener('pointerdown', onPointerDown);
+        card.ch.removeEventListener('pointermove', onPointerMove);
+        card.ch.removeEventListener('pointerup', onPointerUp);
+        card.ch.removeEventListener('pointercancel', onPointerCancel);
+        card.ch.removeEventListener('pointerleave', onPointerLeave);
+        card.ch.removeEventListener('keydown', onKeyDown);
+        card.ch.removeEventListener('blur', onBlur);
+      });
+
+      if (card.helpBtn) {
+        const onHelpClick = (e: MouseEvent) => {
+          e.stopPropagation();
+          card.explainPinned = !card.explainPinned;
+          setCardExplainVisible(card, card.explainPinned);
+        };
+        const onHelpEnter = (e: PointerEvent) => {
+          if (e.pointerType !== 'touch') setCardExplainVisible(card, true);
+        };
+        const onHelpLeave = (e: PointerEvent) => {
+          if (e.pointerType !== 'touch' && !card.explainPinned) {
+            setCardExplainVisible(card, false);
+          }
+        };
+        const onHelpFocus = () => setCardExplainVisible(card, true);
+        const onHelpBlur = () => {
+          if (!card.explainPinned) setCardExplainVisible(card, false);
+        };
+        card.helpBtn.addEventListener('click', onHelpClick);
+        card.helpBtn.addEventListener('pointerenter', onHelpEnter);
+        card.helpBtn.addEventListener('pointerleave', onHelpLeave);
+        card.helpBtn.addEventListener('focus', onHelpFocus);
+        card.helpBtn.addEventListener('blur', onHelpBlur);
+        cleanups.push(() => {
+          card.helpBtn?.removeEventListener('click', onHelpClick);
+          card.helpBtn?.removeEventListener('pointerenter', onHelpEnter);
+          card.helpBtn?.removeEventListener('pointerleave', onHelpLeave);
+          card.helpBtn?.removeEventListener('focus', onHelpFocus);
+          card.helpBtn?.removeEventListener('blur', onHelpBlur);
+        });
+      }
+    });
+
     const onDocPointerDown = (e: PointerEvent) => {
-      if (explainPinned && !root.contains(e.target as Node | null)) {
-        explainPinned = false;
-        setExplainVisible(false);
+      cards.forEach((c) => {
+        if (c.explainPinned && !c.root.contains(e.target as Node | null)) {
+          c.explainPinned = false;
+          setCardExplainVisible(c, false);
+        }
+      });
+    };
+
+    const onSuiteKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        cards.forEach((c) => {
+          if (c.explainPinned) {
+            c.explainPinned = false;
+            setCardExplainVisible(c, false);
+          }
+        });
       }
     };
-    const onRootKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && explainPinned) {
-        explainPinned = false;
-        setExplainVisible(false);
-      }
-    };
+
     document.addEventListener('pointerdown', onDocPointerDown);
-    root.addEventListener('keydown', onRootKeyDown);
+    suite.addEventListener('keydown', onSuiteKeyDown);
     cleanups.push(() => {
       document.removeEventListener('pointerdown', onDocPointerDown);
-      root.removeEventListener('keydown', onRootKeyDown);
+      suite.removeEventListener('keydown', onSuiteKeyDown);
     });
 
     if (typeof ResizeObserver !== 'undefined') {
       const ro = new ResizeObserver(() => {
-        if (!root.isConnected) return;
-        syncSvgViewport();
-        syncAxesAndBars();
-        ys = proj();
-        paint();
+        if (!suite.isConnected) return;
+        cards.forEach((c) => {
+          syncCardViewportAndAxes(c);
+          c.ys = projectCard(c);
+        });
+        paintAll();
       });
-      ro.observe(tempLane);
+      cards.forEach((c) => ro.observe(c.plot));
       cleanups.push(() => ro.disconnect());
     }
 
-    syncSvgViewport();
-    syncAxesAndBars();
-    morph(proj());
+    cards.forEach((c) => syncCardViewportAndAxes(c));
+    morphAll();
 
     return () => {
       cancelAnimationFrame(tw);
@@ -1275,10 +1702,16 @@ export const LucianInteractiveForecastChart: React.FC<
         ]}
       >
         <Text style={[nativeStyles.fallbackTitle, { color: palette.inkPrimary }]}>
-          {model.restSubtitle}
+          {model.sectionTitleVi}
         </Text>
         <Text style={[nativeStyles.fallbackSub, { color: palette.inkSecondary }]}>
-          {model.adviceVi}
+          {model.tempCard.adviceVi}
+        </Text>
+        <Text style={[nativeStyles.fallbackSub, { color: palette.inkSecondary }]}>
+          {model.humCard.adviceVi}
+        </Text>
+        <Text style={[nativeStyles.fallbackSub, { color: palette.inkSecondary }]}>
+          {model.rainCard.adviceVi}
         </Text>
       </View>
     );
@@ -1287,164 +1720,372 @@ export const LucianInteractiveForecastChart: React.FC<
   const uxVars = buildPaletteUxVars(palette) as React.CSSProperties;
 
   return (
-    <div
-      ref={rootRef}
-      className="ux u096"
+    <section
+      ref={suiteRef}
+      className="ux u096-suite"
       data-theme={palette.isDark ? 'dark' : 'light'}
       style={uxVars}
+      aria-label="Bộ 3 biểu đồ dự báo 24 giờ: Nhiệt độ, Độ ẩm và Lượng mưa"
     >
-      <div className="u096-h">
-        <div className="u096-top">
-          <small>
-            <i aria-hidden="true" />
-            <span className="u096-sub">{model.restSubtitle}</span>
-          </small>
-
-          <div className="u096-head-right">
-            <div
-              className="u096-legend"
-              role="note"
-              aria-label="Chú giải biểu đồ 24 giờ"
-            >
-              <span className="u096-leg-item">
-                <i className="u096-leg-line" aria-hidden="true" />
-                <span>Nhiệt độ</span>
-              </span>
-              <span className="u096-leg-item">
-                <i className="u096-leg-bar" aria-hidden="true" />
-                <span>Lượng mưa</span>
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="u096-help-btn"
-              aria-label="Giải thích biểu đồ 24 giờ"
-              aria-expanded="false"
-            >
-              ?
-            </button>
-          </div>
+      <div className="u096-suite-bar">
+        <div className="u096-suite-title-wrap">
+          <i className="u096-suite-pip" aria-hidden="true" />
+          <h3 className="u096-suite-title">{model.sectionTitleVi}</h3>
         </div>
-
-        <div className="u096-p-row" aria-live="polite">
-          <div className="u096-p-wrap">
-            <span className="u096-p-lead">
-              <i className="u096-p-dot" aria-hidden="true" />
-              <b className="u096-p">{model.restPrimaryReadout}</b>
-            </span>
-            <span
-              className={`u096-rain-badge${model.restHasWetRain ? ' wet' : ''}`}
-            >
-              {model.restRainBadge}
-            </span>
-          </div>
-          <span className="u096-pin-hint" />
-        </div>
-      </div>
-
-      <div
-        className="u096-ch"
-        tabIndex={0}
-        role="slider"
-        aria-label="Biểu đồ 2 tầng nhiệt độ (°C) và lượng mưa (mm, %) 24 giờ — lướt, chạm hoặc dùng phím mũi tên trái/phải để xem từng giờ"
-        aria-valuemin={0}
-        aria-valuemax={24}
-        aria-valuenow={24}
-      >
-        <div className="u096-plot">
-          <div className="u096-lane-temp">
-            <div className="u096-grid" aria-hidden="true">
-              {TEMP_GRID_INDICES.map((idx) => (
-                <div key={idx} className="u096-gl">
-                  <span />
-                </div>
-              ))}
-            </div>
-
-            <svg viewBox="0 0 340 124" aria-hidden="true">
-              <defs>
-                <linearGradient className="u096-gd" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopOpacity=".26" />
-                  <stop offset="1" stopOpacity="0" />
-                </linearGradient>
-                <clipPath className="u096-cp">
-                  <rect x="0" y="-20" height="160" width="340" />
-                </clipPath>
-              </defs>
-              <line className="u096-ref" x1="10" x2="330" />
-              <path className="u096-base" />
-              <g className="u096-clip">
-                <path className="u096-area" />
-                <path className="u096-line" />
-              </g>
-              <circle className="u096-ev-peak" r="3" />
-              <circle className="u096-ev-low" r="3" />
-              <line className="u096-cur" y1="6" y2="200" />
-              <circle className="u096-ring" r="4.8" />
-              <circle className="u096-dot" r="5" />
-            </svg>
-
-            <span className="u096-avg-pill" aria-hidden="true">
-              TB {Math.round(model.meanTempC)}°
-            </span>
-            <span className="u096-callout peak" aria-hidden="true">
-              {model.peakTempCallout}
-            </span>
-            <span className="u096-callout low" aria-hidden="true">
-              {model.lowTempCallout}
-            </span>
-          </div>
-
-          <div className="u096-lane-div" aria-hidden="true">
-            <span>Lượng mưa (mm/giờ) &amp; Xác suất mưa (%)</span>
-          </div>
-
-          <div className="u096-lane-rain">
-            <div className="u096-rain-axis" aria-hidden="true">
-              <span className="u096-rain-tick">{model.axisMaxRainMm} mm</span>
-              <span className="u096-rain-tick">0 mm</span>
-            </div>
-
-            <div className="u095-bars" aria-hidden="true">
-              {SLOT_INDICES.map((idx) => (
-                <div key={idx} className="u095-b">
-                  <u className="u095-b-val" />
-                  <i />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <span className="u096-tag" aria-hidden="true" />
-        </div>
-
-        <div className="u096-x" aria-hidden="true">
-          {X_TICK_SLOTS.map((slot) => (
-            <span key={slot} className="u096-x-tick" />
-          ))}
-        </div>
-      </div>
-
-      <div className="u096-adv" role="note" aria-label="Lời khuyên dự báo 24 giờ">
-        <span className="u096-adv-ic" aria-hidden="true">
-          <Sparkle
-            size={13}
-            weight="duotone"
-            color={palette.isDark ? '#F0AE43' : '#C87416'}
-          />
+        <span className="u096-suite-sync" aria-live="polite">
+          {model.restSyncHintVi}
         </span>
-        <span className="u096-adv-txt">{model.adviceVi}</span>
       </div>
 
-      <div className="u096-tip-pop" role="tooltip" aria-hidden="true">
-        <div className="u096-tip-hdr">
-          <span className="u096-tip-dot" aria-hidden="true" />
-          <strong className="u096-tip-title">{model.titleVi}</strong>
-        </div>
-        <p className="u096-tip-body">{model.explainVi}</p>
+      <div className="u096-suite-grid">
+        {/* Card 1: Nhiệt độ 24 giờ (°C) */}
+        <article className="u096" data-card="temp">
+          <div className="u096-h">
+            <div className="u096-top">
+              <small>
+                <i aria-hidden="true" />
+                <span className="u096-card-title">{model.tempCard.titleVi}</span>
+              </small>
+              <div className="u096-head-right">
+                <button
+                  type="button"
+                  className="u096-help-btn"
+                  aria-label="Giải thích biểu đồ Nhiệt độ 24 giờ"
+                  aria-expanded="false"
+                >
+                  ?
+                </button>
+              </div>
+            </div>
+
+            <div className="u096-p-row" aria-live="polite">
+              <div className="u096-p-wrap">
+                <b className="u096-p">{model.tempCard.restPrimaryVi}</b>
+                <span className="u096-badge">{model.tempCard.restBadgeVi}</span>
+              </div>
+              <span className="u096-sub-meta">{model.tempCard.restMetaVi}</span>
+            </div>
+          </div>
+
+          <div
+            className="u096-ch"
+            tabIndex={0}
+            role="slider"
+            aria-label="Biểu đồ Nhiệt độ (°C) 24 giờ — lướt hoặc dùng phím mũi tên trái/phải để xem từng giờ"
+            aria-valuemin={0}
+            aria-valuemax={24}
+            aria-valuenow={24}
+          >
+            <div className="u096-plot">
+              <div className="u096-grid" aria-hidden="true">
+                {GRID_LEVEL_INDICES.map((idx) => (
+                  <div key={idx} className="u096-gl">
+                    <span className="u096-gl-r" />
+                  </div>
+                ))}
+              </div>
+
+              <svg viewBox="0 0 320 156" aria-hidden="true">
+                <defs>
+                  <linearGradient className="u096-gd" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopOpacity=".28" />
+                    <stop offset="1" stopOpacity="0" />
+                  </linearGradient>
+                  <clipPath className="u096-cp">
+                    <rect x="0" y="-20" height="190" width="320" />
+                  </clipPath>
+                </defs>
+                <line className="u096-ref" x1="8" x2="312" />
+                <path className="u096-base" />
+                <g className="u096-clip">
+                  <path className="u096-area" />
+                  <path className="u096-line" />
+                </g>
+                <circle className="u096-ev-peak" r="3.2" />
+                <circle className="u096-ev-low" r="3.2" />
+                <line className="u096-cur" y1="12" y2="144" />
+                <circle className="u096-ring" r="4.8" />
+                <circle className="u096-dot" r="5" />
+              </svg>
+
+              <span className="u096-avg-pill" aria-hidden="true">
+                TB {Math.round(model.tempCard.meanVal)}°
+              </span>
+              <span className="u096-callout peak" aria-hidden="true">
+                {model.tempCard.peakCallout}
+              </span>
+              <span className="u096-callout low" aria-hidden="true">
+                {model.tempCard.lowCallout}
+              </span>
+              <span className="u096-tag" aria-hidden="true" />
+            </div>
+
+            <div className="u096-x" aria-hidden="true">
+              {X_TICK_SLOT_INDICES.map((slot) => (
+                <span key={slot} className="u096-x-tick" />
+              ))}
+            </div>
+          </div>
+
+          <div className="u096-adv" role="note" aria-label="Lời khuyên nhiệt độ 24 giờ">
+            <span className="u096-adv-ic" aria-hidden="true">
+              <Thermometer
+                size={13}
+                weight="duotone"
+                color={palette.isDark ? '#F0AE43' : '#C87416'}
+              />
+            </span>
+            <span className="u096-adv-txt">{model.tempCard.adviceVi}</span>
+          </div>
+
+          <div className="u096-tip-pop" role="tooltip" aria-hidden="true">
+            <div className="u096-tip-hdr">
+              <span className="u096-tip-dot" aria-hidden="true" />
+              <strong className="u096-tip-title">{model.tempCard.titleVi}</strong>
+            </div>
+            <p className="u096-tip-body">{model.tempCard.explainVi}</p>
+          </div>
+        </article>
+
+        {/* Card 2: Độ ẩm không khí 24 giờ (%) */}
+        <article className="u096" data-card="hum">
+          <div className="u096-h">
+            <div className="u096-top">
+              <small>
+                <i aria-hidden="true" />
+                <span className="u096-card-title">{model.humCard.titleVi}</span>
+              </small>
+              <div className="u096-head-right">
+                <button
+                  type="button"
+                  className="u096-help-btn"
+                  aria-label="Giải thích biểu đồ Độ ẩm không khí 24 giờ"
+                  aria-expanded="false"
+                >
+                  ?
+                </button>
+              </div>
+            </div>
+
+            <div className="u096-p-row" aria-live="polite">
+              <div className="u096-p-wrap">
+                <b className="u096-p">{model.humCard.restPrimaryVi}</b>
+                <span className="u096-badge">{model.humCard.restBadgeVi}</span>
+              </div>
+              <span className="u096-sub-meta">{model.humCard.restMetaVi}</span>
+            </div>
+          </div>
+
+          <div
+            className="u096-ch"
+            tabIndex={0}
+            role="slider"
+            aria-label="Biểu đồ Độ ẩm không khí (%) 24 giờ — lướt hoặc dùng phím mũi tên trái/phải để xem từng giờ"
+            aria-valuemin={0}
+            aria-valuemax={24}
+            aria-valuenow={24}
+          >
+            <div className="u096-plot">
+              <div className="u096-grid" aria-hidden="true">
+                {GRID_LEVEL_INDICES.map((idx) => (
+                  <div key={idx} className="u096-gl">
+                    <span className="u096-gl-r" />
+                  </div>
+                ))}
+              </div>
+
+              <svg viewBox="0 0 320 156" aria-hidden="true">
+                <defs>
+                  <linearGradient className="u096-gd" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopOpacity=".28" />
+                    <stop offset="1" stopOpacity="0" />
+                  </linearGradient>
+                  <clipPath className="u096-cp">
+                    <rect x="0" y="-20" height="190" width="320" />
+                  </clipPath>
+                </defs>
+                <line className="u096-ref" x1="8" x2="312" />
+                <path className="u096-base" />
+                <g className="u096-clip">
+                  <path className="u096-area" />
+                  <path className="u096-line" />
+                </g>
+                <circle className="u096-ev-peak" r="3.2" />
+                <circle className="u096-ev-low" r="3.2" />
+                <line className="u096-cur" y1="12" y2="144" />
+                <circle className="u096-ring" r="4.8" />
+                <circle className="u096-dot" r="5" />
+              </svg>
+
+              <span className="u096-avg-pill" aria-hidden="true">
+                TB {Math.round(model.humCard.meanVal)}%
+              </span>
+              <span className="u096-callout peak" aria-hidden="true">
+                {model.humCard.peakCallout}
+              </span>
+              <span className="u096-callout low" aria-hidden="true">
+                {model.humCard.lowCallout}
+              </span>
+              <span className="u096-tag" aria-hidden="true" />
+            </div>
+
+            <div className="u096-x" aria-hidden="true">
+              {X_TICK_SLOT_INDICES.map((slot) => (
+                <span key={slot} className="u096-x-tick" />
+              ))}
+            </div>
+          </div>
+
+          <div className="u096-adv" role="note" aria-label="Lời khuyên độ ẩm 24 giờ">
+            <span className="u096-adv-ic" aria-hidden="true">
+              <Drop
+                size={13}
+                weight="duotone"
+                color={palette.isDark ? '#38B889' : '#13845E'}
+              />
+            </span>
+            <span className="u096-adv-txt">{model.humCard.adviceVi}</span>
+          </div>
+
+          <div className="u096-tip-pop" role="tooltip" aria-hidden="true">
+            <div className="u096-tip-hdr">
+              <span className="u096-tip-dot" aria-hidden="true" />
+              <strong className="u096-tip-title">{model.humCard.titleVi}</strong>
+            </div>
+            <p className="u096-tip-body">{model.humCard.explainVi}</p>
+          </div>
+        </article>
+
+        {/* Card 3: Mưa (%) & Lượng mưa (mm) 24 giờ */}
+        <article className="u096" data-card="rain">
+          <div className="u096-h">
+            <div className="u096-top">
+              <small>
+                <i aria-hidden="true" />
+                <span className="u096-card-title">{model.rainCard.titleVi}</span>
+              </small>
+              <div className="u096-head-right">
+                <div
+                  className="u096-mini-leg"
+                  role="note"
+                  aria-label="Chú giải xác suất mưa và lượng mưa"
+                >
+                  <span className="u096-leg-i">
+                    <i className="u096-leg-ln" aria-hidden="true" />
+                    <span>% mưa</span>
+                  </span>
+                  <span className="u096-leg-i">
+                    <i className="u096-leg-br" aria-hidden="true" />
+                    <span>mm</span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="u096-help-btn"
+                  aria-label="Giải thích biểu đồ Mưa và Lượng mưa 24 giờ"
+                  aria-expanded="false"
+                >
+                  ?
+                </button>
+              </div>
+            </div>
+
+            <div className="u096-p-row" aria-live="polite">
+              <div className="u096-p-wrap">
+                <b className="u096-p">{model.rainCard.restPrimaryVi}</b>
+                <span
+                  className={`u096-badge${model.rainCard.restHasWetRain ? ' wet' : ''}`}
+                >
+                  {model.rainCard.restBadgeVi}
+                </span>
+              </div>
+              <span className="u096-sub-meta">{model.rainCard.restMetaVi}</span>
+            </div>
+          </div>
+
+          <div
+            className="u096-ch"
+            tabIndex={0}
+            role="slider"
+            aria-label="Biểu đồ Xác suất mưa (%) và Lượng mưa (mm/giờ) 24 giờ — lướt hoặc dùng phím mũi tên trái/phải để xem từng giờ"
+            aria-valuemin={0}
+            aria-valuemax={24}
+            aria-valuenow={24}
+          >
+            <div className="u096-plot">
+              <div className="u096-grid" aria-hidden="true">
+                {GRID_LEVEL_INDICES.map((idx) => (
+                  <div key={idx} className="u096-gl">
+                    <span className="u096-gl-l" />
+                    <span className="u096-gl-r" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="u095-bars" aria-hidden="true">
+                {SLOT_INDICES.map((idx) => (
+                  <div key={idx} className="u095-b">
+                    <u className="u095-b-val" />
+                    <i />
+                  </div>
+                ))}
+              </div>
+
+              <svg viewBox="0 0 320 156" aria-hidden="true">
+                <defs>
+                  <linearGradient className="u096-gd" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopOpacity=".24" />
+                    <stop offset="1" stopOpacity="0" />
+                  </linearGradient>
+                  <clipPath className="u096-cp">
+                    <rect x="0" y="-20" height="190" width="320" />
+                  </clipPath>
+                </defs>
+                <path className="u096-base" />
+                <g className="u096-clip">
+                  <path className="u096-area" />
+                  <path className="u096-line" />
+                </g>
+                <circle className="u096-ev-peak" r="3.2" />
+                <line className="u096-cur" y1="12" y2="144" />
+                <circle className="u096-ring" r="4.8" />
+                <circle className="u096-dot" r="5" />
+              </svg>
+
+              <span className="u096-callout peak" aria-hidden="true">
+                {model.rainCard.peakProbCallout}
+              </span>
+              <span className="u096-tag" aria-hidden="true" />
+            </div>
+
+            <div className="u096-x" aria-hidden="true">
+              {X_TICK_SLOT_INDICES.map((slot) => (
+                <span key={slot} className="u096-x-tick" />
+              ))}
+            </div>
+          </div>
+
+          <div className="u096-adv" role="note" aria-label="Lời khuyên mưa 24 giờ">
+            <span className="u096-adv-ic" aria-hidden="true">
+              <CloudRain
+                size={13}
+                weight="duotone"
+                color={palette.isDark ? '#60A5FA' : '#2563EB'}
+              />
+            </span>
+            <span className="u096-adv-txt">{model.rainCard.adviceVi}</span>
+          </div>
+
+          <div className="u096-tip-pop" role="tooltip" aria-hidden="true">
+            <div className="u096-tip-hdr">
+              <span className="u096-tip-dot" aria-hidden="true" />
+              <strong className="u096-tip-title">{model.rainCard.titleVi}</strong>
+            </div>
+            <p className="u096-tip-body">{model.rainCard.explainVi}</p>
+          </div>
+        </article>
       </div>
-    </div>
+    </section>
   );
 };
 

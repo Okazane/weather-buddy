@@ -97,6 +97,10 @@ export function computeAnalytics24h(snapshot) {
   const fallbackPoint = {
     timeIso: snapshot?.updatedAtIso || new Date().toISOString(),
     temperatureC: round1(Number(snapshot?.temperatureC ?? 26)),
+    humidityPct:
+      typeof snapshot?.humidityPct === 'number' && Number.isFinite(snapshot.humidityPct)
+        ? Math.max(0, Math.min(100, Math.round(snapshot.humidityPct)))
+        : undefined,
     precipProbPct: clampPct(Number(snapshot?.precipProbPct ?? 0)),
     precipMm: round2(Math.max(0, Number(snapshot?.precipMmPerHr ?? 0))),
     conditionCode: 'PARTLY_CLOUDY',
@@ -108,6 +112,10 @@ export function computeAnalytics24h(snapshot) {
     timeIso: String(pt?.timeIso || fallbackPoint.timeIso),
     hourLabel: formatHourLabelVi(pt?.timeIso, idx, snapshot?.utcOffsetSeconds),
     temperatureC: round1(Number(pt?.temperatureC ?? fallbackPoint.temperatureC)),
+    humidityPct:
+      typeof pt?.humidityPct === 'number' && Number.isFinite(pt.humidityPct)
+        ? Math.max(0, Math.min(100, Math.round(pt.humidityPct)))
+        : undefined,
     precipProbPct: clampPct(Number(pt?.precipProbPct ?? 0)),
     precipMm: round2(Math.max(0, Number(pt?.precipMm ?? 0))),
     conditionCode: String(pt?.conditionCode || 'PARTLY_CLOUDY'),
