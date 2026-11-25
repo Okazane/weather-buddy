@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="vi" data-sim-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A0D13" id="sim-theme-color-meta" />
+    <base href="/device-lab/" />
+    <title>WeatherBuddy Device Studio · Giả lập Điện thoại &amp; Màn hình Desktop</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23161C29'/%3E%3Ccircle cx='13' cy='13' r='5.2' fill='%23F0AE43'/%3E%3Cpath d='M11.5 22.5a4 4 0 0 1-.4-7.98 5.2 5.2 0 0 1 9.96-.62A3.7 3.7 0 0 1 21.2 22.5Z' fill='%2370B5FF'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./shell.css" />
+    <link rel="stylesheet" href="./mobileStage.css" />
+    <link rel="stylesheet" href="./desktopStage.css" />
+  </head>
+  <body>
+    <div class="studio-app-shell">
+      <header class="studio-header" role="banner">
+        <!-- Row 1: Studio Brand + Sync/LAN Pills + View Mode Switcher + Native Launch & Web Origin Links -->
+        <div class="studio-header-top">
+          <div class="studio-brand-cluster">
+            <div class="studio-brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 28 28" width="22" height="22" fill="none">
+                <circle cx="10.5" cy="10.5" r="4.6" fill="#F0AE43" />
+                <path
+                  d="M9.6 20.4a3.6 3.6 0 0 1-.35-7.18 4.8 4.8 0 0 1 9.22-.56 3.35 3.35 0 0 1 .18 6.74H9.6Z"
+                  fill="currentColor"
+                />
+                <rect
+                  x="3"
+                  y="3"
+                  width="22"
+                  height="22"
+                  rx="6.5"
+                  stroke="currentColor"
+                  stroke-opacity="0.34"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </div>
+            <div class="studio-brand-copy">
+              <div class="studio-brand-title-row">
+                <h1 class="studio-brand-title">WeatherBuddy Studio</h1>
+                <span class="studio-sync-pill" id="studio-sync-pill" role="status" aria-live="polite">
+                  <span class="studio-sync-dot" id="studio-sync-dot" aria-hidden="true"></span>
+                  <span class="studio-sync-text" id="studio-sync-label">Đồng bộ trực tiếp · Port 8788 / 8787</span>
+                </span>
+                <button
+                  type="button"
+                  class="studio-lan-badge"
+                  id="studio-lan-badge"
+                  title="Bấm để sao chép địa chỉ Wi-Fi nội bộ mở trên điện thoại thật"
+                  hidden
+                >
+                  <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
+                    <rect x="4.5" y="1.8" width="7" height="12.4" rx="1.6" stroke="currentColor" stroke-width="1.45" />
+                    <path d="M7.2 12h1.6" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" />
+                  </svg>
+                  <span class="studio-lan-badge-text" id="studio-lan-badge-text">Wi-Fi ĐT</span>
+                </button>
+              </div>
+              <p class="studio-brand-subtitle" id="studio-telemetry-summary">
+                Giả lập đồng thời giao diện Điện thoại &amp; Màn hình Desktop 27" theo thời gian thực
+              </p>
+            </div>
+          </div>
+
+          <div class="studio-view-cluster">
+            <div
+              class="studio-segmented"
+              id="studio-view-switcher"
+              role="tablist"
+              aria-label="Chế độ hiển thị khung thiết bị"
+            >
+              <button
+                type="button"
+                role="tab"
+                class="studio-seg-btn studio-seg-btn-both is-active"
+                data-view-mode="both"
+                aria-selected="true"
+              >
+                <svg viewBox="0 0 20 20" width="15" height="15" fill="none" aria-hidden="true">
+                  <rect x="2" y="3.5" width="5.2" height="13" rx="1.4" stroke="currentColor" stroke-width="1.6" />
+                  <rect x="9.4" y="4" width="8.6" height="9.6" rx="1.4" stroke="currentColor" stroke-width="1.6" />
+                  <path d="M12.2 16.2h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                </svg>
+                <span>Song song (Mobile + Desktop)</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="studio-seg-btn"
+                data-view-mode="mobile"
+                aria-selected="false"
+              >
+                <svg viewBox="0 0 20 20" width="15" height="15" fill="none" aria-hidden="true">
+                  <rect x="5.5" y="2.5" width="9" height="15" rx="2" stroke="currentColor" stroke-width="1.6" />
+                  <path d="M9 15h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                </svg>
+                <span>Chỉ Điện thoại</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="studio-seg-btn"
+                data-view-mode="desktop"
+                aria-selected="false"
+              >
+                <svg viewBox="0 0 20 20" width="15" height="15" fill="none" aria-hidden="true">
+                  <rect x="2.2" y="3.2" width="15.6" height="10.6" rx="1.6" stroke="currentColor" stroke-width="1.6" />
+                  <path d="M7.5 16.8h5M10 13.8v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                </svg>
+                <span>Chỉ Desktop</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="studio-quick-links">
+            <button
+              type="button"
+              class="studio-action-btn studio-action-btn-widget"
+              id="btn-launch-win-widget"
+              title="Khởi chạy trực tiếp Widget Windows gốc trên màn hình thật qua PowerShell"
+            >
+              <svg viewBox="0 0 20 20" width="15" height="15" fill="none" aria-hidden="true">
+                <rect x="2.8" y="2.8" width="6.3" height="6.3" rx="1.1" fill="currentColor" />
+                <rect x="10.9" y="2.8" width="6.3" height="6.3" rx="1.1" fill="currentColor" fill-opacity="0.78" />
+                <rect x="2.8" y="10.9" width="6.3" height="6.3" rx="1.1" fill="currentColor" fill-opacity="0.78" />
+                <rect x="10.9" y="10.9" width="6.3" height="6.3" rx="1.1" fill="currentColor" fill-opacity="0.58" />
+              </svg>
+              <span>Chạy Widget Windows thật</span>
+            </button>
+
+            <a
+              class="studio-action-btn studio-action-link"
+              id="link-open-web-origin"
+              href="/"
+              target="_blank"
+              rel="noopener"
+            >
+              <span>Mở bản Web gốc ↗</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Row 2: Synchronized Global Controls (City, Scenario, Character, Theme, Refresh) -->
+        <div class="studio-controls-deck" role="region" aria-label="Bộ điều khiển đồng bộ trực tiếp">
+          <label class="studio-field studio-field-select" for="ctrl-city">
+            <span class="studio-field-label">Thành phố</span>
+            <div class="studio-select-wrap">
+              <select id="ctrl-city" class="studio-select" aria-label="Chọn thành phố giả lập">
+                <option value="tp_hcm" selected>TP. Hồ Chí Minh</option>
+                <option value="ha_noi">Hà Nội</option>
+                <option value="da_nang">Đà Nẵng</option>
+                <option value="da_lat">Đà Lạt</option>
+                <option value="sa_pa">Sa Pa</option>
+                <option value="phu_quoc">Phú Quốc</option>
+              </select>
+              <svg class="studio-select-caret" viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
+                <path d="M4 6.2 8 10.2l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </label>
+
+          <label class="studio-field studio-field-select" for="ctrl-scenario">
+            <span class="studio-field-label">Kịch bản thời tiết</span>
+            <div class="studio-select-wrap">
+              <select id="ctrl-scenario" class="studio-select" aria-label="Chọn kịch bản thời tiết">
+                <option value="live" selected>Thời tiết thực tế (Live)</option>
+                <option value="sunny">Nắng đẹp</option>
+                <option value="hot_uv">Nắng gắt UV</option>
+                <option value="light_rain">Mưa rào cầm ô</option>
+                <option value="storm">Mưa bão áo mưa</option>
+                <option value="chilly">Đà Lạt se lạnh</option>
+                <option value="freezing">Sa Pa rét đậm</option>
+                <option value="clear_night">Đêm quang mây</option>
+              </select>
+              <svg class="studio-select-caret" viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
+                <path d="M4 6.2 8 10.2l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </label>
+
+          <div class="studio-field studio-field-gender">
+            <span class="studio-field-label">Nhân vật đồng hành</span>
+            <div class="studio-pill-group" id="ctrl-gender-group" role="group" aria-label="Chọn nhân vật">
+              <button
+                type="button"
+                class="studio-pill-btn is-active"
+                data-gender="female"
+                aria-pressed="true"
+              >
+                Nữ · Cô bé Nắng
+              </button>
+              <button
+                type="button"
+                class="studio-pill-btn"
+                data-gender="male"
+                aria-pressed="false"
+              >
+                Nam · Cậu bé Mây
+              </button>
+            </div>
+          </div>
+
+          <div class="studio-field studio-field-theme">
+            <span class="studio-field-label">Giao diện Studio</span>
+            <div class="studio-pill-group" id="ctrl-theme-group" role="group" aria-label="Chọn giao diện Tối hoặc Sáng">
+              <button
+                type="button"
+                class="studio-pill-btn is-active"
+                data-theme="dark"
+                aria-pressed="true"
+              >
+                Tối
+              </button>
+              <button
+                type="button"
+                class="studio-pill-btn"
+                data-theme="light"
+                aria-pressed="false"
+              >
+                Sáng
+              </button>
+            </div>
+          </div>
+
+          <div class="studio-controls-tail">
+            <div class="studio-live-readout" id="studio-live-readout" aria-live="polite">
+              <span class="studio-readout-temp" id="studio-readout-temp">--°C</span>
+              <span class="studio-readout-sep" aria-hidden="true">·</span>
+              <span class="studio-readout-outfit" id="studio-readout-outfit">Đang tải dữ liệu thời tiết...</span>
+            </div>
+
+            <button
+              type="button"
+              class="studio-refresh-btn"
+              id="btn-refresh-studio"
+              aria-label="Làm mới dữ liệu giả lập"
+              title="Làm mới dữ liệu từ máy chủ WeatherBuddy"
+            >
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+                <path
+                  d="M16.2 10a6.2 6.2 0 1 1-1.62-4.18M16.4 3.6v2.8h-2.8"
+                  stroke="currentColor"
+                  stroke-width="1.65"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="studio-toast-banner" id="studio-toast-banner" role="status" aria-live="polite" hidden></div>
+      </header>
+
+      <!-- Main Synchronized Dual-Stage Workspace -->
+      <main class="studio-stage-grid" id="studio-stage-grid" data-layout="both">
+        <section
+          class="studio-stage-column studio-stage-column-mobile"
+          id="studio-mobile-panel"
+          aria-label="Khung giả lập Điện thoại di động"
+        >
+          <div id="mobile-stage-root" class="studio-stage-mount"></div>
+        </section>
+
+        <section
+          class="studio-stage-column studio-stage-column-desktop"
+          id="studio-desktop-panel"
+          aria-label="Khung giả lập Màn hình Desktop 27 inch"
+        >
+          <div id="desktop-stage-root" class="studio-stage-mount"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./mobileStage.js"></script>
+    <script src="./desktopStage.js"></script>
+    <script src="./shell.js"></script>
+  </body>
+</html>

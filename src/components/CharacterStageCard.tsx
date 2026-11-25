@@ -287,14 +287,14 @@ function describeSkyPhaseVi(hour: number): SunlightPhaseMeta {
   const h = ((Math.round(hour) % 24) + 24) % 24;
   if (h <= 4) {
     return {
-      labelVi: 'Đêm sâu · Ánh trăng lạnh',
+      labelVi: 'Đêm sâu · Ánh trăng dịu',
       shortLabelVi: 'Đêm sâu',
       phase: 'night',
       iconKind: 'moon',
-      accentHex: '#7DA2C8',
-      textAccentLightHex: '#355B82',
-      iconHex: '#7DA2C8',
-      haloRgba: 'rgba(125, 162, 200, 0.26)',
+      accentHex: '#8CC2FF',
+      textAccentLightHex: '#255B94',
+      iconHex: '#D8ECFF',
+      haloRgba: 'rgba(140, 194, 255, 0.34)',
     };
   }
   if (h === 5) {
@@ -398,47 +398,71 @@ function describeSkyPhaseVi(hour: number): SunlightPhaseMeta {
     shortLabelVi: 'Đêm tối',
     phase: 'night',
     iconKind: 'moon',
-    accentHex: '#7DA2C8',
-    textAccentLightHex: '#355B82',
-    iconHex: '#7DA2C8',
-    haloRgba: 'rgba(125, 162, 200, 0.26)',
+    accentHex: '#8CC2FF',
+    textAccentLightHex: '#255B94',
+    iconHex: '#D8ECFF',
+    haloRgba: 'rgba(140, 194, 255, 0.34)',
   };
 }
 
-function skyHourToSunlightStops(hour: number): string[] {
-  const h = ((Math.round(hour) % 24) + 24) % 24;
-  if (h <= 2) return ['#1B2838'];
-  if (h === 3) return ['#1B2838', '#1E2D40'];
-  if (h === 4) return ['#22334A'];
-  if (h === 5) return ['#B86B35', '#D98A3C'];
-  if (h === 6) return ['#E8A849', '#F3C969'];
-  if (h === 7) return ['#F8DFA1'];
-  if (h === 8) return ['#FBF0CE'];
-  if (h === 9) return ['#EEF6FA'];
-  if (h === 10) return ['#9BD1F2'];
-  if (h === 11) return ['#64B5F6'];
-  if (h === 12 || h === 13) return ['#3B9AE1'];
-  if (h === 14) return ['#64B5F6'];
-  if (h === 15) return ['#9FD3F0', '#EEF5F8', '#F6D58E'];
-  if (h === 16) return ['#F6D58E', '#EEB454'];
-  if (h === 17) return ['#E28739', '#C96432'];
-  if (h === 18) return ['#7A5458', '#3B4B66'];
-  if (h === 19) return ['#24354C'];
-  if (h === 20) return ['#203045'];
-  return ['#1B2838'];
+function hexToRgbTuple(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '');
+  const n = parseInt(clean.length === 3 ? clean.replace(/(.)/g, '$1$1') : clean, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function buildChronologicalSkyGradientCss(hours: number[]): string {
+function mixHexColors(hexA: string, hexB: string, ratio: number): string {
+  const [r1, g1, b1] = hexToRgbTuple(hexA);
+  const [r2, g2, b2] = hexToRgbTuple(hexB);
+  const t = Math.max(0, Math.min(1, ratio));
+  const r = Math.round(r1 + (r2 - r1) * t);
+  const g = Math.round(g1 + (g2 - g1) * t);
+  const b = Math.round(b1 + (b2 - b1) * t);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function skyHourToSunlightStops(hour: number, palette: AtmosphericPalette): string[] {
+  const h = ((Math.round(hour) % 24) + 24) % 24;
+  const night = palette.skyRailNight;
+  const twilight = palette.skyRailTwilight;
+  const dawn = palette.skyRailDawn;
+  const day = palette.skyRailDay;
+  // Soft atmospheric bridge between dawn amber and clear sky blue (never muddy olive)
+  const horizonSky = mixHexColors(twilight, day, 0.45);
+  const warmDay = mixHexColors(dawn, day, 0.25);
+
+  if (h <= 2) return [night];
+  if (h === 3) return [mixHexColors(night, twilight, 0.35)];
+  if (h === 4) return [twilight];
+  if (h === 5) return [mixHexColors(twilight, dawn, 0.55), dawn];
+  if (h === 6) return [dawn, warmDay];
+  if (h === 7) return [horizonSky];
+  if (h === 8) return [mixHexColors(horizonSky, day, 0.58)];
+  if (h === 9) return [mixHexColors(horizonSky, day, 0.82)];
+  if (h >= 10 && h <= 14) return [day];
+  if (h === 15) return [mixHexColors(day, horizonSky, 0.32)];
+  if (h === 16) return [horizonSky, warmDay];
+  if (h === 17) return [dawn, mixHexColors(dawn, twilight, 0.35)];
+  if (h === 18) return [mixHexColors(dawn, twilight, 0.72), twilight];
+  if (h === 19) return [mixHexColors(twilight, night, 0.62)];
+  if (h === 20) return [mixHexColors(twilight, night, 0.85)];
+  return [night];
+}
+
+function buildChronologicalSkyGradientCss(
+  hours: number[],
+  palette: AtmosphericPalette
+): string {
   if (hours.length < 2) {
-    return 'linear-gradient(90deg, #1B2838 0%, #22334A 16%, #B86B35 22%, #E8A849 27%, #F8DFA1 33%, #FBF0CE 37%, #EEF6FA 42%, #64B5F6 49%, #3B9AE1 56%, #9FD3F0 63%, #F6D58E 70%, #E28739 76%, #7A5458 82%, #24354C 89%, #1B2838 100%)';
+    return `linear-gradient(90deg, ${palette.skyRailNight} 0%, ${palette.skyRailTwilight} 16%, ${palette.skyRailDawn} 26%, ${palette.skyRailDay} 50%, ${palette.skyRailDawn} 74%, ${palette.skyRailTwilight} 86%, ${palette.skyRailNight} 100%)`;
   }
   const expanded: string[] = [];
   for (const h of hours) {
-    expanded.push(...skyHourToSunlightStops(h));
+    expanded.push(...skyHourToSunlightStops(h, palette));
   }
   const maxIdx = Math.max(1, expanded.length - 1);
   const stops = expanded.map(
-    (hex, idx) => `${hex} ${((idx / maxIdx) * 100).toFixed(1)}%`
+    (col, idx) => `${col} ${((idx / maxIdx) * 100).toFixed(1)}%`
   );
   return `linear-gradient(90deg, ${stops.join(', ')})`;
 }
@@ -614,8 +638,8 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
         return p?.hour ?? (startHour + idx + 1) % 24;
       }),
     ];
-    return buildChronologicalSkyGradientCss(seqHours);
-  }, [currentParts, weather.isDay, weather.utcOffsetSeconds, hourly24]);
+    return buildChronologicalSkyGradientCss(seqHours, palette);
+  }, [currentParts, weather.isDay, weather.utcOffsetSeconds, hourly24, palette]);
 
   const isDemoSnapshot = weather.provider === 'demo';
 
@@ -1390,9 +1414,7 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
                 style={[
                   styles.skyScrubberCard,
                   {
-                    backgroundColor: palette.isDark
-                      ? 'rgba(18, 29, 46, 0.72)'
-                      : palette.coreElevatedBg,
+                    backgroundColor: palette.coreElevatedBg,
                     borderColor: palette.bezelOuterBorder,
                   },
                 ]}
@@ -1496,14 +1518,14 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
                     style={[
                       styles.skyScrubberKnob,
                       {
-                        backgroundColor: palette.isDark ? '#162336' : '#FFFDF9',
+                        backgroundColor: palette.isDark ? '#24344E' : '#FFFDF9',
                         borderColor: skyPhaseInfo.accentHex,
                       },
                       Platform.OS === 'web'
                         ? ({
                             willChange: 'transform',
-                            boxShadow: `0 0 0 4px ${skyPhaseInfo.haloRgba}, 0 4px 12px rgba(15, 23, 42, ${
-                              palette.isDark ? '0.45' : '0.18'
+                            boxShadow: `0 0 0 4px ${skyPhaseInfo.haloRgba}, 0 4px 14px rgba(4, 6, 11, ${
+                              palette.isDark ? '0.68' : '0.18'
                             })`,
                           } as object)
                         : {
@@ -1513,21 +1535,21 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
                   >
                     {skyPhaseInfo.iconKind === 'sun' ? (
                       <Sun
-                        size={14}
+                        size={16}
                         weight="duotone"
                         color={skyPhaseInfo.iconHex}
                       />
                     ) : skyPhaseInfo.iconKind === 'horizon' ? (
                       <SunHorizon
-                        size={14}
+                        size={16}
                         weight="duotone"
                         color={skyPhaseInfo.iconHex}
                       />
                     ) : (
                       <Moon
-                        size={13.5}
-                        weight="duotone"
-                        color={palette.isDark ? '#9CC0E6' : '#4A739E'}
+                        size={15.5}
+                        weight="fill"
+                        color={palette.isDark ? '#D8ECFF' : '#255B94'}
                       />
                     )}
                   </View>
@@ -1628,7 +1650,7 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
                   isDay={weather.isDay}
                   skyTheme={decision.skyTheme}
                   isDark={palette.isDark}
-                  size={19}
+                  size={32}
                 />
                 <Text
                   style={[
@@ -1638,7 +1660,7 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
                         weather.precipProbPct >= 15
                           ? palette.accent
                           : palette.inkMuted,
-                      opacity: weather.precipProbPct >= 15 ? 1 : 0.5,
+                      opacity: weather.precipProbPct >= 15 ? 1 : 0.85,
                     },
                   ]}
                 >
@@ -1735,7 +1757,7 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
                       utcOffsetSeconds={weather.utcOffsetSeconds}
                       precipProbPct={slot.precipProbPct}
                       isDark={palette.isDark}
-                      size={19}
+                      size={32}
                       weight="duotone"
                     />
 
@@ -1746,7 +1768,7 @@ export const CharacterStageCard: React.FC<CharacterStageCardProps> = React.memo(
                           color: showRainProb
                             ? palette.accent
                             : palette.inkMuted,
-                          opacity: showRainProb ? 1 : 0.45,
+                          opacity: showRainProb ? 1 : 0.82,
                         },
                       ]}
                     >
@@ -2127,20 +2149,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   skyScrubberGradientBar: {
-    height: 8,
+    height: 9,
     borderRadius: 999,
     borderWidth: 1,
     width: '100%',
   },
   skyScrubberKnob: {
     position: 'absolute',
-    top: 1,
+    top: 0,
     left: 0,
-    width: 28,
-    height: 28,
-    marginLeft: -14,
+    width: 30,
+    height: 30,
+    marginLeft: -15,
     borderRadius: 999,
-    borderWidth: 2,
+    borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2151,24 +2173,24 @@ const styles = StyleSheet.create({
   },
   skyLegendText: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   hourlyScrollRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingRight: 6,
+    gap: 8,
+    paddingRight: 8,
   },
   hourPill: {
-    minWidth: 62,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 15,
-    borderWidth: 1,
+    minWidth: 74,
+    paddingVertical: 10,
+    paddingHorizontal: 9,
+    borderRadius: 16,
+    borderWidth: 1.25,
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
   },
   hourTimeText: {
     fontFamily: FONT_FAMILY_SANS,

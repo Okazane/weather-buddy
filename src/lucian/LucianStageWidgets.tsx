@@ -67,54 +67,54 @@ const STYLE_ELEMENT_ID = 'lucian-stage-widgets-094-228-047-css';
  * for 375px mobile and fluid desktop Bento slots.
  */
 const LUCIAN_STAGE_CSS = `
-/* Lucian UX/UI Prompt theme tokens fallback + .ux base (pbakaus/impeccable OKLCH calibrated) */
+/* Hallmark + Lucian UX/UI Prompt theme tokens (synced with --wb-* Obsidian Slate / Crisp Porcelain) */
 :root{
-  --ux-page:#F7F5F0;
-  --ux-surface:#FCFBF8;
-  --ux-surface-2:#F3EFE8;
-  --ux-surface-3:#ECE8DF;
-  --ux-ink:#141D2B;
-  --ux-ink-2:#36455C;
-  --ux-ink-3:#53647D;
-  --ux-line:rgba(20,29,43,.09);
-  --ux-line-2:rgba(20,29,43,.17);
-  --ux-accent:#1E6BB8;
-  --ux-accent-2:#2A7AC9;
-  --ux-accent-soft:rgba(30,107,184,.11);
-  --ux-accent-ink:#FCFBF8;
-  --ux-mint:#13845E;
-  --ux-warn:#B86B1D;
-  --ux-danger:#C4384B;
-  --ux-glass:rgba(252,251,248,.74);
-  --ux-glass-line:rgba(252,251,248,.88);
-  --ux-shadow:rgba(20,29,43,.10);
-  --ux-shadow-strong:rgba(20,29,43,.22);
-  --ux-grad:linear-gradient(120deg,#1E6BB8,#2A7AC9 55%,#13845E);
+  --ux-page:var(--wb-page,#F4F6F9);
+  --ux-surface:var(--wb-surface,#FCFDFD);
+  --ux-surface-2:var(--wb-surface-2,#F0F4F8);
+  --ux-surface-3:var(--wb-surface-3,#E4EBF2);
+  --ux-ink:var(--wb-ink,#111824);
+  --ux-ink-2:var(--wb-ink-2,#314054);
+  --ux-ink-3:var(--wb-ink-3,#4B5B70);
+  --ux-line:var(--wb-line,rgba(17,24,36,.11));
+  --ux-line-2:var(--wb-line-2,rgba(17,24,36,.18));
+  --ux-accent:var(--wb-accent,#1662B3);
+  --ux-accent-2:#2374C7;
+  --ux-accent-soft:var(--wb-accent-soft,rgba(22,98,179,.12));
+  --ux-accent-ink:var(--wb-accent-ink,#FCFDFD);
+  --ux-mint:#0E7B55;
+  --ux-warn:#B36216;
+  --ux-danger:#BE3145;
+  --ux-glass:rgba(252,253,253,.88);
+  --ux-glass-line:rgba(17,24,36,.14);
+  --ux-shadow:rgba(17,24,36,.10);
+  --ux-shadow-strong:rgba(17,24,36,.22);
+  --ux-grad:linear-gradient(120deg,#1662B3,#0E7B55);
   --ux-ease:cubic-bezier(.2,.8,.2,1);
   --ux-spring:cubic-bezier(.34,1.45,.64,1);
 }
 :root[data-theme="dark"]{
-  --ux-page:#0B1220;
-  --ux-surface:#152033;
-  --ux-surface-2:#1C2A42;
-  --ux-surface-3:#22324D;
-  --ux-ink:#EEF3FA;
-  --ux-ink-2:#B2C1D6;
-  --ux-ink-3:#7E91AC;
-  --ux-line:rgba(203,221,245,.08);
-  --ux-line-2:rgba(203,221,245,.15);
-  --ux-accent:#6BA9E8;
-  --ux-accent-2:#7EB6EE;
-  --ux-accent-soft:rgba(107,169,232,.14);
-  --ux-accent-ink:#0D1524;
-  --ux-mint:#38B889;
-  --ux-warn:#E5A23C;
-  --ux-danger:#E26D7A;
-  --ux-glass:rgba(21,32,51,.76);
-  --ux-glass-line:rgba(203,221,245,.16);
-  --ux-shadow:rgba(5,10,20,.44);
-  --ux-shadow-strong:rgba(5,10,20,.68);
-  --ux-grad:linear-gradient(120deg,#6BA9E8,#5899DA 55%,#38B889);
+  --ux-page:var(--wb-page,#0B0E14);
+  --ux-surface:var(--wb-surface,#161C29);
+  --ux-surface-2:var(--wb-surface-2,#20293B);
+  --ux-surface-3:var(--wb-surface-3,#28334A);
+  --ux-ink:var(--wb-ink,#F3F6FA);
+  --ux-ink-2:var(--wb-ink-2,#CCD5E3);
+  --ux-ink-3:var(--wb-ink-3,#9AA8BD);
+  --ux-line:var(--wb-line,rgba(224,234,248,.13));
+  --ux-line-2:var(--wb-line-2,rgba(224,234,248,.21));
+  --ux-accent:var(--wb-accent,#70B5FF);
+  --ux-accent-2:#8AC3FF;
+  --ux-accent-soft:var(--wb-accent-soft,rgba(112,181,255,.16));
+  --ux-accent-ink:var(--wb-accent-ink,#0B0E14);
+  --ux-mint:#4BE2AB;
+  --ux-warn:#F5B44C;
+  --ux-danger:#F27482;
+  --ux-glass:rgba(22,28,41,.92);
+  --ux-glass-line:rgba(224,234,248,.20);
+  --ux-shadow:rgba(4,6,11,.56);
+  --ux-shadow-strong:rgba(4,6,11,.82);
+  --ux-grad:linear-gradient(120deg,#70B5FF,#4BE2AB);
 }
 .ux,.ux *,.ux *::before,.ux *::after{box-sizing:border-box}
 .ux{
@@ -198,13 +198,13 @@ const LUCIAN_STAGE_CSS = `
 .u228-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;padding:0 2px}
 .u228-hdr-title{display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:800;color:var(--ux-ink)}
 .u228-hdr-dot{width:8px;height:8px;border-radius:50%;background:var(--ux-accent);box-shadow:0 0 0 4px var(--ux-accent-soft);flex:none}
-.u228-live-pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:color-mix(in srgb,var(--ux-mint) 14%,transparent);border:1px solid color-mix(in srgb,var(--ux-mint) 32%,transparent);font-size:11px;font-weight:750;color:var(--ux-mint);font-variant-numeric:tabular-nums;white-space:nowrap}
-.u228-live-dot{width:6.5px;height:6.5px;border-radius:50%;background:var(--ux-mint);box-shadow:0 0 0 3px color-mix(in srgb,var(--ux-mint) 24%,transparent);animation:u228-live 2.2s ease-in-out infinite}
+.u228-live-pill{display:inline-flex;align-items:center;gap:6px;height:25px;padding:0 11px;border-radius:999px;background:color-mix(in srgb,var(--ux-mint) 18%,var(--ux-surface-2));border:1px solid color-mix(in srgb,var(--ux-mint) 44%,transparent);font-size:11.2px;font-weight:780;color:var(--ux-mint);font-variant-numeric:tabular-nums;white-space:nowrap}
+.u228-live-dot{width:7px;height:7px;border-radius:50%;background:var(--ux-mint);box-shadow:0 0 0 3px color-mix(in srgb,var(--ux-mint) 28%,transparent);animation:u228-live 2.2s ease-in-out infinite}
 @keyframes u228-live{50%{opacity:.42;transform:scale(.85)}}
-.u228-advice-box{display:flex;align-items:flex-start;gap:9px;margin:0 0 13px;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,var(--ux-accent-soft),transparent 92%),var(--ux-surface-2);border:1px solid var(--ux-line-2)}
-.u228-advice-ic{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;background:var(--ux-surface);box-shadow:inset 0 0 0 1px var(--ux-line);flex:none;margin-top:1px}
+.u228-advice-box{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:11px 14px;border-radius:16px;background:linear-gradient(90deg,color-mix(in srgb,var(--ux-accent) 16%,var(--ux-surface-2)) 0%,var(--ux-surface-2) 55%);border:1px solid color-mix(in srgb,var(--ux-accent) 32%,var(--ux-line-2))}
+.u228-advice-ic{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--ux-accent) 18%,var(--ux-surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ux-accent) 36%,transparent);flex:none}
 .u228-advice-content{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
-.u228-advice-txt{font-size:12.2px;line-height:1.45;font-weight:680;color:var(--ux-ink)}
+.u228-advice-txt{font-size:12.6px;line-height:1.48;font-weight:680;color:var(--ux-ink)}
 .u228-advice-hint{font-size:11px;line-height:1.35;font-weight:600;color:var(--ux-ink-3)}
 .u228-gd{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%}
 @media (min-width:680px){

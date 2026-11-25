@@ -1,0 +1,1802 @@
+/* WeatherBuddy Device Studio - Interactive 27" Desktop Screen Simulator Stage
+ * Hallmark tokens: Obsidian Slate (#0B0E14 / #161C29 / #20293B) & Crisp Porcelain (#F4F6F9 / #FCFDFD / #F0F4F8)
+ * Zero pure black/white, zero purple-cyan gradients, zero horizontal overflow.
+ */
+
+.wb-desk-root {
+  --desk-bg-page: #0B0E14;
+  --desk-surface: #161C29;
+  --desk-elevated: #20293B;
+  --desk-pill-idle: #28334A;
+  --desk-ink-1: #F3F6FA;
+  --desk-ink-2: #CCD5E3;
+  --desk-ink-3: #9AA8BD;
+  --desk-accent: #70B5FF;
+  --desk-accent-soft: rgba(112, 181, 255, 0.16);
+  --desk-accent-ink: #0B0E14;
+  --desk-hairline: rgba(224, 234, 248, 0.13);
+  --desk-hairline-strong: rgba(224, 234, 248, 0.22);
+  --desk-bezel-bg: #131924;
+  --desk-bezel-chin: #1A2231;
+  --desk-bezel-border: rgba(224, 234, 248, 0.18);
+  --desk-stand-neck: linear-gradient(180deg, #1B2333 0%, #263147 55%, #151C28 100%);
+  --desk-stand-foot: linear-gradient(90deg, #18202E 0%, #2B374F 50%, #18202E 100%);
+  --desk-shadow: 0 22px 48px rgba(4, 6, 11, 0.52), 0 4px 14px rgba(4, 6, 11, 0.34);
+
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--desk-ink-1);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: none;
+}
+
+[data-sim-theme="light"] .wb-desk-root,
+.wb-desk-root[data-desk-theme="light"] {
+  --desk-bg-page: #F4F6F9;
+  --desk-surface: #FCFDFD;
+  --desk-elevated: #F0F4F8;
+  --desk-pill-idle: #E4EBF2;
+  --desk-ink-1: #111824;
+  --desk-ink-2: #314054;
+  --desk-ink-3: #4B5B70;
+  --desk-accent: #1662B3;
+  --desk-accent-soft: rgba(22, 98, 179, 0.12);
+  --desk-accent-ink: #FCFDFD;
+  --desk-hairline: rgba(17, 24, 36, 0.10);
+  --desk-hairline-strong: rgba(17, 24, 36, 0.18);
+  --desk-bezel-bg: #1B2330;
+  --desk-bezel-chin: #253041;
+  --desk-bezel-border: rgba(17, 24, 36, 0.24);
+  --desk-stand-neck: linear-gradient(180deg, #B8C4D4 0%, #DCE4EE 55%, #9AA9BC 100%);
+  --desk-stand-foot: linear-gradient(90deg, #AEBCCE 0%, #E3EAF2 50%, #AEBCCE 100%);
+  --desk-shadow: 0 20px 44px rgba(19, 30, 48, 0.18), 0 4px 12px rgba(19, 30, 48, 0.10);
+}
+
+.wb-desk-root *,
+.wb-desk-root *::before,
+.wb-desk-root *::after {
+  box-sizing: border-box;
+}
+
+.wb-desk-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Top Stage Toolbar (3-Mode Segmented Switcher + Contextual Controls)
+   ========================================================================== */
+
+.wb-desk-toolbar-card {
+  background: var(--desk-surface);
+  border: 1px solid var(--desk-hairline);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.wb-desk-toolbar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wb-desk-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wb-desk-stage-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--desk-accent-soft);
+  color: var(--desk-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wb-desk-stage-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wb-desk-stage-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--desk-ink-1);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb-desk-stage-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--desk-ink-3);
+  line-height: 1.25;
+}
+
+.wb-desk-mode-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--desk-elevated);
+  border: 1px solid var(--desk-hairline);
+  border-radius: 10px;
+  padding: 3px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.wb-desk-mode-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--desk-ink-2);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  white-space: nowrap;
+}
+
+.wb-desk-mode-btn:hover {
+  color: var(--desk-ink-1);
+  background: var(--desk-pill-idle);
+}
+
+.wb-desk-mode-btn.is-active {
+  background: var(--desk-ink-1);
+  color: var(--desk-bg-page);
+  border-color: transparent;
+}
+
+.wb-desk-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid var(--desk-hairline);
+}
+
+.wb-desk-pill-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.wb-desk-cluster-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--desk-ink-3);
+  margin-right: 2px;
+}
+
+.wb-desk-chip-btn {
+  appearance: none;
+  border: 1px solid var(--desk-hairline);
+  background: var(--desk-elevated);
+  color: var(--desk-ink-2);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+  white-space: nowrap;
+}
+
+.wb-desk-chip-btn:hover {
+  color: var(--desk-ink-1);
+  border-color: var(--desk-hairline-strong);
+}
+
+.wb-desk-chip-btn.is-active {
+  background: var(--desk-accent-soft);
+  color: var(--desk-accent);
+  border-color: var(--desk-accent);
+}
+
+/* ==========================================================================
+   Studio 27" Monitor Hardware Chassis & Zero-Scroll Scale Stage
+   ========================================================================== */
+
+.wb-desk-stage-measure {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2px 0 6px;
+}
+
+.wb-desk-monitor-assembly {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+}
+
+.wb-desk-monitor-bezel {
+  background: var(--desk-bezel-bg);
+  border: 1.5px solid var(--desk-bezel-border);
+  border-radius: 16px 16px 14px 14px;
+  padding: 9px 9px 0 9px;
+  box-shadow: var(--desk-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.wb-desk-webcam-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #2C384E;
+  border: 1px solid rgba(224, 234, 248, 0.22);
+  margin-bottom: 4px;
+}
+
+.wb-desk-screen-viewport {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #0B0E14;
+  box-shadow: inset 0 0 0 1px rgba(224, 234, 248, 0.12);
+}
+
+.wb-desk-virtual-canvas {
+  width: 1440px;
+  height: 900px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  transform: scale(var(--wb-desk-scale, 0.5));
+  overflow: hidden;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.wb-desk-monitor-chin {
+  width: 100%;
+  height: 22px;
+  background: var(--desk-bezel-chin);
+  border-top: 1px solid rgba(224, 234, 248, 0.08);
+  border-radius: 0 0 12px 12px;
+  margin-top: 6px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wb-desk-chin-brand {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9AA8BD;
+}
+
+.wb-desk-chin-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #8292A9;
+}
+
+.wb-desk-power-led {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #52C4AE;
+  box-shadow: 0 0 6px rgba(82, 196, 174, 0.65);
+}
+
+.wb-desk-stand-neck {
+  width: 58px;
+  height: 24px;
+  background: var(--desk-stand-neck);
+  border-left: 1px solid var(--desk-hairline-strong);
+  border-right: 1px solid var(--desk-hairline-strong);
+}
+
+.wb-desk-stand-foot {
+  width: 168px;
+  height: 7px;
+  border-radius: 999px 999px 3px 3px;
+  background: var(--desk-stand-foot);
+  border: 1px solid var(--desk-hairline-strong);
+  box-shadow: 0 4px 10px rgba(4, 6, 11, 0.25);
+}
+
+/* ==========================================================================
+   Inside Virtual 1440×900 Canvas: Sky-Reactive Palettes & Layers
+   ========================================================================== */
+
+.wb-desk-virtual-canvas {
+  --win-surface: rgba(22, 28, 41, 0.90);
+  --win-surface-solid: #161C29;
+  --win-elevated: #20293B;
+  --win-card: #1B2334;
+  --win-ink-1: #F3F6FA;
+  --win-ink-2: #CCD5E3;
+  --win-ink-3: #9AA8BD;
+  --win-accent: #70B5FF;
+  --win-accent-soft: rgba(112, 181, 255, 0.16);
+  --win-hairline: rgba(224, 234, 248, 0.14);
+  --win-taskbar-bg: rgba(14, 19, 29, 0.92);
+  --win-sky-top: #0B0E14;
+  --win-sky-mid: #121A28;
+  --win-sky-bot: #1A273D;
+  --win-glow: rgba(112, 181, 255, 0.16);
+}
+
+.wb-desk-virtual-canvas[data-win-theme="light"] {
+  --win-surface: rgba(252, 253, 253, 0.92);
+  --win-surface-solid: #FCFDFD;
+  --win-elevated: #F0F4F8;
+  --win-card: #F5F8FB;
+  --win-ink-1: #111824;
+  --win-ink-2: #314054;
+  --win-ink-3: #4B5B70;
+  --win-accent: #1662B3;
+  --win-accent-soft: rgba(22, 98, 179, 0.12);
+  --win-hairline: rgba(17, 24, 36, 0.11);
+  --win-taskbar-bg: rgba(240, 244, 249, 0.94);
+  --win-sky-top: #C6DCF4;
+  --win-sky-mid: #DFECF9;
+  --win-sky-bot: #F2F6FA;
+  --win-glow: rgba(245, 206, 132, 0.34);
+}
+
+/* Sky-specific atmospheric wallpaper overrides */
+.wb-desk-virtual-canvas[data-sky="day_sunny"][data-win-theme="light"] {
+  --win-sky-top: #BAD7F5;
+  --win-sky-mid: #DCEAF8;
+  --win-sky-bot: #F3F6FA;
+  --win-glow: rgba(245, 196, 105, 0.35);
+}
+
+.wb-desk-virtual-canvas[data-sky="dawn"][data-win-theme="light"] {
+  --win-sky-top: #E9C6B0;
+  --win-sky-mid: #F4DFD0;
+  --win-sky-bot: #F8F3EC;
+  --win-glow: rgba(242, 170, 118, 0.36);
+}
+
+.wb-desk-virtual-canvas[data-sky="sunset"][data-win-theme="light"] {
+  --win-sky-top: #E4B996;
+  --win-sky-mid: #F2D8BF;
+  --win-sky-bot: #F8F2EA;
+  --win-glow: rgba(235, 152, 82, 0.36);
+}
+
+.wb-desk-virtual-canvas[data-sky="day_cloudy"][data-win-theme="light"],
+.wb-desk-virtual-canvas[data-sky="day_rain"][data-win-theme="light"] {
+  --win-sky-top: #BDCDE0;
+  --win-sky-mid: #D7E2EE;
+  --win-sky-bot: #ECF1F7;
+  --win-glow: rgba(164, 192, 224, 0.32);
+}
+
+.wb-desk-virtual-canvas[data-sky="rain_storm"] {
+  --win-sky-top: #0B0E14;
+  --win-sky-mid: #121926;
+  --win-sky-bot: #1B273B;
+  --win-glow: rgba(96, 165, 240, 0.16);
+}
+
+.wb-desk-virtual-canvas[data-sky="night"] {
+  --win-sky-top: #0A0D13;
+  --win-sky-mid: #101725;
+  --win-sky-bot: #182338;
+  --win-glow: rgba(112, 181, 255, 0.14);
+}
+
+/* Layer Stack (852px workspace + 48px taskbar = 900px) */
+.wb-desk-workspace-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1440px;
+  height: 852px;
+  overflow: hidden;
+  transition: opacity 180ms ease;
+}
+
+.wb-desk-workspace-layer.is-hidden-layer {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+}
+
+.wb-desk-workspace-layer.is-active-layer {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+  z-index: 15;
+}
+
+/* ==========================================================================
+   MODE 1: Windows 11 Atmospheric Desktop + Draggable Floating Widget
+   ========================================================================== */
+
+.wb-win-wallpaper {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--win-sky-top) 0%, var(--win-sky-mid) 56%, var(--win-sky-bot) 100%);
+  overflow: hidden;
+}
+
+.wb-win-wallpaper-bloom {
+  position: absolute;
+  width: 920px;
+  height: 620px;
+  right: -120px;
+  bottom: -160px;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--win-glow) 0%, rgba(112, 181, 255, 0) 70%);
+  pointer-events: none;
+}
+
+.wb-win-wallpaper-svg {
+  position: absolute;
+  inset: 0;
+  width: 1440px;
+  height: 852px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.wb-win-rain-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background-image: repeating-linear-gradient(
+    108deg,
+    rgba(148, 197, 248, 0) 0px,
+    rgba(148, 197, 248, 0) 28px,
+    rgba(148, 197, 248, 0.22) 29px,
+    rgba(148, 197, 248, 0) 31px
+  );
+  transition: opacity 220ms ease;
+}
+
+.wb-desk-virtual-canvas[data-raining="true"] .wb-win-rain-layer {
+  opacity: 1;
+}
+
+/* Windows 11 Desktop Shortcut Grid */
+.wb-win-shortcuts {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  display: grid;
+  grid-template-columns: repeat(1, 96px);
+  gap: 14px;
+  z-index: 4;
+}
+
+.wb-win-shortcut {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  color: var(--win-ink-1);
+  font-family: inherit;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.wb-win-shortcut:hover {
+  background: rgba(112, 181, 255, 0.14);
+  border-color: var(--win-hairline);
+}
+
+.wb-win-shortcut-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--win-surface-solid);
+  border: 1px solid var(--win-hairline);
+  color: var(--win-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px rgba(11, 14, 20, 0.18);
+}
+
+.wb-win-shortcut-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--win-ink-1);
+  text-shadow: 0 1px 2px rgba(11, 14, 20, 0.22);
+}
+
+/* Desktop Quick Hint Banner (Bottom-Left) */
+.wb-win-desktop-cta {
+  position: absolute;
+  left: 28px;
+  bottom: 24px;
+  z-index: 5;
+  background: var(--win-surface);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--win-hairline);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 12px 28px rgba(11, 14, 20, 0.22);
+  max-width: 540px;
+}
+
+.wb-win-cta-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wb-win-cta-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--win-ink-1);
+}
+
+.wb-win-cta-sub {
+  font-size: 11.5px;
+  color: var(--win-ink-2);
+}
+
+.wb-win-cta-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: var(--win-accent);
+  color: var(--desk-accent-ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 13px;
+  border-radius: 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wb-win-cta-btn:hover {
+  filter: brightness(1.06);
+}
+
+/* Interactive Draggable & Corner-Snappable Floating Desktop Widget */
+.wb-floating-widget {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 404px;
+  z-index: 12;
+  background: var(--win-surface-solid);
+  border: 1.5px solid var(--win-hairline);
+  border-radius: 20px;
+  box-shadow: 0 24px 52px rgba(8, 12, 20, 0.38), 0 4px 12px rgba(8, 12, 20, 0.20);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 200ms ease;
+}
+
+.wb-floating-widget.is-dragging {
+  cursor: grabbing;
+  transition: none;
+  box-shadow: 0 30px 64px rgba(8, 12, 20, 0.52);
+}
+
+.wb-floating-widget.is-compact {
+  width: 324px;
+}
+
+.wb-fw-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: var(--win-elevated);
+  border-bottom: 1px solid var(--win-hairline);
+  gap: 8px;
+}
+
+.wb-fw-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--win-ink-1);
+}
+
+.wb-fw-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #52C4AE;
+}
+
+.wb-fw-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.wb-fw-icon-btn {
+  appearance: none;
+  border: 1px solid var(--win-hairline);
+  background: var(--win-surface-solid);
+  color: var(--win-ink-2);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 24px;
+  height: 23px;
+  padding: 0 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-fw-icon-btn:hover,
+.wb-fw-icon-btn.is-active {
+  background: var(--win-accent-soft);
+  color: var(--win-accent);
+  border-color: var(--win-accent);
+}
+
+.wb-fw-body {
+  padding: 13px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wb-floating-widget.is-compact .wb-fw-body {
+  padding: 10px 12px 12px;
+  gap: 8px;
+}
+
+.wb-fw-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wb-fw-city {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--win-ink-1);
+  letter-spacing: -0.01em;
+}
+
+.wb-fw-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--win-accent-soft);
+  color: var(--win-accent);
+  white-space: nowrap;
+}
+
+/* Character + Companion Stage inside Floating Widget */
+.wb-fw-stage {
+  position: relative;
+  height: 196px;
+  border-radius: 15px;
+  background: linear-gradient(180deg, var(--win-sky-top) 0%, var(--win-sky-mid) 62%, var(--win-sky-bot) 100%);
+  border: 1px solid var(--win-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.wb-floating-widget.is-compact .wb-fw-stage {
+  height: 148px;
+  padding: 10px 12px;
+}
+
+.wb-fw-temp-col {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  max-width: 54%;
+}
+
+.wb-fw-temp-main {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--win-ink-1);
+}
+
+.wb-floating-widget.is-compact .wb-fw-temp-main {
+  font-size: 36px;
+}
+
+.wb-fw-feels {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--win-ink-2);
+  margin-top: 4px;
+}
+
+.wb-fw-headline {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--win-ink-1);
+  background: var(--win-surface);
+  border: 1px solid var(--win-hairline);
+  padding: 5px 9px;
+  border-radius: 9px;
+  width: fit-content;
+}
+
+.wb-fw-art-wrap {
+  position: relative;
+  width: 168px;
+  height: 176px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 3;
+  flex-shrink: 0;
+}
+
+.wb-floating-widget.is-compact .wb-fw-art-wrap {
+  width: 126px;
+  height: 132px;
+}
+
+.wb-fw-ground-shadow {
+  position: absolute;
+  bottom: 4px;
+  width: 112px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(11, 14, 20, 0.24);
+  filter: blur(4px);
+}
+
+.wb-fw-char-img {
+  height: 166px;
+  width: auto;
+  max-width: 152px;
+  object-fit: contain;
+  position: relative;
+  z-index: 2;
+  animation: wbDeskFloat 4.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.wb-floating-widget.is-compact .wb-fw-char-img {
+  height: 124px;
+  max-width: 116px;
+}
+
+.wb-fw-pet-img {
+  position: absolute;
+  right: -2px;
+  bottom: 4px;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  z-index: 3;
+  animation: wbDeskPetBob 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.wb-floating-widget.is-compact .wb-fw-pet-img {
+  width: 48px;
+  height: 48px;
+}
+
+.wb-fw-pet-img.is-hidden {
+  display: none;
+}
+
+@keyframes wbDeskFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes wbDeskPetBob {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(1.5deg); }
+}
+
+/* Outfit Recommendation Chip */
+.wb-fw-outfit-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--win-elevated);
+  border: 1px solid var(--win-hairline);
+  border-radius: 11px;
+  padding: 8px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--win-ink-1);
+  line-height: 1.35;
+}
+
+.wb-fw-outfit-icon {
+  color: var(--win-accent);
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+/* 3-Hour Mini Forecast Strip */
+.wb-fw-hourly-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.wb-fw-hour-slot {
+  background: var(--win-elevated);
+  border: 1px solid var(--win-hairline);
+  border-radius: 10px;
+  padding: 7px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.wb-fw-hour-time {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--win-ink-3);
+}
+
+.wb-fw-hour-temp {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--win-ink-1);
+}
+
+.wb-fw-hour-rain {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--win-accent);
+  white-space: nowrap;
+}
+
+/* PM2.5 & Dew Point Telemetry Footer Pills */
+.wb-fw-telemetry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.wb-fw-tele-pill {
+  flex: 1 1 auto;
+  background: var(--win-card);
+  border: 1px solid var(--win-hairline);
+  border-radius: 9px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--win-ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.wb-fw-tele-pill strong {
+  color: var(--win-ink-1);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   MODE 2: Live Full-Screen Desktop Web App (1440×900 Window + Live Iframe)
+   ========================================================================== */
+
+.wb-desk-webapp-window {
+  width: 1440px;
+  height: 852px;
+  display: flex;
+  flex-direction: column;
+  background: var(--win-surface-solid);
+}
+
+.wb-win-app-titlebar {
+  height: 34px;
+  background: var(--win-elevated);
+  border-bottom: 1px solid var(--win-hairline);
+  padding: 0 0 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.wb-win-app-title-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--win-ink-1);
+}
+
+.wb-win-origin-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--win-ink-3);
+  background: var(--win-surface-solid);
+  border: 1px solid var(--win-hairline);
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+
+.wb-win-caption-btns {
+  display: inline-flex;
+  align-items: stretch;
+  height: 34px;
+}
+
+.wb-win-cap-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--win-ink-2);
+  width: 44px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.wb-win-cap-btn:hover {
+  background: var(--win-hairline);
+  color: var(--win-ink-1);
+}
+
+.wb-win-cap-btn.is-close:hover {
+  background: #C94A4A;
+  color: #FCFDFD;
+}
+
+.wb-desk-iframe-host {
+  position: relative;
+  width: 1440px;
+  height: 818px;
+  flex: 1 1 auto;
+  background: var(--win-surface-solid);
+}
+
+.wb-desk-live-iframe {
+  width: 1440px;
+  height: 818px;
+  border: 0;
+  display: block;
+  background: transparent;
+}
+
+/* ==========================================================================
+   MODE 3: Browser Extension New-Tab Experience (1440×852 Browser Window)
+   ========================================================================== */
+
+.wb-nt-browser {
+  width: 1440px;
+  height: 852px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--win-sky-top) 0%, var(--win-sky-mid) 58%, var(--win-sky-bot) 100%);
+  color: var(--win-ink-1);
+}
+
+.wb-nt-tabstrip {
+  height: 38px;
+  background: var(--win-elevated);
+  border-bottom: 1px solid var(--win-hairline);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 0 0 10px;
+  flex-shrink: 0;
+}
+
+.wb-nt-tabs-left {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.wb-nt-tab {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 9px 9px 0 0;
+  background: var(--win-surface-solid);
+  border: 1px solid var(--win-hairline);
+  border-bottom: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--win-ink-1);
+}
+
+.wb-nt-newtab-plus {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 3px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--win-ink-2);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.wb-nt-omnibar {
+  height: 42px;
+  background: var(--win-surface-solid);
+  border-bottom: 1px solid var(--win-hairline);
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.wb-nt-nav-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--win-ink-3);
+}
+
+.wb-nt-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--win-ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.wb-nt-nav-btn:hover {
+  background: var(--win-elevated);
+}
+
+.wb-nt-url-pill {
+  flex: 1 1 auto;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--win-elevated);
+  border: 1px solid var(--win-hairline);
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--win-ink-2);
+}
+
+.wb-nt-ext-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--win-accent-soft);
+  color: var(--win-accent);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.wb-nt-content {
+  flex: 1 1 auto;
+  padding: 24px 36px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+}
+
+/* Greeting + Search Hero Row */
+.wb-nt-hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.wb-nt-greeting-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wb-nt-greeting-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--win-ink-1);
+}
+
+.wb-nt-greeting-sub {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--win-ink-2);
+}
+
+.wb-nt-search-wrap {
+  flex: 1 1 auto;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wb-nt-search-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--win-surface-solid);
+  border: 1.5px solid var(--win-hairline);
+  border-radius: 14px;
+  padding: 6px 8px 6px 10px;
+  box-shadow: 0 10px 24px rgba(11, 14, 20, 0.14);
+}
+
+.wb-nt-engine-btn {
+  appearance: none;
+  border: 1px solid var(--win-hairline);
+  background: var(--win-elevated);
+  color: var(--win-accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.wb-nt-search-input {
+  flex: 1 1 auto;
+  border: none;
+  background: transparent;
+  color: var(--win-ink-1);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  outline: none;
+}
+
+.wb-nt-search-input::placeholder {
+  color: var(--win-ink-3);
+}
+
+.wb-nt-search-submit {
+  appearance: none;
+  border: none;
+  background: var(--win-accent);
+  color: var(--desk-accent-ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.wb-nt-quick-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wb-nt-qlink {
+  appearance: none;
+  border: 1px solid var(--win-hairline);
+  background: var(--win-surface);
+  color: var(--win-ink-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.wb-nt-qlink:hover {
+  color: var(--win-ink-1);
+  border-color: var(--win-accent);
+}
+
+.wb-nt-clock-col {
+  text-align: right;
+}
+
+.wb-nt-big-clock {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--win-ink-1);
+}
+
+.wb-nt-big-date {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--win-ink-2);
+  margin-top: 4px;
+}
+
+/* 3-Column Bento Grid inside New Tab */
+.wb-nt-bento {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 400px minmax(0, 1fr) 420px;
+  gap: 18px;
+  min-height: 0;
+}
+
+.wb-nt-card {
+  background: var(--win-surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--win-hairline);
+  border-radius: 20px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 12px 30px rgba(11, 14, 20, 0.14);
+  overflow: hidden;
+}
+
+.wb-nt-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wb-nt-card-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--win-ink-1);
+}
+
+.wb-nt-card-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--win-accent-soft);
+  color: var(--win-accent);
+}
+
+/* New Tab Character Stage */
+.wb-nt-char-stage {
+  flex: 1 1 auto;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--win-sky-top) 0%, var(--win-sky-mid) 65%, var(--win-sky-bot) 100%);
+  border: 1px solid var(--win-hairline);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.wb-nt-char-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+  max-width: 52%;
+}
+
+.wb-nt-temp {
+  font-size: 54px;
+  font-weight: 800;
+  line-height: 0.96;
+  letter-spacing: -0.03em;
+  color: var(--win-ink-1);
+}
+
+.wb-nt-feels {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--win-ink-2);
+}
+
+.wb-nt-headline {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--win-ink-1);
+  margin-top: 6px;
+}
+
+.wb-nt-art-box {
+  position: relative;
+  width: 176px;
+  height: 210px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.wb-nt-char-img {
+  height: 198px;
+  width: auto;
+  max-width: 168px;
+  object-fit: contain;
+  animation: wbDeskFloat 4.2s ease-in-out infinite;
+}
+
+.wb-nt-pet-img {
+  position: absolute;
+  right: -4px;
+  bottom: 4px;
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+  animation: wbDeskPetBob 3.4s ease-in-out infinite;
+}
+
+.wb-nt-pet-img.is-hidden {
+  display: none;
+}
+
+.wb-nt-outfit-bar {
+  background: var(--win-elevated);
+  border: 1px solid var(--win-hairline);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--win-ink-1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 7-Day Thermal Bars Card */
+.wb-nt-daily-list {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wb-nt-day-row {
+  display: grid;
+  grid-template-columns: 92px 54px 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+  background: var(--win-elevated);
+  border: 1px solid var(--win-hairline);
+  border-radius: 11px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+}
+
+.wb-nt-day-name {
+  font-weight: 700;
+  color: var(--win-ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb-nt-day-rain {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--win-accent);
+  text-align: center;
+}
+
+.wb-nt-day-min {
+  font-weight: 600;
+  color: var(--win-ink-3);
+  text-align: right;
+}
+
+.wb-nt-day-max {
+  font-weight: 800;
+  color: var(--win-ink-1);
+  text-align: left;
+}
+
+.wb-nt-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--win-surface-solid);
+  border: 1px solid var(--win-hairline);
+  position: relative;
+  overflow: hidden;
+}
+
+.wb-nt-bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #267FD4 0%, #1C9B85 45%, #DE962A 82%, #D45B38 100%);
+}
+
+/* Quick Telemetry Grid (Right Column) */
+.wb-nt-tele-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  flex: 1 1 auto;
+}
+
+.wb-nt-tele-tile {
+  background: var(--win-elevated);
+  border: 1px solid var(--win-hairline);
+  border-radius: 13px;
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.wb-nt-tele-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--win-ink-3);
+}
+
+.wb-nt-tele-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--win-ink-1);
+  letter-spacing: -0.02em;
+}
+
+.wb-nt-tele-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--win-ink-2);
+}
+
+/* ==========================================================================
+   Shared Windows 11 Taskbar (Bottom 48px of 1440×900 Canvas)
+   ========================================================================== */
+
+.wb-win-taskbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  z-index: 40;
+  background: var(--win-taskbar-bg);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid var(--win-hairline);
+  padding: 0 16px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.wb-tb-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--win-ink-3);
+}
+
+.wb-tb-center {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wb-tb-app-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--win-ink-1);
+  height: 38px;
+  min-width: 38px;
+  padding: 0 9px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  position: relative;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.wb-tb-app-btn:hover {
+  background: var(--win-elevated);
+  border-color: var(--win-hairline);
+}
+
+.wb-tb-app-btn.is-active {
+  background: var(--win-elevated);
+  border-color: var(--win-hairline);
+}
+
+.wb-tb-app-btn.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--win-accent);
+}
+
+.wb-tb-search-pill {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--win-elevated);
+  border: 1px solid var(--win-hairline);
+  color: var(--win-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.wb-tb-search-pill:hover {
+  color: var(--win-ink-1);
+}
+
+.wb-tb-wb-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--win-accent-soft);
+  color: var(--win-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-tb-right {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wb-tb-weather-pill {
+  appearance: none;
+  border: 1px solid var(--win-hairline);
+  background: var(--win-elevated);
+  color: var(--win-ink-1);
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wb-tb-weather-pill:hover {
+  border-color: var(--win-accent);
+}
+
+.wb-tb-weather-icon {
+  color: var(--win-accent);
+  display: inline-flex;
+}
+
+.wb-tb-sys-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--win-ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 7px;
+}
+
+.wb-tb-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+  padding: 2px 4px;
+}
+
+.wb-tb-clock-time {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--win-ink-1);
+}
+
+.wb-tb-clock-date {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--win-ink-2);
+}
+
+@media (max-width: 760px) {
+  .wb-desk-toolbar-card {
+    padding: 10px;
+  }
+
+  .wb-desk-toolbar-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .wb-desk-mode-seg {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .wb-desk-mode-btn {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .wb-desk-subbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .wb-desk-pill-cluster {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .wb-desk-chip-btn {
+    min-height: 38px;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .wb-desk-cluster-label {
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    margin-bottom: 1px;
+  }
+
+  .wb-desk-monitor-bezel {
+    padding: 6px 6px 0 6px;
+    border-radius: 12px 12px 10px 10px;
+  }
+
+  .wb-desk-monitor-chin {
+    height: 18px;
+    padding: 0 8px;
+    margin-top: 4px;
+  }
+
+  .wb-desk-chin-brand {
+    font-size: 8px;
+  }
+
+  .wb-desk-chin-right {
+    font-size: 8px;
+  }
+
+  .wb-desk-stand-neck {
+    width: 44px;
+    height: 16px;
+  }
+
+  .wb-desk-stand-foot {
+    width: 124px;
+    max-width: 65%;
+    height: 6px;
+  }
+}

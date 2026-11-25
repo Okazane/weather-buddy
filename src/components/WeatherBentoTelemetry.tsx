@@ -37,9 +37,9 @@ function getImpeccableSemanticRoles(
 ): ImpeccableSemanticRoles {
   return {
     normal: palette.accent,
-    safe: palette.isDark ? '#58C49E' : '#168560',
-    caution: palette.isDark ? '#E8A849' : '#B86818',
-    hazard: palette.isDark ? '#E5737D' : '#C4384B',
+    safe: palette.isDark ? '#42D39F' : '#117D59',
+    caution: palette.isDark ? '#F5B44C' : '#B36216',
+    hazard: palette.isDark ? '#F27482' : '#BE3145',
   };
 }
 
@@ -184,57 +184,57 @@ function buildRealtimeTelemetryAdviceVi(
 
   if (weather.precipMmPerHr >= 0.3 || weather.precipProbPct >= 60) {
     if (gust >= 32) {
-      return `Lời khuyên thời gian thực: Khả năng mưa cao (${rainProb}%) kèm gió giật ${gust} km/giờ — nên mặc áo mưa gọn thay vì che ô lớn và giữ vững tay lái nơi đường trơn.`;
+      return `Lời khuyên thời gian thực: Khả năng mưa cao (${rainProb}%) kèm gió giật ${gust} km/giờ, nên mặc áo mưa gọn thay vì che ô lớn và giữ vững tay lái nơi đường trơn.`;
     }
     if (aqiVal !== null && aqiVal >= 101) {
-      return `Lời khuyên thời gian thực: Trời dễ có mưa (${rainProb}%) kèm bụi mịn mức ${aqiVal} — nên mang sẵn áo mưa hoặc ô gấp và đeo khẩu trang khi ra đường.`;
+      return `Lời khuyên thời gian thực: Trời dễ có mưa (${rainProb}%) kèm bụi mịn mức ${aqiVal}, nên mang sẵn áo mưa hoặc ô gấp và đeo khẩu trang khi ra đường.`;
     }
-    return `Lời khuyên thời gian thực: Khả năng mưa cao (${rainProb}%) kèm độ ẩm ${humidity}% — nên chuẩn bị áo mưa hoặc ô gọn và đi chậm tránh đường trơn.`;
+    return `Lời khuyên thời gian thực: Khả năng mưa cao (${rainProb}%) kèm độ ẩm ${humidity}%, nên chuẩn bị áo mưa hoặc ô gọn và đi chậm tránh đường trơn.`;
   }
 
   if (decision.hasRainAheadProp && decision.rainAheadHours !== null) {
-    return `Lời khuyên thời gian thực: Hiện trời chưa mưa lớn nhưng dự báo có mưa sau khoảng ${decision.rainAheadHours} giờ — nên cất sẵn ô gấp hoặc áo mưa gọn trước khi đi.`;
+    return `Lời khuyên thời gian thực: Hiện trời chưa mưa lớn nhưng dự báo có mưa sau khoảng ${decision.rainAheadHours} giờ, nên cất sẵn ô gấp hoặc áo mưa gọn trước khi đi.`;
   }
 
   if (aqiVal !== null && aqiVal >= 101) {
     if ((weather.isDay && uv >= 6) || feels >= 33) {
-      return `Lời khuyên thời gian thực: Nồng độ bụi mịn đang cao (chỉ số ${aqiVal}) kèm trời oi nắng (cảm nhận ${feels}°C) — nên đeo khẩu trang lọc bụi PM2.5, che nắng kỹ và bổ sung nước.`;
+      return `Lời khuyên thời gian thực: Nồng độ bụi mịn đang cao (chỉ số ${aqiVal}) kèm trời oi nắng (cảm nhận ${feels}°C), nên đeo khẩu trang lọc bụi PM2.5, che nắng kỹ và bổ sung nước.`;
     }
     if (aqiVal >= 150) {
-      return `Lời khuyên thời gian thực: Nồng độ bụi mịn đang ở mức cao (chỉ số ${aqiVal}) — nên đeo khẩu trang lọc bụi PM2.5 và hạn chế tập thể dục ngoài đường.`;
+      return `Lời khuyên thời gian thực: Nồng độ bụi mịn đang ở mức cao (chỉ số ${aqiVal}), nên đeo khẩu trang lọc bụi PM2.5 và hạn chế tập thể dục ngoài đường.`;
     }
-    return `Lời khuyên thời gian thực: Độ sạch không khí giảm nhẹ do bụi mịn (chỉ số ${aqiVal}) — người nhạy cảm hô hấp nên đeo khẩu trang khi di chuyển ngoài phố.`;
+    return `Lời khuyên thời gian thực: Độ sạch không khí giảm nhẹ do bụi mịn (chỉ số ${aqiVal}), người nhạy cảm hô hấp nên đeo khẩu trang khi di chuyển ngoài phố.`;
   }
 
   if (weather.isDay && uv >= 6 && feels >= 33) {
-    return `Lời khuyên thời gian thực: Trời oi nóng (cảm nhận ${feels}°C) và bức xạ cực tím cao (mức ${uv}) — nên mặc áo chống nắng thoáng khí, đeo kính râm và bổ sung nước.`;
+    return `Lời khuyên thời gian thực: Trời oi nóng (cảm nhận ${feels}°C) và bức xạ cực tím cao (mức ${uv}), nên mặc áo chống nắng thoáng khí, đeo kính râm và bổ sung nước.`;
   }
 
   if (weather.isDay && uv >= 6) {
-    return `Lời khuyên thời gian thực: Bức xạ tia cực tím đang cao (mức ${uv}) — nên thoa kem chống nắng, đội mũ và đeo kính mát khi hoạt động ngoài nắng.`;
+    return `Lời khuyên thời gian thực: Bức xạ tia cực tím đang cao (mức ${uv}), nên thoa kem chống nắng, đội mũ và đeo kính mát khi hoạt động ngoài nắng.`;
   }
 
   if (feels >= 33) {
-    return `Lời khuyên thời gian thực: Nhiệt độ cảm nhận khá oi bức (${feels}°C, độ ẩm ${humidity}%) — ưu tiên trang phục mỏng thoáng mồ hôi và hạn chế đứng lâu ngoài trời nóng.`;
+    return `Lời khuyên thời gian thực: Nhiệt độ cảm nhận khá oi bức (${feels}°C, độ ẩm ${humidity}%), ưu tiên trang phục mỏng thoáng mồ hôi và hạn chế đứng lâu ngoài trời nóng.`;
   }
 
   if (gust >= 34) {
-    return `Lời khuyên thời gian thực: Đang có gió giật mạnh (${gust} km/giờ) — nên mặc gọn gàng, chú ý tay lái xe máy và tránh dừng dưới tán cây lớn.`;
+    return `Lời khuyên thời gian thực: Đang có gió giật mạnh (${gust} km/giờ), nên mặc gọn gàng, chú ý tay lái xe máy và tránh dừng dưới tán cây lớn.`;
   }
 
   if (feels <= 19) {
-    return `Lời khuyên thời gian thực: Nhiệt độ cảm nhận se lạnh (${feels}°C) — nên mặc thêm áo khoác giữ ấm khi ra ngoài.`;
+    return `Lời khuyên thời gian thực: Nhiệt độ cảm nhận se lạnh (${feels}°C), nên mặc thêm áo khoác giữ ấm khi ra ngoài.`;
   }
 
   if (humidity >= 82) {
-    return `Lời khuyên thời gian thực: Độ ẩm không khí cao (${humidity}%) dễ gây hầm bí — ưu tiên trang phục mỏng thoáng mồ hôi.`;
+    return `Lời khuyên thời gian thực: Độ ẩm không khí cao (${humidity}%) dễ gây hầm bí, ưu tiên trang phục mỏng thoáng mồ hôi.`;
   }
 
   if (humidity <= 42) {
-    return `Lời khuyên thời gian thực: Không khí khá khô hanh (độ ẩm ${humidity}%) — nên uống thêm nước và dưỡng ẩm da, môi.`;
+    return `Lời khuyên thời gian thực: Không khí khá khô hanh (độ ẩm ${humidity}%), nên uống thêm nước và dưỡng ẩm da, môi.`;
   }
 
-  return `Lời khuyên thời gian thực: Các chỉ số nhiệt độ, độ ẩm và không khí đang ở ngưỡng lý tưởng — rất thuận lợi để dạo phố hoặc vận động ngoài trời.`;
+  return `Lời khuyên thời gian thực: Các chỉ số nhiệt độ, độ ẩm và không khí đang ở ngưỡng lý tưởng, rất thuận lợi để dạo phố hoặc vận động ngoài trời.`;
 }
 
 export const WeatherBentoTelemetry: React.FC<WeatherBentoTelemetryProps> = React.memo(({

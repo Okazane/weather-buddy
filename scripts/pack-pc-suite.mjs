@@ -109,6 +109,22 @@ function createZipArchive(sourceDir, destinationZip) {
   return stat.size;
 }
 
+function copyDirRecursive(srcDir, dstDir) {
+  ensureDir(dstDir);
+  let count = 0;
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, entry.name);
+    const dstPath = path.join(dstDir, entry.name);
+    if (entry.isDirectory()) {
+      count += copyDirRecursive(srcPath, dstPath);
+    } else if (entry.isFile()) {
+      fs.copyFileSync(srcPath, dstPath);
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function verifyDesktopWidgetHtml() {
   const widgetHtmlPath = path.join(WIDGET_DIR, 'widget.html');
   if (!fs.existsSync(widgetHtmlPath)) {
@@ -181,6 +197,15 @@ function main() {
         fs.writeFileSync(distHtmlPath, html, 'utf8');
       }
     }
+    const publicDeviceLabDir = path.join(ROOT_DIR, 'public', 'device-lab');
+    if (fs.existsSync(publicDeviceLabDir) && fs.statSync(publicDeviceLabDir).isDirectory()) {
+      const distDeviceLabDir = path.join(distRoot, 'device-lab');
+      const mirroredLabCount = copyDirRecursive(publicDeviceLabDir, distDeviceLabDir);
+      console.log(
+        `✅ Mirrored ${mirroredLabCount} WeatherBuddy Device Studio files into dist/device-lab/`
+      );
+    }
+
     console.log('✅ Mirrored archives & PWA assets (manifest.webmanifest + sw.js) into dist/');
   }
 }

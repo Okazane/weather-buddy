@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "export:web": "expo export --platform web",
     "server": "node server/index.mjs",
+    "showcase": "node server/showcaseServer.mjs",
     "fullstack": "npm run export:web && node server/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.mjs"

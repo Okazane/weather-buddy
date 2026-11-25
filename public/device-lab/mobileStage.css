@@ -1,0 +1,1292 @@
+/* WeatherBuddy Device Studio · Interactive Mobile Phone Simulator Stage
+ * Hallmark tokens: Obsidian Slate (#0B0E14 / #161C29 / #20293B) & Crisp Porcelain (#F4F6F9 / #FCFDFD)
+ * Modes: Màn hình chính & Widget (Default) + Màn hình khóa · Zero iframe · Zero em-dashes
+ */
+
+.wb-ms-root {
+  --ms-bg-stage: #161C29;
+  --ms-bg-elevated: #20293B;
+  --ms-bg-deep: #0B0E14;
+  --ms-bg-pill-idle: #1B2333;
+  --ms-bg-pill-active: #F3F6FA;
+  --ms-ink-pill-active: #0B0E14;
+  --ms-ink-primary: #F3F6FA;
+  --ms-ink-secondary: #CCD5E3;
+  --ms-ink-muted: #9AA8BD;
+  --ms-accent: #70B5FF;
+  --ms-accent-soft: rgba(112, 181, 255, 0.15);
+  --ms-hairline: rgba(224, 234, 248, 0.12);
+  --ms-hairline-strong: rgba(224, 234, 248, 0.20);
+  --ms-shadow-stage: 0 22px 48px rgba(4, 6, 11, 0.52), 0 4px 14px rgba(4, 6, 11, 0.32);
+
+  /* Titanium hardware frame tokens */
+  --ms-frame-outer: linear-gradient(145deg, #3B4454 0%, #232A36 48%, #171C26 100%);
+  --ms-frame-rim: rgba(226, 234, 245, 0.26);
+  --ms-frame-inner: #0B0E14;
+  --ms-btn-metal: linear-gradient(180deg, #465063 0%, #2A3240 100%);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--ms-ink-primary);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-sim-theme="light"] .wb-ms-root,
+.wb-ms-root[data-sim-theme="light"] {
+  --ms-bg-stage: #FCFDFD;
+  --ms-bg-elevated: #F0F4F8;
+  --ms-bg-deep: #E5ECF3;
+  --ms-bg-pill-idle: #E4EBF2;
+  --ms-bg-pill-active: #111824;
+  --ms-ink-pill-active: #FCFDFD;
+  --ms-ink-primary: #111824;
+  --ms-ink-secondary: #314054;
+  --ms-ink-muted: #4B5B70;
+  --ms-accent: #1662B3;
+  --ms-accent-soft: rgba(22, 98, 179, 0.12);
+  --ms-hairline: rgba(17, 24, 36, 0.10);
+  --ms-hairline-strong: rgba(17, 24, 36, 0.18);
+  --ms-shadow-stage: 0 20px 44px rgba(17, 24, 36, 0.16), 0 4px 12px rgba(17, 24, 36, 0.08);
+
+  --ms-frame-outer: linear-gradient(145deg, #636E80 0%, #3E4756 50%, #262D39 100%);
+  --ms-frame-rim: rgba(244, 246, 249, 0.36);
+  --ms-frame-inner: #10151F;
+  --ms-btn-metal: linear-gradient(180deg, #687386 0%, #444E5E 100%);
+}
+
+.wb-ms-root *,
+.wb-ms-root *::before,
+.wb-ms-root *::after {
+  box-sizing: border-box;
+}
+
+/* Top Control Deck above Phone */
+.wb-ms-controls {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.wb-ms-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wb-ms-stage-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--ms-ink-secondary);
+}
+
+.wb-ms-stage-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ms-accent);
+  box-shadow: 0 0 0 3px var(--ms-accent-soft);
+}
+
+/* Device Profile Toggle (iPhone 16 Pro vs Android Flagship) */
+.wb-ms-device-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, auto));
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  max-width: 100%;
+  border-radius: 999px;
+  background: var(--ms-bg-elevated);
+  border: 1px solid var(--ms-hairline);
+}
+
+.wb-ms-device-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ms-ink-muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  min-height: 34px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-ms-device-btn:hover {
+  color: var(--ms-ink-primary);
+}
+
+.wb-ms-device-btn[aria-pressed="true"] {
+  background: var(--ms-bg-stage);
+  color: var(--ms-ink-primary);
+  box-shadow: 0 1px 3px rgba(11, 14, 20, 0.18);
+  border-color: var(--ms-hairline);
+}
+
+/* 2-Mode Segmented Pill Bar (Màn hình chính & Widget + Màn hình khóa) */
+.wb-ms-mode-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  width: 100%;
+  border-radius: 14px;
+  background: var(--ms-bg-elevated);
+  border: 1px solid var(--ms-hairline);
+}
+
+.wb-ms-mode-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ms-ink-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.22;
+  min-height: 38px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.wb-ms-mode-btn:hover {
+  color: var(--ms-ink-primary);
+  background: var(--ms-accent-soft);
+}
+
+.wb-ms-mode-btn[aria-selected="true"] {
+  background: var(--ms-bg-pill-active);
+  color: var(--ms-ink-pill-active);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(11, 14, 20, 0.22);
+}
+
+/* Phone Viewport Stage & ResizeObserver Sizer */
+.wb-ms-stage-slot {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 320px;
+  padding: 4px 0 8px;
+  overflow: visible;
+}
+
+.wb-ms-phone-sizer {
+  position: relative;
+  flex-shrink: 0;
+  transition: width 160ms ease, height 160ms ease;
+}
+
+/* Tactile Titanium Hardware Chassis */
+.wb-ms-phone-chassis {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 423px;
+  height: 882px;
+  transform-origin: 0 0;
+  background: var(--ms-frame-outer);
+  padding: 12px;
+  border-radius: 54px;
+  box-shadow:
+    inset 0 0 0 1.5px var(--ms-frame-rim),
+    inset 0 2px 5px rgba(243, 246, 250, 0.18),
+    var(--ms-shadow-stage);
+  transition: border-radius 200ms ease, padding 200ms ease;
+}
+
+.wb-ms-phone-chassis[data-device="android"] {
+  width: 438px;
+  height: 941px;
+  padding: 10px;
+  border-radius: 38px;
+}
+
+/* Physical Side Hardware Buttons */
+.wb-ms-hw-btn {
+  position: absolute;
+  width: 3px;
+  background: var(--ms-btn-metal);
+  border-radius: 3px;
+  pointer-events: none;
+  box-shadow: 0 1px 2px rgba(4, 6, 11, 0.45);
+}
+
+.wb-ms-hw-action {
+  left: -2.5px;
+  top: 118px;
+  height: 28px;
+}
+
+.wb-ms-hw-vol-up {
+  left: -2.5px;
+  top: 164px;
+  height: 52px;
+}
+
+.wb-ms-hw-vol-down {
+  left: -2.5px;
+  top: 228px;
+  height: 52px;
+}
+
+.wb-ms-hw-power {
+  right: -2.5px;
+  top: 186px;
+  height: 76px;
+}
+
+/* Android button arrangement: right-side volume rocker + power */
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-hw-action {
+  display: none;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-hw-vol-up {
+  left: auto;
+  right: -2.5px;
+  top: 148px;
+  height: 46px;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-hw-vol-down {
+  left: auto;
+  right: -2.5px;
+  top: 196px;
+  height: 46px;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-hw-power {
+  right: -2.5px;
+  top: 264px;
+  height: 58px;
+}
+
+/* Inner Bezel & Screen Glass */
+.wb-ms-phone-bezel {
+  position: relative;
+  background: var(--ms-frame-inner);
+  padding: 3px;
+  border-radius: 44px;
+  transition: border-radius 200ms ease;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-phone-bezel {
+  border-radius: 30px;
+}
+
+.wb-ms-screen {
+  position: relative;
+  width: 393px;
+  height: 852px;
+  border-radius: 41px;
+  overflow: hidden;
+  background: #0E131D;
+  color: #F3F6FA;
+  isolation: isolate;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-screen {
+  width: 412px;
+  height: 915px;
+  border-radius: 27px;
+}
+
+/* Status Bar (Clock + Dynamic Island / Punch Hole + Connectivity) */
+.wb-ms-statusbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 30;
+  pointer-events: none;
+  color: #F3F6FA;
+  transition: color 180ms ease;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-statusbar {
+  height: 38px;
+  padding: 0 20px;
+}
+
+.wb-ms-status-clock {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  min-width: 54px;
+}
+
+.wb-ms-status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 64px;
+  justify-content: flex-end;
+}
+
+.wb-ms-status-icons svg {
+  display: block;
+}
+
+/* Dynamic Island & Android Punch-Hole */
+.wb-ms-camera-cutout {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  width: 126px;
+  height: 30px;
+  border-radius: 999px;
+  background: #080A0F;
+  border: 1px solid rgba(224, 234, 248, 0.09);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  z-index: 32;
+  transition: width 220ms ease, height 220ms ease, top 220ms ease;
+}
+
+.wb-ms-island-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #52C4AE;
+  opacity: 0.85;
+}
+
+.wb-ms-island-lens {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, #2A3F5F 0%, #0E1522 65%, #07090E 100%);
+  border: 1px solid rgba(112, 181, 255, 0.22);
+}
+
+.wb-ms-island-temp {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #DCEBFC;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Android centered punch-hole lens */
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-camera-cutout {
+  top: 10px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  justify-content: center;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-island-dot,
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-island-temp {
+  display: none !important;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-island-lens {
+  width: 8px;
+  height: 8px;
+}
+
+/* Screen Layer Panes */
+.wb-ms-pane {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 200ms ease, visibility 200ms ease;
+}
+
+.wb-ms-screen[data-active-mode="widgets"] .wb-ms-pane-widgets,
+.wb-ms-screen[data-active-mode="lock"] .wb-ms-pane-lock {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Atmospheric Wallpaper shared by Home & Lock Modes */
+.wb-ms-wallpaper {
+  --wp-top: #122744;
+  --wp-mid: #1B3B63;
+  --wp-bot: #264F7D;
+  --wp-glow: rgba(235, 192, 118, 0.22);
+  background:
+    radial-gradient(120% 55% at 78% 18%, var(--wp-glow), transparent 68%),
+    linear-gradient(180deg, var(--wp-top) 0%, var(--wp-mid) 54%, var(--wp-bot) 100%);
+}
+
+/* SkyTheme Wallpaper Variants */
+.wb-ms-wallpaper[data-sky="day_sunny"] {
+  --wp-top: #173F6E;
+  --wp-mid: #28629E;
+  --wp-bot: #4785BF;
+  --wp-glow: rgba(245, 206, 132, 0.28);
+}
+
+.wb-ms-wallpaper[data-sky="dawn"] {
+  --wp-top: #263147;
+  --wp-mid: #5E484B;
+  --wp-bot: #B5754D;
+  --wp-glow: rgba(242, 180, 134, 0.30);
+}
+
+.wb-ms-wallpaper[data-sky="sunset"] {
+  --wp-top: #1E283D;
+  --wp-mid: #5A3A33;
+  --wp-bot: #A9623A;
+  --wp-glow: rgba(236, 166, 96, 0.30);
+}
+
+.wb-ms-wallpaper[data-sky="day_cloudy"] {
+  --wp-top: #233449;
+  --wp-mid: #364E68;
+  --wp-bot: #4E6A85;
+  --wp-glow: rgba(214, 228, 242, 0.20);
+}
+
+.wb-ms-wallpaper[data-sky="day_rain"] {
+  --wp-top: #182638;
+  --wp-mid: #263B54;
+  --wp-bot: #38526E;
+  --wp-glow: rgba(140, 184, 230, 0.16);
+}
+
+.wb-ms-wallpaper[data-sky="rain_storm"] {
+  --wp-top: #0B0F18;
+  --wp-mid: #131D2E;
+  --wp-bot: #1D2E46;
+  --wp-glow: rgba(112, 181, 255, 0.12);
+}
+
+.wb-ms-wallpaper[data-sky="night"] {
+  --wp-top: #0A0E17;
+  --wp-mid: #10192B;
+  --wp-bot: #192942;
+  --wp-glow: rgba(112, 181, 255, 0.12);
+}
+
+/* Mode 1: Home Screen & Interactive Widgets (Default) */
+.wb-ms-pane-widgets {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 54px 18px 24px;
+  color: #F3F6FA;
+}
+
+.wb-ms-home-top {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Medium 4x2 WeatherBuddy Widget */
+.wb-ms-widget-4x2 {
+  appearance: none;
+  border: 1px solid rgba(224, 234, 248, 0.22);
+  border-radius: 24px;
+  background: rgba(16, 23, 36, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  padding: 14px 15px 12px;
+  color: #F3F6FA;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 12px 28px rgba(6, 10, 18, 0.34);
+  transition: transform 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 180ms ease;
+}
+
+[data-sim-theme="light"] .wb-ms-widget-4x2,
+.wb-ms-root[data-sim-theme="light"] .wb-ms-widget-4x2 {
+  background: rgba(248, 250, 252, 0.88);
+  border-color: rgba(17, 24, 36, 0.12);
+  color: #111824;
+  box-shadow: 0 12px 26px rgba(15, 24, 38, 0.20);
+}
+
+.wb-ms-widget-4x2:hover {
+  transform: translateY(-2px);
+  border-color: rgba(112, 181, 255, 0.52);
+}
+
+.wb-ms-widget-4x2:active {
+  transform: scale(0.985);
+}
+
+.wb-ms-widget-pulse {
+  border-color: #70B5FF !important;
+  box-shadow: 0 0 0 3px rgba(112, 181, 255, 0.28), 0 12px 28px rgba(6, 10, 18, 0.36) !important;
+}
+
+.wb-ms-w4-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.wb-ms-w4-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.wb-ms-w4-city-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.wb-ms-w4-temp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-ms-w4-temp {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.wb-ms-w4-feels {
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.78;
+}
+
+.wb-ms-w4-cond {
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.86;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb-ms-w4-outfit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(112, 181, 255, 0.18);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  max-width: 100%;
+}
+
+[data-sim-theme="light"] .wb-ms-w4-outfit,
+.wb-ms-root[data-sim-theme="light"] .wb-ms-w4-outfit {
+  background: rgba(22, 98, 179, 0.12);
+  color: #145399;
+}
+
+.wb-ms-w4-outfit span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb-ms-w4-art {
+  width: 86px;
+  height: 92px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.wb-ms-sprite-char {
+  width: 86px;
+  height: 86px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(6, 10, 18, 0.32));
+  animation: wbMsFloat 3.6s ease-in-out infinite;
+}
+
+@keyframes wbMsFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.018);
+  }
+}
+
+/* Next 4-Hours Mini Forecast Row inside 4x2 Widget */
+.wb-ms-w4-hourly {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(224, 234, 248, 0.13);
+}
+
+[data-sim-theme="light"] .wb-ms-w4-hourly,
+.wb-ms-root[data-sim-theme="light"] .wb-ms-w4-hourly {
+  border-top-color: rgba(17, 24, 36, 0.09);
+}
+
+.wb-ms-hour-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-ms-hour-time {
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0.72;
+}
+
+.wb-ms-hour-icon {
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-ms-hour-temp {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.wb-ms-hour-rain {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #58B4F7;
+  min-height: 12px;
+}
+
+[data-sim-theme="light"] .wb-ms-hour-rain,
+.wb-ms-root[data-sim-theme="light"] .wb-ms-hour-rain {
+  color: #1662B3;
+}
+
+/* Middle Home Row: Small 2x2 Companion Widget + 2x2 OS App Cluster */
+.wb-ms-home-mid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.wb-ms-widget-2x2 {
+  appearance: none;
+  border: 1px solid rgba(224, 234, 248, 0.22);
+  border-radius: 24px;
+  background: rgba(16, 23, 36, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  padding: 13px;
+  color: #F3F6FA;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 158px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(6, 10, 18, 0.30);
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 180ms ease;
+}
+
+[data-sim-theme="light"] .wb-ms-widget-2x2,
+.wb-ms-root[data-sim-theme="light"] .wb-ms-widget-2x2 {
+  background: rgba(248, 250, 252, 0.88);
+  border-color: rgba(17, 24, 36, 0.12);
+  color: #111824;
+  box-shadow: 0 10px 22px rgba(15, 24, 38, 0.18);
+}
+
+.wb-ms-widget-2x2:hover {
+  transform: translateY(-2px);
+  border-color: rgba(112, 181, 255, 0.52);
+}
+
+.wb-ms-widget-2x2:active {
+  transform: scale(0.985);
+}
+
+.wb-ms-w2-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.wb-ms-w2-temp {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-ms-w2-pet-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(82, 196, 174, 0.20);
+  color: #6CD7C2;
+}
+
+[data-sim-theme="light"] .wb-ms-w2-pet-tag,
+.wb-ms-root[data-sim-theme="light"] .wb-ms-w2-pet-tag {
+  background: rgba(28, 155, 133, 0.14);
+  color: #137363;
+}
+
+.wb-ms-w2-pet-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 62px;
+  margin: 2px 0;
+}
+
+.wb-ms-sprite-pet {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(6, 10, 18, 0.28));
+  animation: wbMsFloat 3.1s ease-in-out infinite;
+}
+
+.wb-ms-w2-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wb-ms-w2-metric {
+  font-size: 10.5px;
+  font-weight: 700;
+  opacity: 0.90;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wb-ms-w2-sub {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.70;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Realistic OS App Tiles */
+.wb-ms-app-cluster-2x2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 10px;
+  align-content: space-between;
+  padding: 2px 0;
+}
+
+.wb-ms-app-row-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 2px 2px 0;
+}
+
+.wb-ms-app-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #F3F6FA;
+  font-family: inherit;
+  cursor: default;
+}
+
+.wb-ms-app-tile[data-interactive="true"] {
+  cursor: pointer;
+}
+
+.wb-ms-app-tile[data-interactive="true"]:hover .wb-ms-app-icon {
+  transform: scale(1.06);
+}
+
+.wb-ms-app-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 14px rgba(6, 10, 18, 0.26);
+  border: 1px solid rgba(243, 246, 250, 0.16);
+  transition: transform 140ms ease;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-app-icon {
+  border-radius: 18px;
+}
+
+.wb-ms-app-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #F3F6FA;
+  text-shadow: 0 1px 3px rgba(6, 10, 18, 0.55);
+  white-space: nowrap;
+}
+
+/* Home Footer: Tap Hint + Frosted Dock */
+.wb-ms-home-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.wb-ms-tap-hint {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(11, 14, 20, 0.44);
+  color: #E5EDF7;
+  border: 1px solid rgba(224, 234, 248, 0.14);
+}
+
+.wb-ms-dock {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 28px;
+  background: rgba(16, 23, 36, 0.56);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(224, 234, 248, 0.18);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  justify-items: center;
+}
+
+/* Mode 2: Lock Screen + Complications + Proactive Notification Banner */
+.wb-ms-pane-lock {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 58px 20px 26px;
+  color: #F3F6FA;
+}
+
+.wb-ms-lock-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.wb-ms-lock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(243, 246, 250, 0.88);
+  margin-bottom: 4px;
+}
+
+.wb-ms-lock-date {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(243, 246, 250, 0.92);
+  text-shadow: 0 2px 8px rgba(6, 10, 18, 0.35);
+}
+
+.wb-ms-lock-clock {
+  font-size: 74px;
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #F3F6FA;
+  text-shadow: 0 6px 22px rgba(6, 10, 18, 0.36);
+  margin: 2px 0 14px;
+}
+
+/* Lock Screen Complications Grid */
+.wb-ms-lock-complications {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.55fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.wb-ms-comp-card {
+  border-radius: 18px;
+  background: rgba(14, 20, 32, 0.56);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(224, 234, 248, 0.20);
+  padding: 10px 11px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+  min-height: 68px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-ms-comp-circle {
+  align-items: center;
+  text-align: center;
+  padding: 9px 6px;
+}
+
+.wb-ms-comp-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(224, 234, 248, 0.76);
+}
+
+.wb-ms-comp-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: #F3F6FA;
+}
+
+.wb-ms-comp-sub {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(224, 234, 248, 0.85);
+}
+
+.wb-ms-comp-range-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(224, 234, 248, 0.18);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.wb-ms-comp-range-fill {
+  height: 100%;
+  width: 68%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #5AA8F5 0%, #52C4AE 55%, #EAB661 100%);
+}
+
+/* Sun Cycle Strip Complication */
+.wb-ms-lock-sun-strip {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 13px;
+  border-radius: 14px;
+  background: rgba(14, 20, 32, 0.48);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(224, 234, 248, 0.16);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(243, 246, 250, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Proactive WeatherBuddy Notification Stack */
+.wb-ms-lock-middle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  margin-bottom: 18px;
+}
+
+.wb-ms-notif-banner {
+  appearance: none;
+  width: 100%;
+  border: 1px solid rgba(224, 234, 248, 0.26);
+  border-radius: 22px;
+  background: rgba(17, 24, 38, 0.84);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 13px 14px;
+  color: #F3F6FA;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  box-shadow: 0 14px 32px rgba(4, 7, 14, 0.44);
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+
+[data-sim-theme="light"] .wb-ms-notif-banner,
+.wb-ms-root[data-sim-theme="light"] .wb-ms-notif-banner {
+  background: rgba(248, 250, 252, 0.92);
+  border-color: rgba(17, 24, 36, 0.14);
+  color: #111824;
+}
+
+.wb-ms-notif-banner:hover {
+  transform: translateY(-2px);
+  border-color: rgba(112, 181, 255, 0.55);
+}
+
+.wb-ms-notif-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.82;
+}
+
+.wb-ms-notif-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wb-ms-notif-app-badge {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: #2563EB;
+  color: #F3F6FA;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-ms-notif-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wb-ms-notif-avatar-wrap {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: rgba(112, 181, 255, 0.16);
+  border: 1px solid rgba(112, 181, 255, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.wb-ms-notif-avatar {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+}
+
+.wb-ms-notif-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.wb-ms-notif-headline {
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.wb-ms-notif-outfit {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  opacity: 0.90;
+}
+
+.wb-ms-notif-alert-tag {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(234, 182, 97, 0.20);
+  color: #F5CE84;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+[data-sim-theme="light"] .wb-ms-notif-alert-tag,
+.wb-ms-root[data-sim-theme="light"] .wb-ms-notif-alert-tag {
+  background: rgba(176, 83, 32, 0.12);
+  color: #9A4215;
+}
+
+/* Lock Screen Bottom Affordances */
+.wb-ms-lock-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+}
+
+.wb-ms-lock-shortcut {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(14, 20, 32, 0.52);
+  border: 1px solid rgba(224, 234, 248, 0.20);
+  color: #F3F6FA;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-ms-lock-swipe-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(243, 246, 250, 0.80);
+}
+
+/* Bottom Home Indicator Bar */
+.wb-ms-home-bar {
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 132px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(243, 246, 250, 0.65);
+  z-index: 35;
+  pointer-events: none;
+}
+
+.wb-ms-phone-chassis[data-device="android"] .wb-ms-home-bar {
+  width: 104px;
+  height: 4px;
+}
+
+/* Telemetry Footer below Phone */
+.wb-ms-footer-actions {
+  width: 100%;
+  max-width: 440px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wb-ms-viewport-meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ms-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 560px) {
+  .wb-ms-top-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .wb-ms-device-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    border-radius: 13px;
+  }
+
+  .wb-ms-device-btn {
+    min-height: 40px;
+    padding: 6px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+
+  .wb-ms-mode-btn {
+    min-height: 42px;
+    padding: 8px 6px;
+    font-size: 11.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-ms-sprite-char,
+  .wb-ms-sprite-pet {
+    animation: none !important;
+  }
+}

@@ -12,10 +12,19 @@ import { computeAnalytics24h } from './analytics.mjs';
 import {
   AUTO_REFRESH_INTERVAL_MINUTES,
   AUTO_REFRESH_INTERVAL_MS,
+  DEMO_WEATHER_PRESETS,
   PRESET_CITIES,
   evaluateCharacterDecision,
   fetchWeatherSnapshot,
 } from './coreLoader.mjs';
+import {
+  DEVICE_LAB_CONTENT_SECURITY_POLICY,
+  buildDeviceLabCsp,
+  buildShowcasePermissionsPolicy,
+  collectLanOriginsForRequest,
+  createShowcaseServer,
+  detectLanIpv4Addresses,
+} from './showcaseServer.mjs';
 import {
   createAutoLocator,
   createPlaceSearcher,
@@ -622,7 +631,181 @@ export function createWeatherBuddyServer(options = {}) {
     };
   }
 
-  async function serveStaticFile(req, res, filePath, cacheControl) {
+  function buildDeviceSimCsp(req) {
+    const lanIps = collectLanOriginsForRequest(req, detectLanIpv4Addresses());
+    const extraLan = lanIps.map((ip) => `http://${ip}:*`).join(' ');
+    const frameAncestorsList = extraLan
+      ? `'self' http://localhost:* http://127.0.0.1:* ${extraLan}`
+      : `'self' http://localhost:* http://127.0.0.1:*`;
+
+    let csp = HTML_CONTENT_SECURITY_POLICY.replace(
+      "frame-ancestors 'none'",
+      `frame-ancestors ${frameAncestorsList}`
+    );
+    if (extraLan) {
+      csp = csp
+        .replace("img-src 'self'", `img-src 'self' http://localhost:* http://127.0.0.1:* ${extraLan}`)
+        .replace(
+          "connect-src 'self' http://localhost:* http://127.0.0.1:*",
+          `connect-src 'self' http://localhost:* http://127.0.0.1:* ${extraLan}`
+        );
+    }
+    return csp;
+  }
+
+  const DEVICE_LAB_ALLOWED_EXTENSIONS = new Set([
+    '.html',
+    '.css',
+    '.js',
+    '.mjs',
+    '.png',
+    '.svg',
+    '.jpg',
+    '.jpeg',
+    '.webp',
+    '.ico',
+    '.json',
+    '.webmanifest',
+    '.woff',
+    '.woff2',
+  ]);
+
+  const DEVICE_LAB_ROOT_ASSET_NAMES = new Set([
+    'shell.css',
+    'shell.js',
+    'mobilestage.css',
+    'mobilestage.js',
+    'desktopstage.css',
+    'desktopstage.js',
+  ]);
+
+  function applyDeviceSimFrameHeaders(req, res) {
+    const lanIps = detectLanOriginsSafe(req);
+    const activePort =
+      typeof server.address() === 'object' && server.address()?.port
+        ? server.address().port
+        : DEFAULT_PORT;
+    const showcasePort = Number(process.env.SHOWCASE_PORT) || 8788;
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy', buildDeviceSimCsp(req));
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader(
+      'Permissions-Policy',
+      buildShowcasePermissionsPolicy(`http://localhost:${activePort}`, req, lanIps, [
+        activePort,
+        showcasePort,
+      ])
+    );
+  }
+
+  function detectLanOriginsSafe(req) {
+    return collectLanOriginsForRequest(req, detectLanIpv4Addresses());
+  }
+
+  function resolveCharacterSpriteFile(basename) {
+    if (typeof basename !== 'string' || !/^[a-z0-9_]+\.png$/i.test(basename)) {
+      return null;
+    }
+
+    const candidateDirs = [
+      path.join(projectRoot, 'src', 'art', 'sprites'),
+      path.join(projectRoot, 'src', 'art', 'sprites', 'companions'),
+      path.join(projectRoot, 'assets', 'characters'),
+      path.join(projectRoot, 'assets', 'characters', 'companions'),
+      path.join(distDir, 'assets', 'characters'),
+      path.join(distDir, 'assets', 'characters', 'companions'),
+      path.join(distDir, 'assets', 'assets', 'characters'),
+      path.join(distDir, 'assets', 'assets', 'characters', 'companions'),
+    ];
+
+    for (const dir of candidateDirs) {
+      const resolved = path.resolve(dir, basename);
+      const rel = path.relative(dir, resolved);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        continue;
+      }
+      if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
+        return resolved;
+      }
+    }
+
+    // Fallback: scan Expo hashed sprite filenames in dist/assets/**/characters
+    const stemLower = basename.slice(0, -4).toLowerCase();
+    const distScanDirs = [
+      path.join(distDir, 'assets', 'characters'),
+      path.join(distDir, 'assets', 'characters', 'companions'),
+      path.join(distDir, 'assets', 'assets', 'characters'),
+      path.join(distDir, 'assets', 'assets', 'characters', 'companions'),
+    ];
+    for (const dir of distScanDirs) {
+      if (!fs.existsSync(dir)) continue;
+      try {
+        const entries = fs.readdirSync(dir);
+        const matched = entries.find((entry) => {
+          const lower = entry.toLowerCase();
+          return (
+            lower.endsWith('.png') &&
+            (lower === `${stemLower}.png` || lower.startsWith(`${stemLower}.`))
+          );
+        });
+        if (matched) {
+          const resolved = path.resolve(dir, matched);
+          const rel = path.relative(dir, resolved);
+          if (!rel.startsWith('..') && !path.isAbsolute(rel) && fs.statSync(resolved).isFile()) {
+            return resolved;
+          }
+        }
+      } catch {
+        // Ignore unreadable optional dist directory
+      }
+    }
+
+    return null;
+  }
+
+  function resolveScenarioPresetSnapshot(rawScenario) {
+    if (!rawScenario || rawScenario === 'live') {
+      return null;
+    }
+
+    const aliasMap = {
+      storm: 'heavy_storm',
+      chilly: 'chilly_dalat',
+      freezing: 'freezing_sapa',
+      rain_ahead: 'sunny_rain_ahead',
+      high_aqi: 'high_aqi_hanoi',
+    };
+
+    if (rawScenario === 'clear_night') {
+      const baseSunny = DEMO_WEATHER_PRESETS?.sunny;
+      if (!baseSunny) return null;
+      const cloned = structuredClone(baseSunny);
+      cloned.updatedAtIso = '2026-05-15T14:00:00.000Z'; // 21:00 ICT (+07:00)
+      cloned.isDay = false;
+      cloned.temperatureC = 25.5;
+      cloned.feelsLikeC = 26;
+      cloned.humidityPct = 74;
+      cloned.uvIndex = 0;
+      cloned.precipMmPerHr = 0;
+      cloned.precipProbPct = 8;
+      cloned.conditionText = 'Đêm quang mây dịu mát';
+      return cloned;
+    }
+
+    const mappedKey = aliasMap[rawScenario] || rawScenario;
+    if (
+      DEMO_WEATHER_PRESETS &&
+      Object.prototype.hasOwnProperty.call(DEMO_WEATHER_PRESETS, mappedKey) &&
+      DEMO_WEATHER_PRESETS[mappedKey]
+    ) {
+      return structuredClone(DEMO_WEATHER_PRESETS[mappedKey]);
+    }
+
+    return null;
+  }
+
+  async function serveStaticFile(req, res, filePath, cacheControl, options = {}) {
+    const { deviceSim = false, customCsp = null } = options;
     try {
       const stat = await fsp.stat(filePath);
       if (!stat.isFile()) {
@@ -632,13 +815,36 @@ export function createWeatherBuddyServer(options = {}) {
       const ext = path.extname(filePath).toLowerCase();
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
       const isHtml = ext === '.html';
-      const etag = `W/"${stat.size.toString(16)}-${Math.trunc(stat.mtimeMs).toString(16)}"`;
+      const etagVariant = isHtml ? (customCsp ? '-lab' : deviceSim ? '-sim' : '') : '';
+      const etag = `W/"${stat.size.toString(16)}-${Math.trunc(stat.mtimeMs).toString(16)}${etagVariant}"`;
 
       res.setHeader('Content-Type', contentType);
       res.setHeader('Cache-Control', cacheControl);
       res.setHeader('ETag', etag);
       if (isHtml) {
-        res.setHeader('Content-Security-Policy', HTML_CONTENT_SECURITY_POLICY);
+        if (customCsp) {
+          const activePort =
+            typeof server.address() === 'object' && server.address()?.port
+              ? server.address().port
+              : DEFAULT_PORT;
+          const showcasePort = Number(process.env.SHOWCASE_PORT) || 8788;
+          res.removeHeader('X-Frame-Options');
+          res.setHeader('Content-Security-Policy', customCsp);
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+          res.setHeader(
+            'Permissions-Policy',
+            buildShowcasePermissionsPolicy(
+              `http://localhost:${activePort}`,
+              req,
+              detectLanOriginsSafe(req),
+              [activePort, showcasePort]
+            )
+          );
+        } else if (deviceSim) {
+          applyDeviceSimFrameHeaders(req, res);
+        } else {
+          res.setHeader('Content-Security-Policy', HTML_CONTENT_SECURITY_POLICY);
+        }
       }
 
       const canCompress =
@@ -712,11 +918,49 @@ export function createWeatherBuddyServer(options = {}) {
     }
   }
 
-  async function handleStaticRequest(req, res, rawUrl, pathname) {
+  async function tryServeDeviceLabAsset(req, res, labRelPath) {
+    const cleanRel = labRelPath || 'index.html';
+    const ext = path.extname(cleanRel).toLowerCase();
+    if (!DEVICE_LAB_ALLOWED_EXTENSIONS.has(ext)) {
+      return false;
+    }
+
+    const labDirs = [
+      path.join(publicDir, 'device-lab'),
+      path.join(distDir, 'device-lab'),
+    ];
+
+    const dynamicLabCsp =
+      ext === '.html'
+        ? buildDeviceLabCsp(req, detectLanOriginsSafe(req))
+        : DEVICE_LAB_CONTENT_SECURITY_POLICY;
+
+    for (const baseLabDir of labDirs) {
+      const candidate = path.resolve(baseLabDir, cleanRel);
+      const relCheck = path.relative(baseLabDir, candidate);
+      if (relCheck.startsWith('..') || path.isAbsolute(relCheck)) {
+        continue;
+      }
+      if (ext !== '.html') {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      }
+      const served = await serveStaticFile(req, res, candidate, 'no-cache', {
+        customCsp: dynamicLabCsp,
+      });
+      if (served) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async function handleStaticRequest(req, res, rawUrl, pathname, parsedUrl) {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       sendJson(res, 405, { status: 'error', error: 'Method Not Allowed' });
       return;
     }
+
+    const isDeviceSim = parsedUrl?.searchParams?.get('deviceSim') === '1';
 
     let decodedPathname = '/';
     try {
@@ -726,10 +970,54 @@ export function createWeatherBuddyServer(options = {}) {
       return;
     }
 
+    const isAppEmbedPath =
+      decodedPathname === '/app-embed' || decodedPathname === '/app-embed/';
+    const effectiveDeviceSim = isDeviceSim || isAppEmbedPath;
+
     // Block raw `..`, encoded `%2e%2e`, backslashes, null bytes, and dotfile secrets (`/.env`, `/.git`)
     if (isSuspiciousStaticPath(rawUrl, decodedPathname)) {
       sendJson(res, 403, { status: 'error', error: 'Truy cập đường dẫn bị từ chối.' });
       return;
+    }
+
+    // Serve WeatherBuddy Device Studio directly from public/device-lab (fallback dist/device-lab)
+    if (decodedPathname === '/device-lab' || decodedPathname === '/device-lab/') {
+      const servedLabIndex = await tryServeDeviceLabAsset(req, res, 'index.html');
+      if (servedLabIndex) {
+        return;
+      }
+      sendJson(res, 404, {
+        status: 'error',
+        error: 'Chưa tìm thấy giao diện giả lập public/device-lab/index.html.',
+      });
+      return;
+    }
+
+    if (decodedPathname.startsWith('/device-lab/')) {
+      const labSubpath = decodedPathname.slice('/device-lab/'.length) || 'index.html';
+      const servedLabFile = await tryServeDeviceLabAsset(req, res, labSubpath);
+      if (servedLabFile) {
+        return;
+      }
+      sendJson(res, 404, {
+        status: 'error',
+        error: 'Không tìm thấy tài nguyên trong /device-lab.',
+      });
+      return;
+    }
+
+    // Serve favicon.ico fallback from pwa-icon.png so browsers never log a 404 on :8787
+    if (decodedPathname === '/favicon.ico') {
+      for (const iconPath of [
+        path.join(distDir, 'favicon.ico'),
+        path.join(publicDir, 'pwa-icon.png'),
+        path.join(distDir, 'pwa-icon.png'),
+      ]) {
+        const servedIcon = await serveStaticFile(req, res, iconPath, 'public, max-age=86400');
+        if (servedIcon) {
+          return;
+        }
+      }
     }
 
     // Allow serving packaged .zip downloads directly from public/downloads/ even before export:web
@@ -756,6 +1044,9 @@ export function createWeatherBuddyServer(options = {}) {
     const hasDistBuild = fs.existsSync(indexHtmlPath);
 
     if (!hasDistBuild) {
+      if (effectiveDeviceSim) {
+        applyDeviceSimFrameHeaders(req, res);
+      }
       sendJson(res, 200, {
         status: 'ok',
         service: 'weather-buddy-backend',
@@ -765,6 +1056,7 @@ export function createWeatherBuddyServer(options = {}) {
         endpoints: [
           '/api/health',
           '/api/security/status',
+          '/api/studio-info',
           '/api/weather',
           '/api/weather-verify',
           '/api/reverse-geocode',
@@ -772,12 +1064,16 @@ export function createWeatherBuddyServer(options = {}) {
           '/api/widget-sync',
           '/api/pc-suite/status',
           '/api/pc-widget/launch',
+          '/api/character-sprite',
+          '/api/live-preview-bundle',
         ],
       });
       return;
     }
 
-    const relativeTarget = decodedPathname.replace(/^\/+/, '');
+    const relativeTarget = isAppEmbedPath
+      ? 'index.html'
+      : decodedPathname.replace(/^\/+/, '');
     const candidatePath = path.resolve(distDir, relativeTarget || 'index.html');
     const relCheck = path.relative(distDir, candidatePath);
 
@@ -792,15 +1088,30 @@ export function createWeatherBuddyServer(options = {}) {
       ? 'public, max-age=31536000, immutable'
       : 'no-cache';
 
-    const servedDirect = await serveStaticFile(req, res, candidatePath, assetCacheHeader);
+    const servedDirect = await serveStaticFile(req, res, candidatePath, assetCacheHeader, {
+      deviceSim: effectiveDeviceSim,
+    });
     if (servedDirect) {
       return;
+    }
+
+    // Support relative `./shell.css`, `./shell.js`, `./mobileStage.*`, `./desktopStage.*` when `/device-lab` is opened without trailing slash
+    if (
+      !relativeTarget.includes('/') &&
+      DEVICE_LAB_ROOT_ASSET_NAMES.has(relativeTarget.toLowerCase())
+    ) {
+      const servedRootLabAsset = await tryServeDeviceLabAsset(req, res, relativeTarget);
+      if (servedRootLabAsset) {
+        return;
+      }
     }
 
     // SPA fallback for extensionless client routes (e.g. /, /dashboard, /widgets)
     const hasExtension = path.extname(relativeTarget) !== '';
     if (!hasExtension) {
-      const servedFallback = await serveStaticFile(req, res, indexHtmlPath, 'no-cache');
+      const servedFallback = await serveStaticFile(req, res, indexHtmlPath, 'no-cache', {
+        deviceSim: effectiveDeviceSim,
+      });
       if (servedFallback) {
         return;
       }
@@ -873,7 +1184,7 @@ export function createWeatherBuddyServer(options = {}) {
     }
 
     if (!isApi) {
-      await handleStaticRequest(req, res, rawUrl, pathname);
+      await handleStaticRequest(req, res, rawUrl, pathname, parsedUrl);
       return;
     }
 
@@ -903,6 +1214,27 @@ export function createWeatherBuddyServer(options = {}) {
       // 1. GET /api/health
       if (pathname === '/api/health' && req.method === 'GET') {
         sendJson(res, 200, buildServerHealth());
+        return;
+      }
+
+      // 1b. GET /api/studio-info (LAN Wi-Fi & Studio discovery URLs for opening on mobile phones & PCs)
+      if (pathname === '/api/studio-info' && req.method === 'GET') {
+        const lanIps = detectLanIpv4Addresses();
+        const addr = server.address();
+        const backendPort = typeof addr === 'object' && addr?.port ? addr.port : DEFAULT_PORT;
+        const showcasePort = Number(process.env.SHOWCASE_PORT) || 8788;
+        sendJson(res, 200, {
+          status: 'ok',
+          service: 'weather-buddy-device-studio',
+          showcasePort,
+          backendPort,
+          lanIps,
+          lanUrls: lanIps.map((ip) => `http://${ip}:${showcasePort}`),
+          backendLanUrls: lanIps.map((ip) => `http://${ip}:${backendPort}`),
+          localStudioUrl: `http://localhost:${showcasePort}`,
+          localAppUrl: `http://localhost:${backendPort}`,
+          embedPath: '/app-embed',
+        });
         return;
       }
 
@@ -1353,6 +1685,144 @@ export function createWeatherBuddyServer(options = {}) {
         return;
       }
 
+      // 10. GET /api/character-sprite?file=<basename> (Strict allowlist PNG sprite endpoint for Device Studio & Widgets)
+      if (pathname === '/api/character-sprite' && (req.method === 'GET' || req.method === 'HEAD')) {
+        const rawFile = String(parsedUrl.searchParams.get('file') ?? '').trim();
+        if (!/^[a-z0-9_]+\.png$/i.test(rawFile)) {
+          sendJson(res, 400, {
+            status: 'error',
+            error: 'Tên tệp sprite không hợp lệ (chỉ chấp nhận /^[a-z0-9_]+\\.png$/i).',
+          });
+          return;
+        }
+
+        const spritePath = resolveCharacterSpriteFile(rawFile);
+        if (!spritePath) {
+          sendJson(res, 404, {
+            status: 'error',
+            error: `Không tìm thấy sprite '${rawFile}'.`,
+          });
+          return;
+        }
+
+        const stat = await fsp.stat(spritePath);
+        const etag = `W/"sprite-${stat.size.toString(16)}-${Math.trunc(stat.mtimeMs).toString(16)}"`;
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('ETag', etag);
+
+        if (readHeaderString(req.headers, 'if-none-match') === etag) {
+          res.statusCode = 304;
+          res.end();
+          return;
+        }
+
+        res.statusCode = 200;
+        res.setHeader('Content-Length', stat.size);
+        if (req.method === 'HEAD') {
+          res.end();
+          return;
+        }
+
+        await new Promise((resolve, reject) => {
+          const stream = fs.createReadStream(spritePath);
+          stream.on('error', reject);
+          res.on('close', resolve);
+          stream.pipe(res);
+        });
+        return;
+      }
+
+      // 11. GET /api/live-preview-bundle (Device Studio unified weather + character decision + sprite URLs)
+      if (pathname === '/api/live-preview-bundle' && req.method === 'GET') {
+        const q = parsedUrl.searchParams;
+        const gender = parseGender(q.get('gender'));
+        const sensitivity = parseSensitivity(q.get('sensitivity'));
+        const rawScenario = String(q.get('scenario') ?? 'live').trim().toLowerCase();
+
+        const rawLat = q.get('lat') ?? q.get('latitude');
+        const rawLon = q.get('lon') ?? q.get('lng') ?? q.get('longitude');
+        const hasCoordParams =
+          (rawLat !== null && String(rawLat).trim() !== '') ||
+          (rawLon !== null && String(rawLon).trim() !== '');
+        const explicitName = q.get('locationName');
+        const hasExplicitName = typeof explicitName === 'string' && explicitName.trim().length > 0;
+
+        const presetSnapshot = resolveScenarioPresetSnapshot(rawScenario);
+        let snapshot;
+        let rawDecision;
+        let cacheHit = false;
+
+        if (presetSnapshot) {
+          if (hasCoordParams) {
+            const { latitude, longitude } = parseCoordinates(rawLat, rawLon, null);
+            presetSnapshot.latitude = latitude;
+            presetSnapshot.longitude = longitude;
+            presetSnapshot.locationName = inferCityName(latitude, longitude, explicitName);
+          } else if (hasExplicitName) {
+            presetSnapshot.locationName = explicitName.trim().slice(0, 120);
+          }
+          snapshot = presetSnapshot;
+          rawDecision = evaluateCharacterDecision(snapshot, { gender, sensitivity });
+          cacheHit = true;
+        } else {
+          const keys = extractRequestApiKeys(req);
+          requestSecrets = [keys.tomorrowIoApiKey, keys.weatherApiKey, keys.googleApiKey];
+
+          const { latitude, longitude, usedDefault } = parseCoordinates(
+            rawLat,
+            rawLon,
+            PRESET_CITIES[0]
+          );
+          const locationName =
+            usedDefault && !hasExplicitName
+              ? PRESET_CITIES[0].nameVi
+              : inferCityName(latitude, longitude, explicitName);
+
+          const provider = String(q.get('provider') ?? 'auto').trim();
+          const force = parseForceFlag(q.get('force'));
+
+          const liveResult = await getOrFetchWeather({
+            latitude,
+            longitude,
+            locationName,
+            hasExplicitName,
+            provider,
+            force,
+            gender,
+            sensitivity,
+            ...keys,
+          });
+          snapshot = liveResult.snapshot;
+          rawDecision = liveResult.decision;
+          cacheHit = liveResult.cacheHit;
+        }
+
+        const decision = {
+          ...rawDecision,
+          outfitVi: rawDecision.outfitAdviceVi,
+          adviceVi: rawDecision.outfitAdviceVi,
+          shouldWearMask: rawDecision.hasAqiMask,
+        };
+
+        const sprites = {
+          character: `/api/character-sprite?file=${gender}_${decision.sceneId}.png`,
+          cat: '/api/character-sprite?file=companion_cat.png',
+          puppy: '/api/character-sprite?file=companion_puppy.png',
+        };
+
+        sendJson(res, 200, {
+          status: 'ok',
+          scenario: presetSnapshot ? rawScenario : 'live',
+          cacheHit,
+          snapshot,
+          decision,
+          sprites,
+        });
+        return;
+      }
+
       sendJson(res, 404, {
         status: 'error',
         error: `Endpoint '${pathname}' không tồn tại.`,
@@ -1436,18 +1906,68 @@ const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
 const currentModulePath = fileURLToPath(import.meta.url);
 
 if (invokedPath && invokedPath === currentModulePath) {
-  const host = process.env.HOST || '127.0.0.1';
+  const host = process.env.HOST || '0.0.0.0';
   const port = Number(process.env.PORT) || 8787;
+  const showcasePort = Number(process.env.SHOWCASE_PORT) || 8788;
+  const startupLanIps = detectLanIpv4Addresses();
+
+  if (startupLanIps.length > 0) {
+    const existingAllowed = (process.env.ALLOWED_ORIGINS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const mergedOrigins = new Set(existingAllowed);
+    for (const ip of startupLanIps) {
+      mergedOrigins.add(`http://${ip}:${port}`);
+      mergedOrigins.add(`http://${ip}:${showcasePort}`);
+    }
+    process.env.ALLOWED_ORIGINS = Array.from(mergedOrigins).join(',');
+  }
+
   const appServer = createWeatherBuddyServer({
     localKeysFile: path.join(DEFAULT_RUNTIME_DIR, 'local-provider-keys.json'),
   });
+  let showcaseServer = null;
 
   appServer
     .start(port, host)
-    .then(({ port: boundPort }) => {
+    .then(async ({ port: boundPort }) => {
       console.log(
         `[WeatherBuddy Backend v${SERVER_VERSION}] Listening on http://localhost:${boundPort} (15-min cache + security hardening active)`
       );
+      for (const ip of startupLanIps) {
+        console.log(
+          `[WeatherBuddy Backend v${SERVER_VERSION}] LAN Wi-Fi endpoint: http://${ip}:${boundPort}`
+        );
+      }
+
+      showcaseServer = createShowcaseServer({
+        port: showcasePort,
+        host,
+        apiOrigin: `http://127.0.0.1:${boundPort}`,
+      });
+      try {
+        const { port: boundShowcasePort } = await showcaseServer.start(showcasePort, host);
+        console.log(
+          `[WeatherBuddy Device Studio] Separate Simulator Web running at http://localhost:${boundShowcasePort}`
+        );
+        for (const ip of startupLanIps) {
+          console.log(
+            `[WeatherBuddy Device Studio] Mobile & PC LAN Wi-Fi URL: http://${ip}:${boundShowcasePort}`
+          );
+        }
+      } catch (showcaseErr) {
+        if (showcaseErr?.code === 'EADDRINUSE') {
+          console.warn(
+            `[WeatherBuddy Device Studio] Port ${showcasePort} already in use; separate simulator server left on existing listener.`
+          );
+        } else {
+          console.warn(
+            '[WeatherBuddy Device Studio] Optional simulator server failed to start:',
+            redactSecrets(String(showcaseErr?.message || showcaseErr))
+          );
+        }
+      }
     })
     .catch((err) => {
       console.error(
@@ -1459,7 +1979,10 @@ if (invokedPath && invokedPath === currentModulePath) {
 
   const gracefulExit = async () => {
     try {
-      await appServer.shutdown();
+      await Promise.allSettled([
+        appServer.shutdown(),
+        showcaseServer ? showcaseServer.shutdown() : Promise.resolve(),
+      ]);
     } finally {
       process.exit(0);
     }

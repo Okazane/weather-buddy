@@ -15,3 +15,8 @@ npm-debug.*
 ios/
 android/
 server/.runtime/
+.vercel/
+.vercelignore
+vercel.json
+api/
+.hallmark/

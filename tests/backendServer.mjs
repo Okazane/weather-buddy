@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { createWeatherBuddyServer } from '../server/index.mjs';
+import { createShowcaseServer } from '../server/showcaseServer.mjs';
 
 test('WeatherBuddy Backend Server E2E contract, caching, dashboard, widget-sync, and zero-secret hygiene', async (t) => {
   const server = createWeatherBuddyServer();
@@ -499,9 +500,211 @@ test('WeatherBuddy Backend Server E2E contract, caching, dashboard, widget-sync,
         headers: { 'If-None-Match': tileEtag },
       });
       assert.equal(tile304.status, 304);
+
+      // 5. Device Simulator Iframe Embed Headers: GET / enforces frame-ancestors 'none' & DENY while GET /?deviceSim=1 allows localhost framing
+      const normalRootRes = await fetch(`${swrBaseUrl}/`);
+      assert.equal(normalRootRes.status, 200);
+      assert.equal(normalRootRes.headers.get('x-frame-options'), 'DENY');
+      assert.equal(normalRootRes.headers.get('cross-origin-resource-policy'), 'same-origin');
+      const normalCsp = normalRootRes.headers.get('content-security-policy') || '';
+      assert.ok(normalCsp.includes("frame-ancestors 'none'"));
+
+      const simRootRes = await fetch(`${swrBaseUrl}/?deviceSim=1`);
+      assert.equal(simRootRes.status, 200);
+      assert.equal(simRootRes.headers.get('x-frame-options'), null);
+      assert.equal(simRootRes.headers.get('cross-origin-resource-policy'), 'cross-origin');
+      const simCsp = simRootRes.headers.get('content-security-policy') || '';
+      assert.ok(!simCsp.includes("frame-ancestors 'none'"));
+      assert.ok(
+        simCsp.includes("frame-ancestors 'self' http://localhost:* http://127.0.0.1:*")
+      );
     } finally {
       await swrServer.shutdown();
       await fs.rm(tmpDist, { recursive: true, force: true });
+    }
+  });
+
+  await t.test('Device Studio endpoints: GET /?deviceSim=1, GET /api/character-sprite, GET /api/live-preview-bundle, and standalone createShowcaseServer proxy', async () => {
+    // 1. Main server GET / vs GET /?deviceSim=1 frame-ancestors isolation
+    const rootRes = await fetch(`${baseUrl}/`);
+    assert.equal(rootRes.status, 200);
+    assert.equal(rootRes.headers.get('x-frame-options'), 'DENY');
+    if ((rootRes.headers.get('content-type') || '').includes('text/html')) {
+      assert.ok((rootRes.headers.get('content-security-policy') || '').includes("frame-ancestors 'none'"));
+    }
+
+    const simRes = await fetch(`${baseUrl}/?deviceSim=1`);
+    assert.equal(simRes.status, 200);
+    assert.equal(simRes.headers.get('x-frame-options'), null);
+    assert.equal(simRes.headers.get('cross-origin-resource-policy'), 'cross-origin');
+    const simPerm = simRes.headers.get('permissions-policy') || '';
+    assert.ok(simPerm.includes('"http://localhost:8787"'));
+    assert.ok(simPerm.includes('"http://localhost:8788"'));
+    const simCsp = simRes.headers.get('content-security-policy') || '';
+    assert.ok(!simCsp.includes("frame-ancestors 'none'"));
+    assert.ok(simCsp.includes("frame-ancestors 'self' http://localhost:* http://127.0.0.1:*"));
+
+    const favRes = await fetch(`${baseUrl}/favicon.ico`);
+    assert.equal(favRes.status, 200);
+
+    const studioInfoMainRes = await fetch(`${baseUrl}/api/studio-info`);
+    assert.equal(studioInfoMainRes.status, 200);
+    const studioInfoMain = await studioInfoMainRes.json();
+    assert.equal(studioInfoMain.status, 'ok');
+    assert.ok(Array.isArray(studioInfoMain.lanUrls));
+    assert.equal(studioInfoMain.embedPath, '/app-embed');
+
+    // 2. GET /api/character-sprite strict validation + PNG delivery
+    const badSpriteRes = await fetch(`${baseUrl}/api/character-sprite?file=../female_pleasant_sunny.png`);
+    assert.equal(badSpriteRes.status, 400);
+
+    const badExtRes = await fetch(`${baseUrl}/api/character-sprite?file=shell.js`);
+    assert.equal(badExtRes.status, 400);
+
+    const spriteRes = await fetch(`${baseUrl}/api/character-sprite?file=female_pleasant_sunny.png`);
+    assert.equal(spriteRes.status, 200);
+    assert.equal(spriteRes.headers.get('content-type'), 'image/png');
+    assert.equal(spriteRes.headers.get('cross-origin-resource-policy'), 'cross-origin');
+    assert.equal(spriteRes.headers.get('cache-control'), 'public, max-age=86400');
+    const spriteBytes = new Uint8Array(await spriteRes.arrayBuffer());
+    assert.ok(spriteBytes.byteLength > 512, 'PNG sprite must have non-trivial payload');
+    assert.deepEqual(Array.from(spriteBytes.slice(0, 4)), [0x89, 0x50, 0x4e, 0x47]);
+
+    const catRes = await fetch(`${baseUrl}/api/character-sprite?file=companion_cat.png`);
+    assert.equal(catRes.status, 200);
+    assert.equal(catRes.headers.get('content-type'), 'image/png');
+
+    // 3. GET /api/live-preview-bundle preset & live weather modes
+    const sunnyRes = await fetch(
+      `${baseUrl}/api/live-preview-bundle?scenario=sunny&gender=female`
+    );
+    assert.equal(sunnyRes.status, 200);
+    const sunnyBundle = await sunnyRes.json();
+    assert.equal(sunnyBundle.status, 'ok');
+    assert.equal(sunnyBundle.snapshot.temperatureC, 27);
+    assert.equal(sunnyBundle.decision.sceneId, 'pleasant_sunny');
+    assert.equal(typeof sunnyBundle.decision.headlineVi, 'string');
+    assert.equal(typeof sunnyBundle.decision.outfitAdviceVi, 'string');
+    assert.deepEqual(sunnyBundle.sprites, {
+      character: '/api/character-sprite?file=female_pleasant_sunny.png',
+      cat: '/api/character-sprite?file=companion_cat.png',
+      puppy: '/api/character-sprite?file=companion_puppy.png',
+    });
+
+    const stormRes = await fetch(
+      `${baseUrl}/api/live-preview-bundle?scenario=storm&gender=male&locationName=%C4%90%C3%A0%20L%E1%BA%A1t&lat=11.9404&lon=108.4583`
+    );
+    assert.equal(stormRes.status, 200);
+    const stormBundle = await stormRes.json();
+    assert.equal(stormBundle.status, 'ok');
+    assert.equal(stormBundle.snapshot.locationName, 'Đà Lạt');
+    assert.equal(stormBundle.decision.sceneId, 'storm_raincoat');
+    assert.equal(
+      stormBundle.sprites.character,
+      '/api/character-sprite?file=male_storm_raincoat.png'
+    );
+
+    const nightRes = await fetch(
+      `${baseUrl}/api/live-preview-bundle?scenario=clear_night&gender=female`
+    );
+    assert.equal(nightRes.status, 200);
+    const nightBundle = await nightRes.json();
+    assert.equal(nightBundle.decision.sceneId, 'clear_night');
+    assert.equal(
+      nightBundle.sprites.character,
+      '/api/character-sprite?file=female_clear_night.png'
+    );
+
+    // Live scenario reuses cached Hà Nội snapshot from earlier test
+    const liveBundleRes = await fetch(
+      `${baseUrl}/api/live-preview-bundle?scenario=live&lat=21.0285&lon=105.8542&locationName=H%C3%A0%20N%E1%BB%99i&gender=female`
+    );
+    assert.equal(liveBundleRes.status, 200);
+    const liveBundle = await liveBundleRes.json();
+    assert.equal(liveBundle.status, 'ok');
+    assert.equal(liveBundle.cacheHit, true);
+    assert.equal(liveBundle.snapshot.locationName, 'Hà Nội');
+    assert.ok(liveBundle.sprites.character.startsWith('/api/character-sprite?file=female_'));
+
+    // 4. Standalone Showcase Server (server/showcaseServer.mjs) serves /device-lab and proxies /api/* transparently
+    const tmpStudioProject = await fs.mkdtemp(path.join(os.tmpdir(), 'wb-showcase-test-'));
+    const tmpLabDir = path.join(tmpStudioProject, 'public', 'device-lab');
+    await fs.mkdir(tmpLabDir, { recursive: true });
+    await fs.writeFile(
+      path.join(tmpLabDir, 'index.html'),
+      '<!doctype html><html lang="vi"><head><title>WeatherBuddy Device Studio</title></head><body>studio</body></html>',
+      'utf8'
+    );
+    await fs.writeFile(path.join(tmpLabDir, 'shell.css'), ':root { color-scheme: dark; }\n', 'utf8');
+
+    const showcase = createShowcaseServer({
+      port: 0,
+      host: '127.0.0.1',
+      apiOrigin: baseUrl,
+      projectRoot: tmpStudioProject,
+    });
+    const { baseUrl: showcaseUrl } = await showcase.start(0, '127.0.0.1');
+    try {
+      const studioHtmlRes = await fetch(`${showcaseUrl}/`);
+      assert.equal(studioHtmlRes.status, 200);
+      assert.ok((studioHtmlRes.headers.get('content-type') || '').includes('text/html'));
+      const studioPerm = studioHtmlRes.headers.get('permissions-policy') || '';
+      assert.ok(studioPerm.includes('"http://localhost:8787"'));
+      assert.ok(studioPerm.includes(`"${baseUrl}"`));
+      const studioCsp = studioHtmlRes.headers.get('content-security-policy') || '';
+      assert.ok(studioCsp.includes("frame-src 'self' http://localhost:* http://127.0.0.1:*"));
+      const studioHtml = await studioHtmlRes.text();
+      assert.ok(studioHtml.includes('WeatherBuddy Device Studio'));
+
+      const studioCssRes = await fetch(`${showcaseUrl}/shell.css`);
+      assert.equal(studioCssRes.status, 200);
+      assert.ok((studioCssRes.headers.get('content-type') || '').includes('text/css'));
+
+      const proxiedBundleRes = await fetch(
+        `${showcaseUrl}/api/live-preview-bundle?scenario=sunny&gender=female`
+      );
+      assert.equal(proxiedBundleRes.status, 200);
+      const proxiedBundle = await proxiedBundleRes.json();
+      assert.equal(proxiedBundle.status, 'ok');
+      assert.equal(proxiedBundle.decision.sceneId, 'pleasant_sunny');
+
+      const proxiedSpriteRes = await fetch(
+        `${showcaseUrl}/api/character-sprite?file=female_pleasant_sunny.png`
+      );
+      assert.equal(proxiedSpriteRes.status, 200);
+      assert.equal(proxiedSpriteRes.headers.get('content-type'), 'image/png');
+
+      // LAN smartphone simulation via Host/Origin headers + /api/studio-info + /app-embed proxy
+      const studioInfoRes = await fetch(`${showcaseUrl}/api/studio-info`);
+      assert.equal(studioInfoRes.status, 200);
+      const studioInfo = await studioInfoRes.json();
+      assert.equal(studioInfo.status, 'ok');
+      assert.ok(Array.isArray(studioInfo.lanUrls));
+      assert.equal(studioInfo.embedPath, '/app-embed');
+
+      const lanStudioRes = await fetch(`${showcaseUrl}/`, {
+        headers: { Origin: 'http://192.168.1.77:8788' },
+      });
+      assert.equal(lanStudioRes.status, 200);
+      assert.equal(
+        lanStudioRes.headers.get('access-control-allow-origin'),
+        'http://192.168.1.77:8788'
+      );
+      const lanStudioCsp = lanStudioRes.headers.get('content-security-policy') || '';
+      assert.ok(lanStudioCsp.includes('http://192.168.1.77:*'));
+
+      const embedProxyRes = await fetch(`${showcaseUrl}/app-embed`, {
+        headers: { Origin: 'http://192.168.1.77:8788' },
+      });
+      assert.equal(embedProxyRes.status, 200);
+      assert.equal(embedProxyRes.headers.get('x-frame-options'), null);
+      assert.equal(embedProxyRes.headers.get('cross-origin-resource-policy'), 'cross-origin');
+      const embedProxyCsp = embedProxyRes.headers.get('content-security-policy') || '';
+      assert.ok(!embedProxyCsp.includes("frame-ancestors 'none'"));
+      assert.ok(embedProxyCsp.includes('http://192.168.1.77:*'));
+    } finally {
+      await showcase.shutdown();
+      await fs.rm(tmpStudioProject, { recursive: true, force: true });
     }
   });
 });

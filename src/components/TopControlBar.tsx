@@ -22,7 +22,7 @@ import {
   type LucianTabOption,
 } from '../lucian/LucianNavComponents';
 import { injectLucianElementCss } from '../lucian/lucianTokens';
-import { ArrowsClockwise, Broadcast, Crosshair, GearSix } from './AppIcons';
+import { ArrowsClockwise, Broadcast, Crosshair, Desktop, GearSix } from './AppIcons';
 import {
   FONT_FAMILY_SANS,
   WEB_NO_OUTLINE,
@@ -69,7 +69,7 @@ const TOP_BAR_WEB_CSS = `
 .wb-prov-pill{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 11px;border-radius:999px;background:var(--wb-pill-idle,var(--ux-surface-2));color:var(--wb-ink-2,var(--ux-ink-2));font-size:11.5px;font-weight:680;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:inset 0 0 0 1px var(--wb-hairline,var(--ux-line));transition:background-color .25s,color .25s}
 .wb-prov-dot{width:6.5px;height:6.5px;border-radius:50%;background:var(--wb-safe,var(--ux-mint));flex:none}
 .wb-prov-dot.is-demo{background:var(--wb-accent,var(--ux-accent))}
-.wb-icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:0;border-radius:12px;background:var(--wb-surface,var(--ux-surface));color:var(--wb-ink,var(--ux-ink));box-shadow:0 0 0 1px var(--wb-border,var(--ux-line)),0 4px 12px -8px var(--ux-shadow);transition:transform .3s var(--ux-spring),background-color .25s,box-shadow .25s,color .25s}
+.wb-icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:0;border-radius:12px;background:var(--wb-surface,var(--ux-surface));color:var(--wb-ink,var(--ux-ink));text-decoration:none;cursor:pointer;box-shadow:0 0 0 1px var(--wb-border,var(--ux-line)),0 4px 12px -8px var(--ux-shadow);transition:transform .3s var(--ux-spring),background-color .25s,box-shadow .25s,color .25s}
 .wb-icon-btn:hover{background:var(--wb-surface-hover,var(--ux-surface-2));box-shadow:0 0 0 1.5px var(--wb-border-hover,var(--ux-line-2)),0 6px 14px -8px var(--ux-shadow)}
 .wb-icon-btn:active{transform:scale(.94)}
 .wb-icon-btn:focus-visible{outline:2px solid var(--wb-accent,var(--ux-accent));outline-offset:2px}
@@ -235,8 +235,8 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
         Platform.OS === 'web'
           ? ({
               boxShadow: palette.isDark
-                ? '0 14px 34px -20px rgba(4, 8, 16, 0.58)'
-                : '0 14px 34px -22px rgba(20, 29, 43, 0.16)',
+                ? '0 18px 40px -14px rgba(4, 6, 11, 0.88), 0 1px 0 0 rgba(224, 234, 248, 0.14)'
+                : '0 14px 32px -18px rgba(17, 24, 36, 0.20), 0 1px 0 0 rgba(17, 24, 36, 0.08)',
               transition: 'background-color 0.25s ease, border-color 0.25s ease',
             } as any)
           : null,
@@ -301,6 +301,16 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                       <Broadcast size={16} weight={alertsEnabled ? 'fill' : 'duotone'} color="currentColor" />
                     </button>
                   )}
+                  <a
+                    href="/device-lab"
+                    target="_blank"
+                    rel="noopener"
+                    className="wb-icon-btn"
+                    aria-label="Mở trang giả lập Điện thoại & Desktop"
+                    title="Mở trang Web Giả lập Điện thoại & Màn hình Desktop"
+                  >
+                    <Desktop size={16} weight="duotone" color="currentColor" />
+                  </a>
                   <button
                     type="button"
                     className={`wb-icon-btn${isLoadingLive ? ' is-busy' : ''}`}
@@ -535,6 +545,16 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                     <Broadcast size={16} weight={alertsEnabled ? 'fill' : 'duotone'} color="currentColor" />
                   </button>
                 )}
+                <a
+                  href="/device-lab"
+                  target="_blank"
+                  rel="noopener"
+                  className="wb-icon-btn"
+                  aria-label="Mở trang giả lập Điện thoại & Desktop"
+                  title="Mở trang Web Giả lập Điện thoại & Màn hình Desktop"
+                >
+                  <Desktop size={16} weight="duotone" color="currentColor" />
+                </a>
                 <button
                   type="button"
                   className={`wb-icon-btn${isLoadingLive ? ' is-busy' : ''}`}

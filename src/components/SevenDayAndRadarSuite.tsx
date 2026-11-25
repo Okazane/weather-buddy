@@ -66,6 +66,71 @@ function formatDailyRowLabel(dateIso: string, index: number): { dayVi: string; d
   return { dayVi: WEEKDAY_SHORT_VI[dow] ?? 'Ngày tới', ddMm };
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '');
+  const n = parseInt(clean.length === 3 ? clean.replace(/(.)/g, '$1$1') : clean, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function interpolateThermalColor(tempC: number, palette: AtmosphericPalette): string {
+  const coolRgb = hexToRgb(palette.thermalCool);
+  const mildRgb = hexToRgb(palette.thermalMild);
+  const warmRgb = hexToRgb(palette.thermalWarm);
+  const hotRgb = hexToRgb(palette.thermalHot);
+  const softWarmRgb: [number, number, number] = palette.isDark
+    ? [
+        Math.min(255, Math.round(warmRgb[0] * 1.04)),
+        Math.min(255, Math.round(warmRgb[1] * 1.12)),
+        Math.min(255, Math.round(warmRgb[2] * 1.24)),
+      ]
+    : [
+        Math.min(255, Math.round(warmRgb[0] * 1.04)),
+        Math.min(255, Math.round(warmRgb[1] * 1.12)),
+        Math.min(255, Math.round(warmRgb[2] * 1.38)),
+      ];
+
+  const stops: Array<{ t: number; rgb: [number, number, number] }> = [
+    { t: 10, rgb: coolRgb },
+    { t: 19, rgb: mildRgb },
+    { t: 23, rgb: softWarmRgb },
+    { t: 28, rgb: warmRgb },
+    { t: 34, rgb: hotRgb },
+  ];
+
+  if (tempC <= stops[0].t) {
+    const [r, g, b] = stops[0].rgb;
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+  const last = stops[stops.length - 1];
+  if (tempC >= last.t) {
+    const [r, g, b] = last.rgb;
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+  for (let i = 0; i < stops.length - 1; i += 1) {
+    const a = stops[i];
+    const b = stops[i + 1];
+    if (tempC >= a.t && tempC <= b.t) {
+      const f = (tempC - a.t) / Math.max(0.01, b.t - a.t);
+      const r = Math.round(a.rgb[0] + (b.rgb[0] - a.rgb[0]) * f);
+      const g = Math.round(a.rgb[1] + (b.rgb[1] - a.rgb[1]) * f);
+      const bl = Math.round(a.rgb[2] + (b.rgb[2] - a.rgb[2]) * f);
+      return `rgb(${r}, ${g}, ${bl})`;
+    }
+  }
+  return `rgb(${last.rgb[0]}, ${last.rgb[1]}, ${last.rgb[2]})`;
+}
+
+function buildThermalRangeGradientCss(
+  minC: number,
+  maxC: number,
+  palette: AtmosphericPalette
+): string {
+  const c0 = interpolateThermalColor(minC, palette);
+  const cMid = interpolateThermalColor((minC + maxC) / 2, palette);
+  const c1 = interpolateThermalColor(maxC, palette);
+  return `linear-gradient(90deg, ${c0} 0%, ${cMid} 52%, ${c1} 100%)`;
+}
+
 function latLonToTileFloat(lat: number, lon: number, zoom: number): { x: number; y: number } {
   const safeLat = Math.max(-85.0511, Math.min(85.0511, lat));
   const n = Math.pow(2, zoom);
@@ -226,9 +291,9 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
       return { tiles, fracX, fracY };
     }, [weather.latitude, weather.longitude, zoom, palette.isDark, radarHost, activeFrame]);
 
-    const warmGold = palette.isDark ? '#F0AE43' : '#C87416';
-    const warmAmber = palette.isDark ? '#E28739' : '#B8581E';
-    const rainCyan = palette.isDark ? '#38BDF8' : '#0284C7';
+    const warmGold = palette.thermalWarm;
+    const warmAmber = palette.thermalHot;
+    const rainCyan = palette.accent;
 
     return (
       <View style={[styles.suiteRow, isDesktopSplit && styles.suiteRowDesktop]}>
@@ -239,7 +304,7 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
             isDesktopSplit && styles.leftColDesktop,
             {
               backgroundColor: palette.bezelOuterBg,
-              borderColor: palette.bezelOuterBorder,
+              borderColor: palette.hairline,
             },
           ]}
         >
@@ -248,7 +313,7 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
               styles.cardInner,
               {
                 backgroundColor: palette.coreSurfaceBg,
-                borderColor: palette.hairline,
+                borderColor: palette.bezelOuterBorder,
               },
             ]}
           >
@@ -379,7 +444,7 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
                         isDay={true}
                         isDark={palette.isDark}
                         precipProbPct={day.precipProbMaxPct}
-                        size={20}
+                        size={26}
                       />
                       {day.precipProbMaxPct >= 15 ? (
                         <Text style={[styles.dayRainText, { color: rainCyan }]}>
@@ -387,7 +452,7 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
                           {day.precipSumMm >= 0.5 ? ` · ${day.precipSumMm.toFixed(1)}mm` : ''}
                         </Text>
                       ) : (
-                        <Text style={[styles.dayRainText, { color: palette.inkMuted, opacity: 0.6 }]}>
+                        <Text style={[styles.dayRainText, { color: palette.inkMuted }]}>
                           Khô ráo
                         </Text>
                       )}
@@ -401,7 +466,11 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
                       <View
                         style={[
                           styles.rangeTrackBg,
-                          { backgroundColor: palette.pillIdleBg },
+                          {
+                            backgroundColor: palette.barTrackBg,
+                            borderWidth: 1,
+                            borderColor: palette.hairline,
+                          },
                         ]}
                       >
                         <View
@@ -414,7 +483,11 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
                             },
                             Platform.OS === 'web'
                               ? ({
-                                  backgroundImage: `linear-gradient(90deg, ${palette.accent}, ${warmGold} 55%, ${warmAmber})`,
+                                  backgroundImage: buildThermalRangeGradientCss(
+                                    day.tempMinC,
+                                    day.tempMaxC,
+                                    palette
+                                  ),
                                 } as any)
                               : null,
                           ]}
@@ -457,7 +530,7 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
             isDesktopSplit && styles.rightColDesktop,
             {
               backgroundColor: palette.bezelOuterBg,
-              borderColor: palette.bezelOuterBorder,
+              borderColor: palette.hairline,
             },
           ]}
         >
@@ -466,7 +539,7 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
               styles.cardInner,
               {
                 backgroundColor: palette.coreSurfaceBg,
-                borderColor: palette.hairline,
+                borderColor: palette.bezelOuterBorder,
               },
             ]}
           >
@@ -498,7 +571,7 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
                 style={[
                   styles.radarViewport,
                   {
-                    backgroundColor: palette.isDark ? '#0E1726' : '#DCE8F4',
+                    backgroundColor: palette.isDark ? '#0B0E14' : '#DCE8F4',
                     borderColor: palette.bezelOuterBorder,
                   },
                 ]}
@@ -532,8 +605,8 @@ export const SevenDayAndRadarSuite: React.FC<SevenDayAndRadarSuiteProps> = React
                           height: 256,
                           display: 'block',
                           filter: palette.isDark
-                            ? 'invert(0.92) hue-rotate(185deg) saturate(0.52) brightness(0.82) contrast(1.06)'
-                            : 'saturate(0.82) brightness(0.98)',
+                            ? 'invert(0.90) hue-rotate(188deg) saturate(0.45) brightness(0.96) contrast(1.12)'
+                            : 'saturate(0.84) brightness(0.99)',
                         }}
                       />
                       {t.radarUrl && (
@@ -861,20 +934,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dayColIcon: {
-    width: 86,
+    width: 104,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
   },
   dayRainText: {
     fontFamily: FONT_FAMILY_SANS,
-    fontSize: 11,
+    fontSize: 11.2,
     fontWeight: '700',
+    flexShrink: 1,
   },
   dayTempBound: {
     width: 30,
     fontFamily: FONT_FAMILY_DISPLAY,
-    fontSize: 13,
+    fontSize: 13.2,
     fontWeight: '700',
     textAlign: 'right',
   },
@@ -887,23 +961,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   rangeTrackBg: {
-    height: 6,
+    height: 7,
     borderRadius: 999,
     position: 'relative',
     overflow: 'visible',
   },
   rangeBarFill: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
+    top: -1,
+    bottom: -1,
     borderRadius: 999,
   },
   nowTempDot: {
     position: 'absolute',
-    top: -2.5,
-    marginLeft: -5.5,
-    width: 11,
-    height: 11,
+    top: -3,
+    marginLeft: -6,
+    width: 12,
+    height: 12,
     borderRadius: 999,
     borderWidth: 2,
   },
