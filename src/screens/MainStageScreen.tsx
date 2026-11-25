@@ -14,6 +14,7 @@ import type {
 import type { ScenarioSelection } from '../hooks/useWeatherBuddy';
 import { CharacterStageCard } from '../components/CharacterStageCard';
 import { ScenarioStrip } from '../components/ScenarioStrip';
+import { SevenDayAndRadarSuite } from '../components/SevenDayAndRadarSuite';
 import { WeatherBentoTelemetry } from '../components/WeatherBentoTelemetry';
 import { LucianInteractiveForecastChart } from '../lucian/LucianInteractiveForecastChart';
 import {
@@ -93,7 +94,14 @@ export const MainStageScreen: React.FC<MainStageScreenProps> = ({
         reduceMotion={reduceMotion}
       />
 
-      {/* Row 3: Lucian #094 Interactive 24h Sky Scrubber + Lucian #228 Cursor-Lit 6-Metric Weather Telemetry Bento */}
+      {/* Row 3: 7-Day Daily Forecast + Solar/Lunar Cycle + Live RainViewer Radar Map */}
+      <SevenDayAndRadarSuite
+        palette={palette}
+        weather={weather}
+        reduceMotion={reduceMotion}
+      />
+
+      {/* Row 4: Lucian #228 Cursor-Lit 6-Metric Weather Telemetry Bento (with PM2.5 & Dew Point) */}
       <WeatherBentoTelemetry
         palette={palette}
         weather={weather}

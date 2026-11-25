@@ -378,4 +378,130 @@ test('WeatherBuddy Backend Server E2E contract, caching, dashboard, widget-sync,
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }
   });
+
+  await t.test('Brotli/Gzip compression, ETag 304 Not Modified, SWR revalidation, and GET /api/geocode-search', async () => {
+    // 1. Vietnamese diacritic-insensitive geocode search
+    const searchRes = await fetch(`${baseUrl}/api/geocode-search?q=hai%20phong&limit=5`);
+    assert.equal(searchRes.status, 200);
+    const searchBody = await searchRes.json();
+    assert.equal(searchBody.status, 'ok');
+    assert.ok(Array.isArray(searchBody.results) && searchBody.results.length >= 1);
+    assert.equal(searchBody.results[0].nameVi, 'Hải Phòng');
+
+    // 2. Brotli compression + ETag 304 Not Modified on static bundle
+    const tmpDist = await fs.mkdtemp(path.join(os.tmpdir(), 'wb-compress-test-'));
+    const tmpRuntime = path.join(tmpDist, '.runtime');
+    const sampleJs = `export const DEMO = ${JSON.stringify('weather-buddy-bundle-'.repeat(200))};\n`;
+    await fs.writeFile(path.join(tmpDist, 'index.html'), '<!doctype html><html><body>ok</body></html>', 'utf8');
+    await fs.mkdir(path.join(tmpDist, '_expo', 'static', 'js', 'web'), { recursive: true });
+    await fs.writeFile(
+      path.join(tmpDist, '_expo', 'static', 'js', 'web', 'app-test.js'),
+      sampleJs,
+      'utf8'
+    );
+
+    let upstreamCalls = 0;
+    const swrServer = createWeatherBuddyServer({
+      distDir: tmpDist,
+      runtimeDir: tmpRuntime,
+      cacheTtlMs: 35,
+      staleGraceMs: 5000,
+      enableConsensus: false,
+      fetchImpl: async (url) => {
+        const u = String(url);
+        if (u.includes('tile.openstreetmap.org')) {
+          return new Response(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), {
+            status: 200,
+            headers: { 'Content-Type': 'image/png' },
+          });
+        }
+        if (u.includes('air-quality-api.open-meteo.com')) {
+          return new Response(JSON.stringify({ current: { us_aqi: 42, pm2_5: 9.5 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        upstreamCalls += 1;
+        return new Response(
+          JSON.stringify({
+            utc_offset_seconds: 25200,
+            current: {
+              time: '2026-11-25T10:00',
+              temperature_2m: 26 + upstreamCalls,
+              relative_humidity_2m: 68,
+              apparent_temperature: 28,
+              is_day: 1,
+              precipitation: 0,
+              precipitation_probability: 10,
+              weather_code: 1,
+              wind_speed_10m: 11,
+              wind_gusts_10m: 16,
+              uv_index: 5,
+            },
+            hourly: {
+              time: ['2026-11-25T11:00', '2026-11-25T12:00'],
+              temperature_2m: [27, 28],
+              relative_humidity_2m: [65, 62],
+              precipitation_probability: [10, 15],
+              precipitation: [0, 0],
+              weather_code: [1, 2],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      },
+    });
+
+    const { baseUrl: swrBaseUrl } = await swrServer.start(0, '127.0.0.1');
+    try {
+      const assetUrl = `${swrBaseUrl}/_expo/static/js/web/app-test.js`;
+      const brRes = await fetch(assetUrl, {
+        headers: { 'Accept-Encoding': 'br, gzip' },
+      });
+      assert.equal(brRes.status, 200);
+      assert.equal(brRes.headers.get('content-encoding'), 'br');
+      assert.equal(brRes.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+      const etag = brRes.headers.get('etag');
+      assert.ok(etag && etag.startsWith('W/"'));
+      const decodedJs = await brRes.text();
+      assert.equal(decodedJs, sampleJs);
+
+      const notModRes = await fetch(assetUrl, {
+        headers: { 'If-None-Match': etag },
+      });
+      assert.equal(notModRes.status, 304);
+
+      // 3. Stale-While-Revalidate: 1st call misses -> wait >35ms -> 2nd call returns stale immediately & refreshes in background
+      const wUrl = `${swrBaseUrl}/api/weather?lat=10.8231&lon=106.6297&locationName=TP.%20HCM`;
+      const firstW = await (await fetch(wUrl)).json();
+      assert.equal(firstW.cacheHit, false);
+      assert.equal(firstW.snapshot.temperatureC, 27);
+
+      await new Promise((r) => setTimeout(r, 55));
+      const secondW = await (await fetch(wUrl)).json();
+      assert.equal(secondW.cacheHit, true);
+      assert.equal(secondW.staleRevalidating, true);
+      assert.equal(secondW.snapshot.temperatureC, 27);
+
+      await new Promise((r) => setTimeout(r, 40));
+      const thirdW = await (await fetch(wUrl)).json();
+      assert.equal(thirdW.cacheHit, true);
+      assert.equal(thirdW.snapshot.temperatureC, 28);
+
+      // 4. Same-origin /api/map-tile PNG proxy + 304 Not Modified
+      const badTileRes = await fetch(`${swrBaseUrl}/api/map-tile?z=99&x=0&y=0`);
+      assert.equal(badTileRes.status, 400);
+      const tileRes = await fetch(`${swrBaseUrl}/api/map-tile?z=7&x=100&y=60`);
+      assert.equal(tileRes.status, 200);
+      assert.equal(tileRes.headers.get('content-type'), 'image/png');
+      const tileEtag = tileRes.headers.get('etag');
+      const tile304 = await fetch(`${swrBaseUrl}/api/map-tile?z=7&x=100&y=60`, {
+        headers: { 'If-None-Match': tileEtag },
+      });
+      assert.equal(tile304.status, 304);
+    } finally {
+      await swrServer.shutdown();
+      await fs.rm(tmpDist, { recursive: true, force: true });
+    }
+  });
 });

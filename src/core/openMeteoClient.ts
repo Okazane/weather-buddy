@@ -1,5 +1,5 @@
-import type { HourlyForecastPoint, WeatherSnapshot } from './types';
-import { inferAstronomicalDaytime } from './solarTime';
+import type { DailyForecastPoint, HourlyForecastPoint, WeatherSnapshot } from './types';
+import { computeDewPointC, computeSolarAndMoonCycle, inferAstronomicalDaytime } from './solarTime';
 import { pm25ToUsAqi } from './weatherApiClient';
 
 const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
@@ -11,11 +11,14 @@ interface OpenMeteoForecastResponse {
     time?: string;
     temperature_2m?: number;
     relative_humidity_2m?: number;
+    dew_point_2m?: number;
     apparent_temperature?: number;
     is_day?: number;
     precipitation?: number;
     precipitation_probability?: number;
     weather_code?: number;
+    surface_pressure?: number;
+    visibility?: number;
     wind_speed_10m?: number;
     wind_gusts_10m?: number;
     uv_index?: number;
@@ -29,6 +32,17 @@ interface OpenMeteoForecastResponse {
     weather_code?: number[];
     uv_index?: number[];
   };
+  daily?: {
+    time?: string[];
+    weather_code?: number[];
+    temperature_2m_max?: number[];
+    temperature_2m_min?: number[];
+    precipitation_sum?: number[];
+    precipitation_probability_max?: number[];
+    uv_index_max?: number[];
+    sunrise?: string[];
+    sunset?: string[];
+  };
   minutely_15?: {
     time?: string[];
     precipitation?: number[];
@@ -39,7 +53,14 @@ interface OpenMeteoAirQualityResponse {
   current?: {
     us_aqi?: number | null;
     pm2_5?: number | null;
+    pm10?: number | null;
   };
+}
+
+export interface OpenMeteoAirQualityDetails {
+  aqi?: number;
+  pm25?: number;
+  pm10?: number;
 }
 
 function round1(val: number): number {
@@ -165,43 +186,59 @@ export function mapWmoWeatherCode(
   }
 }
 
+export async function fetchOpenMeteoAqiDetails(
+  lat: number,
+  lon: number,
+  fetchImpl: typeof fetch = fetch
+): Promise<OpenMeteoAirQualityDetails> {
+  try {
+    const aqiParams = new URLSearchParams({
+      latitude: String(lat),
+      longitude: String(lon),
+      current: 'us_aqi,pm2_5,pm10',
+    });
+    const res = await fetchImpl(`${OPEN_METEO_AIR_QUALITY_URL}?${aqiParams.toString()}`);
+    if (!res.ok) return {};
+    const data = (await res.json()) as OpenMeteoAirQualityResponse;
+    const rawAqi = data?.current?.us_aqi;
+    const rawPm25 = data?.current?.pm2_5;
+    const rawPm10 = data?.current?.pm10;
+    const validRawAqi =
+      typeof rawAqi === 'number' && Number.isFinite(rawAqi) ? rawAqi : undefined;
+    const pm25 =
+      typeof rawPm25 === 'number' && Number.isFinite(rawPm25) && rawPm25 >= 0
+        ? round1(rawPm25)
+        : undefined;
+    const pm10 =
+      typeof rawPm10 === 'number' && Number.isFinite(rawPm10) && rawPm10 >= 0
+        ? round1(rawPm10)
+        : undefined;
+    const pm25Aqi = pm25 !== undefined ? pm25ToUsAqi(pm25) : undefined;
+
+    let aqi: number | undefined;
+    if (pm25Aqi !== undefined) {
+      if (validRawAqi !== undefined && validRawAqi - pm25Aqi > 22) {
+        aqi = Math.max(0, Math.round(pm25Aqi * 0.8 + validRawAqi * 0.2));
+      } else {
+        aqi = Math.max(0, Math.max(pm25Aqi, Math.round(validRawAqi ?? pm25Aqi)));
+      }
+    } else if (validRawAqi !== undefined) {
+      aqi = Math.max(0, Math.round(validRawAqi));
+    }
+
+    return { aqi, pm25, pm10 };
+  } catch {
+    return {};
+  }
+}
+
 export async function fetchOpenMeteoAqi(
   lat: number,
   lon: number,
   fetchImpl: typeof fetch = fetch
 ): Promise<number | undefined> {
-  try {
-    const aqiParams = new URLSearchParams({
-      latitude: String(lat),
-      longitude: String(lon),
-      current: 'us_aqi,pm2_5',
-    });
-    const res = await fetchImpl(`${OPEN_METEO_AIR_QUALITY_URL}?${aqiParams.toString()}`);
-    if (!res.ok) return undefined;
-    const data = (await res.json()) as OpenMeteoAirQualityResponse;
-    const rawAqi = data?.current?.us_aqi;
-    const rawPm25 = data?.current?.pm2_5;
-    const validRawAqi =
-      typeof rawAqi === 'number' && Number.isFinite(rawAqi) ? rawAqi : undefined;
-    const pm25Aqi =
-      typeof rawPm25 === 'number' && Number.isFinite(rawPm25)
-        ? pm25ToUsAqi(rawPm25)
-        : undefined;
-
-    if (pm25Aqi !== undefined) {
-      if (validRawAqi !== undefined && validRawAqi - pm25Aqi > 22) {
-        return Math.max(0, Math.round(pm25Aqi * 0.8 + validRawAqi * 0.2));
-      }
-      return Math.max(0, Math.max(pm25Aqi, Math.round(validRawAqi ?? pm25Aqi)));
-    }
-
-    if (validRawAqi !== undefined) {
-      return Math.max(0, Math.round(validRawAqi));
-    }
-    return undefined;
-  } catch {
-    return undefined;
-  }
+  const details = await fetchOpenMeteoAqiDetails(lat, lon, fetchImpl);
+  return details.aqi;
 }
 
 export async function fetchOpenMeteoWeather(
@@ -216,11 +253,14 @@ export async function fetchOpenMeteoWeather(
     current: [
       'temperature_2m',
       'relative_humidity_2m',
+      'dew_point_2m',
       'apparent_temperature',
       'is_day',
       'precipitation',
       'precipitation_probability',
       'weather_code',
+      'surface_pressure',
+      'visibility',
       'wind_speed_10m',
       'wind_gusts_10m',
       'uv_index',
@@ -232,15 +272,25 @@ export async function fetchOpenMeteoWeather(
       'precipitation',
       'weather_code',
     ].join(','),
+    daily: [
+      'weather_code',
+      'temperature_2m_max',
+      'temperature_2m_min',
+      'precipitation_sum',
+      'precipitation_probability_max',
+      'uv_index_max',
+      'sunrise',
+      'sunset',
+    ].join(','),
     minutely_15: 'precipitation',
     forecast_minutely_15: '2',
-    forecast_days: '2',
+    forecast_days: '7',
     timezone: 'auto',
   });
 
-  const [forecastRes, aqi] = await Promise.all([
+  const [forecastRes, aqiDetails] = await Promise.all([
     fetchImpl(`${OPEN_METEO_FORECAST_URL}?${forecastParams.toString()}`),
-    fetchOpenMeteoAqi(lat, lon, fetchImpl),
+    fetchOpenMeteoAqiDetails(lat, lon, fetchImpl),
   ]);
 
   if (!forecastRes.ok) {
@@ -262,6 +312,19 @@ export async function fetchOpenMeteoWeather(
   const temperatureC = round1(current.temperature_2m ?? 25);
   const feelsLikeC = round1(current.apparent_temperature ?? temperatureC);
   const humidityPct = clampPct(current.relative_humidity_2m ?? 70);
+  const dewPointC =
+    typeof current.dew_point_2m === 'number' && Number.isFinite(current.dew_point_2m)
+      ? round1(current.dew_point_2m)
+      : computeDewPointC(temperatureC, humidityPct);
+  const surfacePressureHpa =
+    typeof current.surface_pressure === 'number' && Number.isFinite(current.surface_pressure)
+      ? round1(current.surface_pressure)
+      : undefined;
+  const visibilityKm =
+    typeof current.visibility === 'number' && Number.isFinite(current.visibility)
+      ? round1(current.visibility / 1000)
+      : undefined;
+  const solarCycle = computeSolarAndMoonCycle(updatedAtIso, lat, lon, data.utc_offset_seconds);
   const windSpeedKmh = Math.max(0, round1(current.wind_speed_10m ?? 0));
   const windGustKmh = Math.max(windSpeedKmh, round1(current.wind_gusts_10m ?? windSpeedKmh));
   const uvIndex = Math.max(0, round1(current.uv_index ?? 0));
@@ -319,6 +382,43 @@ export async function fetchOpenMeteoWeather(
     });
   }
 
+  const dailyTimes = data.daily?.time ?? [];
+  const dailyCodes = data.daily?.weather_code ?? [];
+  const dailyMaxs = data.daily?.temperature_2m_max ?? [];
+  const dailyMins = data.daily?.temperature_2m_min ?? [];
+  const dailySums = data.daily?.precipitation_sum ?? [];
+  const dailyProbs = data.daily?.precipitation_probability_max ?? [];
+  const dailyUvs = data.daily?.uv_index_max ?? [];
+  const dailySunrises = data.daily?.sunrise ?? [];
+  const dailySunsets = data.daily?.sunset ?? [];
+
+  const extractHm = (raw?: string): string | undefined => {
+    if (!raw) return undefined;
+    const m = raw.match(/T(\d{2}:\d{2})/);
+    return m ? m[1] : undefined;
+  };
+
+  const daily: DailyForecastPoint[] = dailyTimes.slice(0, 7).map((dateStr, idx) => {
+    const mapped = mapWmoWeatherCode(dailyCodes[idx], true);
+    const tMax = round1(dailyMaxs[idx] ?? temperatureC + 2);
+    const tMin = round1(dailyMins[idx] ?? temperatureC - 3);
+    return {
+      dateIso: String(dateStr).slice(0, 10),
+      tempMinC: Math.min(tMin, tMax),
+      tempMaxC: Math.max(tMin, tMax),
+      precipProbMaxPct: clampPct(dailyProbs[idx] ?? 0),
+      precipSumMm: Math.max(0, round1(dailySums[idx] ?? 0)),
+      uvIndexMax:
+        typeof dailyUvs[idx] === 'number' && Number.isFinite(dailyUvs[idx])
+          ? Math.max(0, round1(dailyUvs[idx]))
+          : undefined,
+      conditionCode: mapped.conditionCode,
+      conditionTextVi: mapped.conditionTextVi,
+      sunriseTimeVi: extractHm(dailySunrises[idx]),
+      sunsetTimeVi: extractHm(dailySunsets[idx]),
+    };
+  });
+
   const snapshot: WeatherSnapshot = {
     provider: 'open_meteo',
     locationName,
@@ -328,6 +428,9 @@ export async function fetchOpenMeteoWeather(
     temperatureC,
     feelsLikeC,
     humidityPct,
+    dewPointC,
+    surfacePressureHpa,
+    visibilityKm,
     windSpeedKmh,
     windGustKmh,
     uvIndex,
@@ -335,15 +438,25 @@ export async function fetchOpenMeteoWeather(
     precipProbPct,
     conditionText: conditionTextVi,
     isDay,
+    sunriseTimeVi: daily[0]?.sunriseTimeVi ?? solarCycle.sunriseTimeVi,
+    sunsetTimeVi: daily[0]?.sunsetTimeVi ?? solarCycle.sunsetTimeVi,
+    moonPhaseVi: solarCycle.moonPhaseVi,
     hourly,
+    ...(daily.length > 0 ? { daily } : {}),
   };
 
   if (typeof data.utc_offset_seconds === 'number' && Number.isFinite(data.utc_offset_seconds)) {
     snapshot.utcOffsetSeconds = data.utc_offset_seconds;
   }
 
-  if (typeof aqi === 'number') {
-    snapshot.aqi = aqi;
+  if (typeof aqiDetails.aqi === 'number') {
+    snapshot.aqi = aqiDetails.aqi;
+  }
+  if (typeof aqiDetails.pm25 === 'number') {
+    snapshot.pm25 = aqiDetails.pm25;
+  }
+  if (typeof aqiDetails.pm10 === 'number') {
+    snapshot.pm10 = aqiDetails.pm10;
   }
 
   return snapshot;

@@ -11,6 +11,7 @@ import {
 import {
   PRESET_CITIES,
   type Gender,
+  type PresetCity,
   type WeatherSnapshot,
 } from '../core';
 import {
@@ -21,7 +22,7 @@ import {
   type LucianTabOption,
 } from '../lucian/LucianNavComponents';
 import { injectLucianElementCss } from '../lucian/lucianTokens';
-import { ArrowsClockwise, Crosshair, GearSix } from './AppIcons';
+import { ArrowsClockwise, Broadcast, Crosshair, GearSix } from './AppIcons';
 import {
   FONT_FAMILY_SANS,
   WEB_NO_OUTLINE,
@@ -38,17 +39,24 @@ export interface TopControlBarProps {
   gender: Gender;
   onSelectGender: (gender: Gender) => void;
   selectedCityId: string;
+  customCity?: PresetCity | null;
+  favoriteCities?: ReadonlyArray<PresetCity>;
   activeWeather: WeatherSnapshot;
   isLiveMode: boolean;
   isLoadingLive: boolean;
   gpsLoading: boolean;
   gpsSource?: 'gps' | 'ip' | null;
   onSelectPresetCity: (cityId: string) => void;
+  onSelectCustomCity?: (city: PresetCity) => void;
+  onToggleFavoriteCity?: (city: PresetCity) => void;
   onRequestGps: () => void;
   onRefreshLive: () => void;
   onOpenSettings: () => void;
   themeMode?: AppThemeMode;
   onSelectThemeMode?: (mode: AppThemeMode) => void;
+  alertsSupported?: boolean;
+  alertsEnabled?: boolean;
+  onToggleAlerts?: () => void;
 }
 
 const TOP_BAR_WEB_CSS_ID = 'weather-buddy-top-control-css';
@@ -66,6 +74,7 @@ const TOP_BAR_WEB_CSS = `
 .wb-icon-btn:active{transform:scale(.94)}
 .wb-icon-btn:focus-visible{outline:2px solid var(--wb-accent,var(--ux-accent));outline-offset:2px}
 .wb-icon-btn.is-busy{color:var(--wb-accent,var(--ux-accent))}
+.wb-icon-btn.is-active{background:var(--wb-pill-active,var(--ux-ink));color:var(--wb-pill-active-ink,var(--ux-page));box-shadow:0 8px 18px -10px var(--ux-shadow-strong)}
 @keyframes wb-spin{to{transform:rotate(360deg)}}
 .wb-icon-btn.is-busy svg{animation:wb-spin .9s linear infinite}
 @media (max-width:440px){
@@ -90,17 +99,24 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
   gender,
   onSelectGender,
   selectedCityId,
+  customCity = null,
+  favoriteCities = [],
   activeWeather,
   isLiveMode,
   isLoadingLive,
   gpsLoading,
   gpsSource = null,
   onSelectPresetCity,
+  onSelectCustomCity,
+  onToggleFavoriteCity,
   onRequestGps,
   onRefreshLive,
   onOpenSettings,
   themeMode = 'auto',
   onSelectThemeMode,
+  alertsSupported = false,
+  alertsEnabled = false,
+  onToggleAlerts,
 }) => {
   const { width } = useWindowDimensions();
   const isCompactTabs = width < 720;
@@ -242,11 +258,15 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
           >
             <LucianCityListbox
               cities={PRESET_CITIES}
+              customCity={customCity}
+              favoriteCities={favoriteCities}
               selectedCityId={selectedCityId}
               locationLabel={activeWeather.locationName}
               isLiveMode={isLiveMode}
               isGpsActive={isGpsActive}
               onSelectCity={onSelectPresetCity}
+              onSelectCustomCity={onSelectCustomCity}
+              onToggleFavoriteCity={onToggleFavoriteCity}
               onRequestGps={onRequestGps}
               gpsLoading={gpsLoading}
               gpsSource={gpsSource}
@@ -261,6 +281,26 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                   className="ux"
                   style={{ ...webControlVars, display: 'inline-flex', gap: 6 }}
                 >
+                  {alertsSupported && onToggleAlerts && (
+                    <button
+                      type="button"
+                      className={`wb-icon-btn${alertsEnabled ? ' is-active' : ''}`}
+                      aria-pressed={alertsEnabled}
+                      aria-label={
+                        alertsEnabled
+                          ? 'Tắt thông báo cảnh báo thời tiết'
+                          : 'Bật thông báo cảnh báo khi sắp mưa / bụi mịn cao'
+                      }
+                      title={
+                        alertsEnabled
+                          ? 'Đang bật cảnh báo thời tiết chủ động (bấm để tắt)'
+                          : 'Bật thông báo đẩy khi sắp mưa, UV cao hoặc bụi mịn vượt ngưỡng'
+                      }
+                      onClick={onToggleAlerts}
+                    >
+                      <Broadcast size={16} weight={alertsEnabled ? 'fill' : 'duotone'} color="currentColor" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={`wb-icon-btn${isLoadingLive ? ' is-busy' : ''}`}
@@ -475,6 +515,26 @@ export const TopControlBar: React.FC<TopControlBarProps> = ({
                 className="ux"
                 style={{ ...webControlVars, display: 'inline-flex', gap: 8 }}
               >
+                {alertsSupported && onToggleAlerts && (
+                  <button
+                    type="button"
+                    className={`wb-icon-btn${alertsEnabled ? ' is-active' : ''}`}
+                    aria-pressed={alertsEnabled}
+                    aria-label={
+                      alertsEnabled
+                        ? 'Tắt thông báo cảnh báo thời tiết'
+                        : 'Bật thông báo cảnh báo khi sắp mưa / bụi mịn cao'
+                    }
+                    title={
+                      alertsEnabled
+                        ? 'Đang bật cảnh báo thời tiết chủ động (bấm để tắt)'
+                        : 'Bật thông báo đẩy khi sắp mưa, UV cao hoặc bụi mịn vượt ngưỡng'
+                    }
+                    onClick={onToggleAlerts}
+                  >
+                    <Broadcast size={16} weight={alertsEnabled ? 'fill' : 'duotone'} color="currentColor" />
+                  </button>
+                )}
                 <button
                   type="button"
                   className={`wb-icon-btn${isLoadingLive ? ' is-busy' : ''}`}

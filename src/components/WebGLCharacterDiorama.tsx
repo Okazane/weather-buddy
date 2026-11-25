@@ -569,8 +569,16 @@ export const WebGLCharacterDiorama: React.FC<WebGLCharacterDioramaProps> = ({
     charTexture.magFilter = THREE.LinearFilter;
     charTexture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 
-    const { geometry: charGeo, basePositions: charBasePos } =
+    const { geometry: charGeo } =
       createFootAnchoredReliefGeometry(2.08, 2.08, 24, 24, 0.14);
+
+    // GPU Vertex Shader uniforms: zero CPU vertex loop & zero per-frame buffer upload
+    const charWindUniforms = {
+      uWindBendX: { value: 0 },
+      uWindBendZ: { value: 0 },
+      uUpperTiltX: { value: 0 },
+      uUpperLiftZ: { value: 0 },
+    };
 
     const charMat = new THREE.MeshStandardMaterial({
       map: charTexture,
@@ -580,6 +588,22 @@ export const WebGLCharacterDiorama: React.FC<WebGLCharacterDioramaProps> = ({
       metalness: 0.04,
       side: THREE.DoubleSide,
     });
+    charMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uWindBendX = charWindUniforms.uWindBendX;
+      shader.uniforms.uWindBendZ = charWindUniforms.uWindBendZ;
+      shader.uniforms.uUpperTiltX = charWindUniforms.uUpperTiltX;
+      shader.uniforms.uUpperLiftZ = charWindUniforms.uUpperLiftZ;
+      shader.vertexShader =
+        `uniform float uWindBendX;\nuniform float uWindBendZ;\nuniform float uUpperTiltX;\nuniform float uUpperLiftZ;\n` +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+          float wbHFactor = clamp(position.y / 1.95, 0.0, 1.0);
+          float wbUpperFactor = max(0.0, (wbHFactor - 0.38) / 0.62);
+          transformed.x += wbHFactor * wbHFactor * uWindBendX + wbUpperFactor * uUpperTiltX;
+          transformed.z += wbHFactor * uWindBendZ + wbUpperFactor * uUpperLiftZ;`
+        );
+    };
     const characterMesh = new THREE.Mesh(charGeo, charMat);
     characterMesh.position.set(0, pedestalY + 0.025, 0.02);
     turntableGroup.add(characterMesh);
@@ -1159,39 +1183,19 @@ export const WebGLCharacterDiorama: React.FC<WebGLCharacterDioramaProps> = ({
         characterMesh.rotation.z = swayRad;
         characterMesh.rotation.x = 0;
 
-        // Subtle vertex deformation for upper-body wind sway, head-pat tilt, and cheek-poke wiggle
-        const posAttr = charGeo.attributes.position as THREE.BufferAttribute;
-        const arr = posAttr.array as Float32Array;
+        // GPU-accelerated vertex shader uniforms (0% CPU vertex loop & 0 PCIe buffer uploads)
         const headTiltX =
           headPatRem > 0 ? Math.sin(elapsedSec * 7.5) * 0.055 * headPatRem : 0;
         const cheekWiggleX =
           cheekPokeRem > 0 ? Math.sin(elapsedSec * 18) * 0.065 * cheekPokeRem : 0;
-        const windBendX = p.reduceMotion
+        charWindUniforms.uWindBendX.value = p.reduceMotion
           ? 0
           : Math.sin(elapsedSec * 2.5) * windNorm * 0.032;
-        const windBendZ = p.reduceMotion
+        charWindUniforms.uWindBendZ.value = p.reduceMotion
           ? 0
           : Math.cos(elapsedSec * 2.1) * windNorm * 0.022;
-
-        for (let i = 0; i < posAttr.count; i += 1) {
-          const idx = i * 3;
-          const bx = charBasePos[idx];
-          const by = charBasePos[idx + 1];
-          const bz = charBasePos[idx + 2];
-          const hFactor = Math.max(0, Math.min(1, by / 1.95));
-          const upperFactor = Math.max(0, (hFactor - 0.38) / 0.62);
-
-          arr[idx] =
-            bx +
-            hFactor * hFactor * windBendX +
-            upperFactor * (headTiltX + cheekWiggleX);
-          arr[idx + 1] = by;
-          arr[idx + 2] =
-            bz +
-            hFactor * windBendZ +
-            upperFactor * (Math.abs(headTiltX) * 0.35);
-        }
-        posAttr.needsUpdate = true;
+        charWindUniforms.uUpperTiltX.value = headTiltX + cheekWiggleX;
+        charWindUniforms.uUpperLiftZ.value = Math.abs(headTiltX) * 0.35;
 
         // Composite 768x768 Pop Mart Studio Texture + Blush (pure open studio 3D eyes)
         const isWearingSunglasses = p.sceneId === 'hot_sunny';
@@ -1486,18 +1490,19 @@ export const WebGLCharacterDiorama: React.FC<WebGLCharacterDioramaProps> = ({
       }
 
       renderer.render(scene, camera);
-      if (typeof document === 'undefined' || !document.hidden) {
+      if (isInViewport && (typeof document === 'undefined' || !document.hidden)) {
         rafId = requestAnimationFrame(tick);
       } else {
         rafId = null;
       }
     };
 
-    const onVisibilityChange = () => {
-      if (!mounted || typeof document === 'undefined') {
-        return;
-      }
-      if (document.hidden) {
+    let isInViewport = true;
+    const syncAnimationState = () => {
+      if (!mounted) return;
+      const shouldRun =
+        isInViewport && (typeof document === 'undefined' || !document.hidden);
+      if (!shouldRun) {
         if (rafId !== null) {
           cancelAnimationFrame(rafId);
           rafId = null;
@@ -1509,6 +1514,25 @@ export const WebGLCharacterDiorama: React.FC<WebGLCharacterDioramaProps> = ({
       }
     };
 
+    const onVisibilityChange = () => {
+      syncAnimationState();
+    };
+
+    const intersectionObserver =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(
+            (entries) => {
+              const entry = entries[0];
+              if (entry) {
+                isInViewport = entry.isIntersecting;
+                syncAnimationState();
+              }
+            },
+            { threshold: 0.02 }
+          )
+        : null;
+    intersectionObserver?.observe(container);
+
     document.addEventListener('visibilitychange', onVisibilityChange);
     if (!document.hidden) {
       rafId = requestAnimationFrame(tick);
@@ -1519,6 +1543,7 @@ export const WebGLCharacterDiorama: React.FC<WebGLCharacterDioramaProps> = ({
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
+      intersectionObserver?.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);

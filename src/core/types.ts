@@ -39,6 +39,19 @@ export interface HourlyForecastPoint {
   conditionCode: string;
 }
 
+export interface DailyForecastPoint {
+  dateIso: string;
+  tempMinC: number;
+  tempMaxC: number;
+  precipProbMaxPct: number;
+  precipSumMm: number;
+  uvIndexMax?: number;
+  conditionCode: string;
+  conditionTextVi: string;
+  sunriseTimeVi?: string;
+  sunsetTimeVi?: string;
+}
+
 export interface WeatherVerificationMeta {
   primarySource: string;
   sourcesChecked: string[];
@@ -74,7 +87,16 @@ export interface WeatherSnapshot {
   conditionText: string;
   isDay: boolean;
   aqi?: number;
+  pm25?: number;
+  pm10?: number;
+  dewPointC?: number;
+  surfacePressureHpa?: number;
+  visibilityKm?: number;
+  sunriseTimeVi?: string;
+  sunsetTimeVi?: string;
+  moonPhaseVi?: string;
   hourly: HourlyForecastPoint[];
+  daily?: DailyForecastPoint[];
   verification?: WeatherVerificationMeta;
 }
 

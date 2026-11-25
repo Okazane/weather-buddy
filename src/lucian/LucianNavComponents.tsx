@@ -14,13 +14,16 @@ import {
 } from 'react-native';
 import {
   AppIcon,
+  BookmarkSimple,
   CaretDown,
   Crosshair,
+  MagnifyingGlass,
   MapPin,
   NavigationArrow,
   X,
   type AppIconName,
 } from '../components/AppIcons';
+import { resolveBackendBaseUrl } from '../hooks/useWeatherBuddy';
 import type { PresetCity } from '../core';
 import {
   FONT_FAMILY_SANS,
@@ -75,12 +78,23 @@ const LUCIAN_NAV_ELEMENTS_CSS = `
 .u031-v small{display:block;font-size:11px;line-height:1.15;color:var(--ux-ink-3,#53647D);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u031-car{width:17px;height:17px;flex:none;fill:none;stroke:var(--ux-ink-2,#36455C);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .45s var(--ux-spring)}
 .u031-btn[aria-expanded="true"] .u031-car{transform:rotate(180deg)}
-.u031-list{position:absolute;z-index:150;left:0;min-width:284px;max-width:calc(100vw - 24px);width:max(100%,308px);top:calc(100% + 8px);margin:0;padding:6px;list-style:none;border-radius:18px;background:var(--ux-surface);
+.u031-list{position:absolute;z-index:150;left:0;min-width:304px;max-width:calc(100vw - 24px);width:max(100%,332px);max-height:420px;overflow-y:auto;top:calc(100% + 8px);margin:0;padding:8px;list-style:none;border-radius:18px;background:var(--ux-surface);
   box-shadow:0 0 0 1px var(--ux-line-2),0 28px 56px -24px var(--ux-shadow-strong);transform-origin:50% 0;outline:none;
   opacity:0;transform:translateY(-6px) scaleY(.92);visibility:hidden;pointer-events:none;transition:opacity .2s var(--ux-ease),transform .4s var(--ux-spring),visibility 0s .4s}
 .u031-list.is-open{opacity:1;transform:none;visibility:visible;pointer-events:auto;transition:opacity .2s var(--ux-ease),transform .45s var(--ux-spring)}
-.u031-hl{position:absolute;left:6px;right:6px;top:6px;height:46px;border-radius:12px;background:var(--ux-surface-2);transform:translateY(calc(var(--i,0) * 46px));transition:transform .35s var(--ux-spring);pointer-events:none}
-.u031-o{position:relative;display:flex;align-items:center;gap:11px;height:46px;padding:0 10px;border-radius:12px;cursor:pointer;font-size:14px;font-weight:640;color:var(--ux-ink);user-select:none}
+.u031-search-box{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:6px;border-radius:12px;background:var(--ux-surface-2);box-shadow:inset 0 0 0 1px var(--ux-line-2)}
+.u031-search-inp{flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--ux-ink);font:inherit;font-size:13px;font-weight:600}
+.u031-search-inp::placeholder{color:var(--ux-ink-3);font-weight:500}
+.u031-search-clr{display:inline-grid;place-items:center;width:20px;height:20px;padding:0;border:0;border-radius:999px;background:var(--ux-surface-3);color:var(--ux-ink-2);cursor:pointer}
+.u031-sec-lbl{padding:5px 8px 3px;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ux-ink-3);user-select:none}
+.u031-fav-btn{margin-left:auto;display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--ux-ink-3);cursor:pointer;flex:none;transition:color .2s,background-color .2s,transform .2s}
+.u031-fav-btn:hover{background:var(--ux-surface-3);color:var(--ux-warn,#E5A23C);transform:scale(1.08)}
+.u031-fav-btn.is-fav{color:var(--ux-warn,#E5A23C)}
+.u031-empty{padding:12px 10px;font-size:12.5px;color:var(--ux-ink-3);text-align:center}
+.u031-hl{display:none}
+.u031-o{position:relative;display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:13.5px;font-weight:640;color:var(--ux-ink);user-select:none;transition:background-color .16s}
+.u031-o:hover,.u031-o.is-act{background:var(--ux-surface-2)}
+.u031-o[aria-selected="true"]{background:var(--ux-accent-soft)}
 .u031-o>span:not(.u031-flag){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u031-o .u031-flag{width:26px;height:26px;border-radius:8px;font-size:9.5px}
 .u031-o small{margin-left:2px;font-size:11.5px;font-weight:500;color:var(--ux-ink-3,#53647D);white-space:nowrap}
@@ -397,24 +411,48 @@ export function LucianViewTabs<T extends string>({
 
 export interface LucianCityListboxProps {
   cities: ReadonlyArray<PresetCity>;
+  customCity?: PresetCity | null;
+  favoriteCities?: ReadonlyArray<PresetCity>;
   selectedCityId: string;
   locationLabel: string;
   isLiveMode: boolean;
   isGpsActive: boolean;
   onSelectCity: (cityId: string) => void;
+  onSelectCustomCity?: (city: PresetCity) => void;
+  onToggleFavoriteCity?: (city: PresetCity) => void;
   onRequestGps: () => void;
   gpsLoading: boolean;
   gpsSource?: 'gps' | 'ip' | null;
   palette: AtmosphericPalette;
 }
 
+function makeInitialsBadge(nameVi: string): { code: string; gradient: string } {
+  const words = nameVi
+    .replace(/[^A-Za-zÀ-ỹĐđ0-9\s]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const code =
+    words.length >= 2
+      ? `${words[0][0]}${words[1][0]}`.toUpperCase()
+      : (words[0] ?? 'VN').slice(0, 2).toUpperCase();
+  return {
+    code,
+    gradient: 'linear-gradient(140deg,#25639E,#1E847F)',
+  };
+}
+
 export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
   cities,
+  customCity = null,
+  favoriteCities = [],
   selectedCityId,
   locationLabel,
   isLiveMode,
   isGpsActive,
   onSelectCity,
+  onSelectCustomCity,
+  onToggleFavoriteCity,
   onRequestGps,
   gpsLoading,
   gpsSource = null,
@@ -422,6 +460,10 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
 }) => {
   const listboxId = useId().replace(/:/g, '');
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PresetCity[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   const selectedPresetIndex = useMemo(
     () => cities.findIndex((c) => c.id === selectedCityId),
     [cities, selectedCityId]
@@ -438,6 +480,7 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
   const fieldRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const valueWrapRef = useRef<HTMLSpanElement | null>(null);
   const typedBufRef = useRef<string>('');
   const typedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -450,12 +493,89 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
     injectLucianElementCss(LUCIAN_NAV_STYLE_ID, LUCIAN_NAV_ELEMENTS_CSS);
   }, []);
 
+  // Debounced live Vietnamese & global place search
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        let items: PresetCity[] = [];
+        if (Platform.OS === 'web') {
+          const base = resolveBackendBaseUrl();
+          const res = await fetch(
+            `${base}/api/geocode-search?q=${encodeURIComponent(q)}&limit=8`
+          ).catch(() => null);
+          if (res?.ok) {
+            const body = (await res.json()) as { results?: PresetCity[] };
+            if (Array.isArray(body?.results)) {
+              items = body.results;
+            }
+          }
+        }
+        if (items.length === 0 && q.length >= 2) {
+          const omRes = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=vi&format=json`
+          ).catch(() => null);
+          if (omRes?.ok) {
+            const omBody = (await omRes.json()) as {
+              results?: Array<{
+                name?: string;
+                admin1?: string;
+                country?: string;
+                latitude?: number;
+                longitude?: number;
+              }>;
+            };
+            items = (omBody?.results ?? [])
+              .filter(
+                (r) =>
+                  typeof r.latitude === 'number' &&
+                  typeof r.longitude === 'number' &&
+                  Boolean(r.name)
+              )
+              .map((r) => {
+                const lat = Number((r.latitude as number).toFixed(4));
+                const lon = Number((r.longitude as number).toFixed(4));
+                return {
+                  id: `geo_${lat}_${lon}`,
+                  nameVi: String(r.name).trim(),
+                  regionVi: [r.admin1, r.country].filter(Boolean).join(' · ') || 'Quốc tế',
+                  latitude: lat,
+                  longitude: lon,
+                };
+              });
+          }
+        }
+        if (!cancelled) {
+          setSearchResults(items);
+          setActiveIndex(items.length > 0 ? 1 : 0);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSearching(false);
+        }
+      }
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
   useEffect(() => {
     setActiveIndex(selectedOptionIndex);
   }, [selectedOptionIndex]);
 
   const closeListbox = useCallback((refocusBtn: boolean) => {
     setIsOpen(false);
+    setSearchQuery('');
     if (refocusBtn && btnRef.current) {
       btnRef.current.focus({ preventScroll: true });
     }
@@ -465,7 +585,7 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
     setActiveIndex(selectedOptionIndex);
     setIsOpen(true);
     requestAnimationFrame(() => {
-      listRef.current?.focus({ preventScroll: true });
+      searchInputRef.current?.focus({ preventScroll: true });
     });
   }, [selectedOptionIndex]);
 
@@ -482,6 +602,49 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
     }
   }, []);
 
+  const displayedCities = useMemo<PresetCity[]>(() => {
+    if (searchQuery.trim()) {
+      return searchResults;
+    }
+    const dedup: PresetCity[] = [];
+    for (const fav of favoriteCities) {
+      dedup.push(fav);
+    }
+    for (const c of cities) {
+      if (!dedup.some((d) => d.id === c.id)) {
+        dedup.push(c);
+      }
+    }
+    return dedup;
+  }, [searchQuery, searchResults, favoriteCities, cities]);
+
+  const isCityFavorited = useCallback(
+    (city: PresetCity) =>
+      favoriteCities.some(
+        (f) =>
+          f.id === city.id ||
+          (Math.abs(f.latitude - city.latitude) < 0.04 &&
+            Math.abs(f.longitude - city.longitude) < 0.04)
+      ),
+    [favoriteCities]
+  );
+
+  const selectPlaceItem = useCallback(
+    (target: PresetCity) => {
+      const isPreset = cities.some((c) => c.id === target.id);
+      if (isPreset) {
+        onSelectCity(target.id);
+      } else if (onSelectCustomCity) {
+        onSelectCustomCity(target);
+      } else {
+        onSelectCity(target.id);
+      }
+      animateValueSelection();
+      closeListbox(true);
+    },
+    [animateValueSelection, cities, closeListbox, onSelectCity, onSelectCustomCity]
+  );
+
   const chooseOption = useCallback(
     (optionIdx: number) => {
       if (optionIdx === 0) {
@@ -491,16 +654,14 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
         closeListbox(true);
         return;
       }
-      const target = cities[optionIdx - 1];
+      const target = displayedCities[optionIdx - 1];
       if (!target) {
         return;
       }
       setActiveIndex(optionIdx);
-      onSelectCity(target.id);
-      animateValueSelection();
-      closeListbox(true);
+      selectPlaceItem(target);
     },
-    [animateValueSelection, cities, closeListbox, onRequestGps, onSelectCity]
+    [animateValueSelection, closeListbox, displayedCities, onRequestGps, selectPlaceItem]
   );
 
   useEffect(() => {
@@ -530,16 +691,18 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
   }, [closeListbox, isOpen]);
 
   const matchedPreset = selectedPresetIndex >= 0 ? cities[selectedPresetIndex] : null;
+  const matchedFavOrCustom =
+    favoriteCities.find((c) => c.id === selectedCityId) ??
+    (customCity && customCity.id === selectedCityId ? customCity : null);
   const activeBadge = isGpsActive
     ? { code: 'GPS', gradient: 'linear-gradient(140deg,#13845E,#1F7AB8)' }
     : !isLiveMode
       ? { code: 'MẪU', gradient: 'linear-gradient(140deg,#2A7AC9,#1E6BB8)' }
       : matchedPreset
-        ? CITY_BADGE_META[matchedPreset.id] ?? {
-            code: 'VN',
-            gradient: 'linear-gradient(140deg,#1E6BB8,#2A7AC9)',
-          }
-        : { code: 'VN', gradient: 'linear-gradient(140deg,#1E6BB8,#2A7AC9)' };
+        ? CITY_BADGE_META[matchedPreset.id] ?? makeInitialsBadge(matchedPreset.nameVi)
+        : matchedFavOrCustom
+          ? makeInitialsBadge(matchedFavOrCustom.nameVi)
+          : makeInitialsBadge(locationLabel);
 
   const subLabel = !isLiveMode
     ? 'Kịch bản thử nghiệm'
@@ -547,7 +710,7 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
       ? gpsSource === 'ip'
         ? 'Định vị tự động qua mạng'
         : 'Định vị GPS chính xác'
-      : matchedPreset?.regionVi ?? 'Việt Nam';
+      : matchedPreset?.regionVi ?? matchedFavOrCustom?.regionVi ?? 'Địa điểm đã chọn';
 
   if (Platform.OS !== 'web') {
     return (
@@ -647,21 +810,15 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
     );
   }
 
-  const handleListKeyDown = (e: React.KeyboardEvent<HTMLUListElement>) => {
-    const totalOptions = cities.length + 1;
+  const handleListKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    const totalOptions = displayedCities.length + 1;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setActiveIndex((prev) => Math.min(totalOptions - 1, prev + 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActiveIndex((prev) => Math.max(0, prev - 1));
-    } else if (e.key === 'Home') {
-      e.preventDefault();
-      setActiveIndex(0);
-    } else if (e.key === 'End') {
-      e.preventDefault();
-      setActiveIndex(totalOptions - 1);
-    } else if (e.key === 'Enter' || e.key === ' ') {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
       chooseOption(activeIndex);
     } else if (e.key === 'Escape') {
@@ -669,33 +826,6 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
       closeListbox(true);
     } else if (e.key === 'Tab') {
       closeListbox(false);
-    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      typedBufRef.current += normalizeTypeahead(e.key);
-      if (typedTimerRef.current) {
-        clearTimeout(typedTimerRef.current);
-      }
-      typedTimerRef.current = setTimeout(() => {
-        typedBufRef.current = '';
-      }, 600);
-      const query = typedBufRef.current;
-      if (
-        'vi tri hien tai'.startsWith(query) ||
-        'gps'.startsWith(query) ||
-        'tu dong'.startsWith(query)
-      ) {
-        setActiveIndex(0);
-        return;
-      }
-      const hit = cities.findIndex((city) => {
-        const badge = CITY_BADGE_META[city.id]?.code ?? '';
-        return (
-          normalizeTypeahead(city.nameVi).startsWith(query) ||
-          normalizeTypeahead(badge).startsWith(query)
-        );
-      });
-      if (hit >= 0) {
-        setActiveIndex(hit + 1);
-      }
     }
   };
 
@@ -760,15 +890,35 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
             }, 0);
           }}
         >
-          <li
-            className="u031-hl"
-            role="presentation"
-            aria-hidden="true"
-            style={{ '--i': activeIndex } as React.CSSProperties}
-          />
+          <li role="presentation" className="u031-search-box">
+            <MagnifyingGlass size={14} weight="bold" color="var(--ux-ink-3)" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="u031-search-inp"
+              value={searchQuery}
+              onChange={(ev) => setSearchQuery(ev.target.value)}
+              onKeyDown={handleListKeyDown}
+              placeholder="Tìm tỉnh thành, quận huyện, quốc tế..."
+              aria-label="Tìm kiếm địa điểm thời tiết"
+            />
+            {Boolean(searchQuery) && (
+              <button
+                type="button"
+                className="u031-search-clr"
+                aria-label="Xoá từ khoá"
+                onClick={() => {
+                  setSearchQuery('');
+                  searchInputRef.current?.focus();
+                }}
+              >
+                <X size={11} weight="bold" color="currentColor" />
+              </button>
+            )}
+          </li>
           <li
             id={`${listboxId}-opt-0`}
-            className="u031-o"
+            className={`u031-o${activeIndex === 0 ? ' is-act' : ''}`}
             role="option"
             aria-selected={isLiveMode && isGpsActive}
             onPointerMove={() => {
@@ -805,40 +955,92 @@ export const LucianCityListbox: React.FC<LucianCityListboxProps> = ({
               <path d="M4 9.5l3.5 3.5L14 6" />
             </svg>
           </li>
-          {cities.map((city, idx) => {
+
+          {!searchQuery.trim() && favoriteCities.length > 0 && (
+            <li role="presentation" className="u031-sec-lbl">
+              Địa điểm đã ghim ({favoriteCities.length})
+            </li>
+          )}
+          {Boolean(searchQuery.trim()) && (
+            <li role="presentation" className="u031-sec-lbl">
+              {isSearching
+                ? 'Đang tìm địa điểm...'
+                : `Kết quả tìm kiếm (${displayedCities.length})`}
+            </li>
+          )}
+          {Boolean(searchQuery.trim()) && !isSearching && displayedCities.length === 0 && (
+            <li role="presentation" className="u031-empty">
+              Không tìm thấy địa điểm phù hợp. Hãy thử gõ tên tỉnh/thành khác.
+            </li>
+          )}
+
+          {displayedCities.map((city, idx) => {
             const optionIdx = idx + 1;
-            const meta = CITY_BADGE_META[city.id] ?? {
-              code: 'VN',
-              gradient: 'linear-gradient(140deg,#1E6BB8,#2A7AC9)',
-            };
+            const showPresetHeader =
+              !searchQuery.trim() &&
+              favoriteCities.length > 0 &&
+              idx === favoriteCities.length;
+            const meta =
+              CITY_BADGE_META[city.id] ?? makeInitialsBadge(city.nameVi);
             const isSelected = isLiveMode && !isGpsActive && selectedCityId === city.id;
+            const isFav = isCityFavorited(city);
             return (
-              <li
-                key={city.id}
-                id={`${listboxId}-opt-${optionIdx}`}
-                className="u031-o"
-                role="option"
-                aria-selected={isSelected}
-                onPointerMove={() => {
-                  if (activeIndex !== optionIdx) {
-                    setActiveIndex(optionIdx);
-                  }
-                }}
-                onClick={() => chooseOption(optionIdx)}
-              >
-                <span
-                  className="u031-flag"
-                  style={{ '--c': meta.gradient } as React.CSSProperties}
-                  aria-hidden="true"
+              <React.Fragment key={city.id}>
+                {showPresetHeader && (
+                  <li role="presentation" className="u031-sec-lbl">
+                    Thành phố phổ biến
+                  </li>
+                )}
+                <li
+                  id={`${listboxId}-opt-${optionIdx}`}
+                  className={`u031-o${activeIndex === optionIdx ? ' is-act' : ''}`}
+                  role="option"
+                  aria-selected={isSelected}
+                  onPointerMove={() => {
+                    if (activeIndex !== optionIdx) {
+                      setActiveIndex(optionIdx);
+                    }
+                  }}
+                  onClick={() => chooseOption(optionIdx)}
                 >
-                  {meta.code}
-                </span>
-                <span>{city.nameVi}</span>
-                <small>{city.regionVi}</small>
-                <svg className="u031-ck" viewBox="0 0 18 18" aria-hidden="true">
-                  <path d="M4 9.5l3.5 3.5L14 6" />
-                </svg>
-              </li>
+                  <span
+                    className="u031-flag"
+                    style={{ '--c': meta.gradient } as React.CSSProperties}
+                    aria-hidden="true"
+                  >
+                    {meta.code}
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {city.nameVi}
+                    </span>
+                    <small style={{ marginLeft: 0, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {city.regionVi}
+                    </small>
+                  </span>
+                  {onToggleFavoriteCity && (
+                    <button
+                      type="button"
+                      className={`u031-fav-btn${isFav ? ' is-fav' : ''}`}
+                      title={isFav ? 'Bỏ ghim địa điểm' : 'Ghim vào yêu thích'}
+                      aria-label={isFav ? `Bỏ ghim ${city.nameVi}` : `Ghim ${city.nameVi}`}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onToggleFavoriteCity(city);
+                      }}
+                    >
+                      <BookmarkSimple
+                        size={14}
+                        weight={isFav ? 'fill' : 'regular'}
+                        color="currentColor"
+                      />
+                    </button>
+                  )}
+                  <svg className="u031-ck" viewBox="0 0 18 18" aria-hidden="true" style={{ marginLeft: 2 }}>
+                    <path d="M4 9.5l3.5 3.5L14 6" />
+                  </svg>
+                </li>
+              </React.Fragment>
             );
           })}
         </ul>

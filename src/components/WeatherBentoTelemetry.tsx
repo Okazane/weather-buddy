@@ -6,9 +6,11 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import type {
-  CharacterDecision,
-  WeatherSnapshot,
+import {
+  computeDewPointC,
+  evaluateNomAmStatus,
+  type CharacterDecision,
+  type WeatherSnapshot,
 } from '../core';
 import {
   LucianGlowingBento228,
@@ -257,6 +259,17 @@ export const WeatherBentoTelemetry: React.FC<WeatherBentoTelemetryProps> = React
     const uvMeta = describeUvVi(weather.uvIndex, weather.isDay, roles);
     const diffTemp = Math.round(weather.feelsLikeC - weather.temperatureC);
     const humidity = Math.round(weather.humidityPct);
+    const dewPoint =
+      typeof weather.dewPointC === 'number'
+        ? weather.dewPointC
+        : computeDewPointC(weather.temperatureC, humidity);
+    const nomStatus = evaluateNomAmStatus(weather.temperatureC, humidity, dewPoint);
+    const pmSubLabel =
+      typeof weather.pm25 === 'number'
+        ? ` · PM2.5: ${weather.pm25.toFixed(1)} µg/m³${
+            typeof weather.pm10 === 'number' ? ` · PM10: ${Math.round(weather.pm10)}` : ''
+          }`
+        : '';
 
     const feelsAccentColor =
       weather.feelsLikeC >= 38
@@ -294,19 +307,20 @@ export const WeatherBentoTelemetry: React.FC<WeatherBentoTelemetryProps> = React
       {
         id: 'temp',
         iconKey: 'temp',
-        label: 'Nhiệt độ & Độ ẩm không khí',
+        label: 'Nhiệt độ, Độ ẩm & Điểm sương',
         value: `${weather.temperatureC.toFixed(1).replace(/\.0$/, '')}°C`,
-        badge: `Độ ẩm ${humidity}%`,
+        badge: `Ẩm ${humidity}% · Đ.sương ${dewPoint.toFixed(1)}°`,
         detail:
-          humidity >= 80
-            ? 'Ẩm cao dễ bí · Mặc vải thoáng mồ hôi'
-            : humidity <= 45
-              ? 'Khô hanh · Uống thêm nước, dưỡng ẩm'
-              : 'Độ ẩm cân bằng · Mặc gọn nhẹ thoải mái',
-        explainVi:
-          'Nhiệt độ không khí đo tại cao độ 2 mét; độ ẩm tương đối (%) cho biết lượng hơi nước trong không khí (trên 80% gây cảm giác nồm ẩm, lâu khô mồ hôi).',
+          nomStatus.level === 'severe_nom'
+            ? `${nomStatus.badgeVi} · Đóng kín cửa, bật hút ẩm / Dry`
+            : humidity >= 80
+              ? 'Ẩm cao dễ bí · Mặc vải thoáng mồ hôi'
+              : humidity <= 45
+                ? 'Khô hanh · Uống thêm nước, dưỡng ẩm'
+                : 'Khô ráo cân bằng · Không lo nồm ẩm',
+        explainVi: `${nomStatus.adviceVi} Điểm sương (°C) là ngưỡng nhiệt độ mà hơi nước bắt đầu ngưng tụ đọng giọt trên sàn nhà, tường và gương.`,
         progressPct: Math.max(15, Math.min(100, ((weather.temperatureC + 5) / 48) * 100)),
-        accentColor: roles.normal,
+        accentColor: nomStatus.level === 'severe_nom' ? roles.caution : roles.normal,
       },
       {
         id: 'feels',
@@ -376,12 +390,14 @@ export const WeatherBentoTelemetry: React.FC<WeatherBentoTelemetryProps> = React
       {
         id: 'aqi',
         iconKey: 'aqi',
-        label: 'Độ sạch không khí (Bụi mịn)',
+        label: 'Độ sạch không khí (AQI & PM2.5)',
         value: aqiMeta.valueLabel,
-        badge: aqiMeta.badge,
-        detail: aqiMeta.note,
-        explainVi:
-          'Thang đo độ sạch không khí theo nồng độ bụi mịn PM2.5 và khí thải (0–500): 0–50 Trong lành · 51–100 Trung bình · 101–150 Kém cho người nhạy cảm · Trên 150 Ô nhiễm cao.',
+        badge:
+          typeof weather.pm25 === 'number'
+            ? `PM2.5 ${weather.pm25.toFixed(1)} µg/m³`
+            : aqiMeta.badge,
+        detail: `${aqiMeta.badge}${pmSubLabel ? ` (${aqiMeta.note.split('·')[0].trim()})` : ` · ${aqiMeta.note}`}`,
+        explainVi: `Thang US AQI (0–500) kết hợp nồng độ bụi mịn siêu nhỏ PM2.5 (µg/m³) và PM10${pmSubLabel}. Khi PM2.5 vượt 35.5 µg/m³ (AQI > 100), nên đeo khẩu trang đạt chuẩn lọc bụi mịn khi ra đường.`,
         progressPct: aqiMeta.pct,
         accentColor: aqiMeta.accentColor,
       },

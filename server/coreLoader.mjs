@@ -17,6 +17,12 @@ if (!globalThis[TS_HOOK_SYMBOL]) {
         throw err;
       }
     },
+    load(url, context, nextLoad) {
+      if (url.endsWith('.ts') || url.endsWith('.tsx')) {
+        return nextLoad(url, { ...context, format: 'module-typescript' });
+      }
+      return nextLoad(url, context);
+    },
   });
   globalThis[TS_HOOK_SYMBOL] = true;
 }

@@ -1,4 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Image,
   Platform,
@@ -14,8 +22,10 @@ import Svg, {
 } from 'react-native-svg';
 import {
   CHARACTER_PROFILES,
+  CHARACTER_SPRITES,
   COMPANION_SPRITES,
   getCharacterSprite,
+  NPC_SPRITES,
   SCENE_MOTION_PROFILES,
   SCENE_VISUAL_META,
   type CharacterSceneId,
@@ -25,7 +35,27 @@ import {
 import type { WeatherSnapshot } from '../core';
 import { useNpcStageController } from '../hooks/useWeatherBuddy';
 import { type AtmosphericPalette } from './themeTokens';
-import { WebGLCharacterDiorama } from './WebGLCharacterDiorama';
+
+const LazyWebGLCharacterDiorama = lazy(() =>
+  import('./WebGLCharacterDiorama').then((m) => ({
+    default: m.WebGLCharacterDiorama,
+  }))
+);
+
+const preloadedGenderCache = new Set<string>();
+
+function resolveSpriteUriWeb(asset: any): string | null {
+  if (!asset) return null;
+  if (typeof asset === 'string') return asset;
+  if (typeof asset === 'object') {
+    if (typeof asset.uri === 'string') return asset.uri;
+    if (typeof asset.default === 'string') return asset.default;
+    if (asset.default && typeof asset.default.uri === 'string') {
+      return asset.default.uri;
+    }
+  }
+  return null;
+}
 
 export interface LivingCharacterRigProps {
   gender: Gender;
@@ -138,6 +168,45 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
     () => getCharacterSprite(gender, sceneId),
     [gender, sceneId]
   );
+
+  // Idle-time background sprite preloader on Web so outfit transitions & 24h scrubbing never flicker
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return;
+    }
+    if (preloadedGenderCache.has(gender)) {
+      return;
+    }
+    preloadedGenderCache.add(gender);
+
+    const scheduleIdle =
+      (window as any).requestIdleCallback ??
+      ((cb: () => void) => window.setTimeout(cb, 900));
+    const cancelIdle =
+      (window as any).cancelIdleCallback ??
+      ((id: number) => window.clearTimeout(id));
+
+    const handle = scheduleIdle(() => {
+      const assets = [
+        ...Object.values(CHARACTER_SPRITES[gender] ?? {}),
+        ...Object.values(NPC_SPRITES[gender] ?? {}),
+        COMPANION_SPRITES.cat,
+        COMPANION_SPRITES.puppy,
+      ];
+      for (const raw of assets) {
+        const uri = resolveSpriteUriWeb(raw);
+        if (uri && typeof window.Image === 'function') {
+          const img = new window.Image();
+          img.decoding = 'async';
+          img.src = uri;
+        }
+      }
+    });
+
+    return () => {
+      cancelIdle(handle);
+    };
+  }, [gender]);
 
   const stageRef = useRef<View | null>(null);
   const propsRef = useRef({
@@ -531,23 +600,40 @@ export const LivingCharacterRig: React.FC<LivingCharacterRigProps> = ({
   if (useWebGLDiorama) {
     return (
       <View style={styles.rigOuterStack}>
-        <WebGLCharacterDiorama
-          gender={gender}
-          sceneId={sceneId}
-          palette={palette}
-          size={size}
-          weather={weather}
-          customVrmUrl={customVrmUrl}
-          reduceMotion={reduceMotion}
-          interactive={interactive}
-          showAmbientProps={showAmbientProps}
-          npcMode={npcMode}
-          isStanding={isStanding}
-          npcAction={npcAction}
-          standTriggerCount={npcStage.standTriggerCount}
-          onInteract={handleCharacterPress}
-          onWebGLUnavailable={handleWebGLUnavailable}
-        />
+        <Suspense
+          fallback={
+            <View
+              style={[
+                styles.rigCanvas,
+                { width: Math.round(size * 1.08), height: Math.round(size) },
+              ]}
+            >
+              <Image
+                source={spriteSource}
+                style={{ width: size * 0.9, height: size * 0.9 }}
+                resizeMode="contain"
+              />
+            </View>
+          }
+        >
+          <LazyWebGLCharacterDiorama
+            gender={gender}
+            sceneId={sceneId}
+            palette={palette}
+            size={size}
+            weather={weather}
+            customVrmUrl={customVrmUrl}
+            reduceMotion={reduceMotion}
+            interactive={interactive}
+            showAmbientProps={showAmbientProps}
+            npcMode={npcMode}
+            isStanding={isStanding}
+            npcAction={npcAction}
+            standTriggerCount={npcStage.standTriggerCount}
+            onInteract={handleCharacterPress}
+            onWebGLUnavailable={handleWebGLUnavailable}
+          />
+        </Suspense>
       </View>
     );
   }

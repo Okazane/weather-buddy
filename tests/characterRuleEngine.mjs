@@ -30,6 +30,9 @@ registerHooks({
           "export const Platform = { OS: 'web', select: (spec) => spec.web ?? spec.default };",
       };
     }
+    if (url.endsWith('.ts') || url.endsWith('.tsx')) {
+      return nextLoad(url, { ...context, format: 'module-typescript' });
+    }
     return nextLoad(url, context);
   },
 });
@@ -990,4 +993,31 @@ test('Open-Meteo, WeatherAPI, and Google clients preserve utcOffsetSeconds from 
   const waSnap = await fetchWeatherApiWeather(10.8231, 106.6297, 'TP. Hồ Chí Minh', 'WA_KEY', waMock);
   assert.equal(waSnap.utcOffsetSeconds, 25200);
   assert.equal(resolveLocationLocalHour(waSnap), 8.5);
+});
+
+
+test('7-day daily forecast, solar/moon cycle, PM2.5/PM10, and Northern Vietnam Nom Am dew-point assessment', () => {
+  const { computeDewPointC, computeSolarAndMoonCycle, evaluateNomAmStatus } = core;
+
+  // 1. Classic Hanoi spring "Trời nồm ẩm": 22°C, 92% RH -> Dew point ~20.6°C (spread 1.4°C)
+  const dpNom = computeDewPointC(22, 92);
+  assert.ok(dpNom >= 20 && dpNom <= 21.2);
+  const nom = evaluateNomAmStatus(22, 92, dpNom);
+  assert.equal(nom.level, 'severe_nom');
+  assert.match(nom.badgeVi, /nồm ẩm/i);
+
+  // 2. Solar & lunar cycle for Hanoi
+  const cycle = computeSolarAndMoonCycle('2026-11-25T10:00:00+07:00', 21.0285, 105.8542, 25200);
+  assert.match(cycle.sunriseTimeVi, /^\d{2}:\d{2}$/);
+  assert.match(cycle.sunsetTimeVi, /^\d{2}:\d{2}$/);
+  assert.ok(cycle.moonPhaseVi.length > 0);
+
+  // 3. All 8 demo presets contain enriched 7-day forecast, dewPointC, sunrise/sunset, and PM2.5
+  for (const preset of Object.values(DEMO_WEATHER_PRESETS)) {
+    assert.ok(Array.isArray(preset.daily) && preset.daily.length === 7);
+    assert.equal(typeof preset.dewPointC, 'number');
+    assert.equal(typeof preset.pm25, 'number');
+    assert.match(preset.sunriseTimeVi, /^\d{2}:\d{2}$/);
+    assert.match(preset.sunsetTimeVi, /^\d{2}:\d{2}$/);
+  }
 });

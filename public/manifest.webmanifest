@@ -1,0 +1,21 @@
+{
+  "name": "WeatherBuddy - Bạn Nhỏ Thời Tiết",
+  "short_name": "WeatherBuddy",
+  "description": "Dự báo thời tiết chuẩn 3 nguồn, nhân vật 3D sống động, biểu đồ 24h, dự báo 7 ngày và radar mây mưa trực tiếp.",
+  "lang": "vi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#142036",
+  "theme_color": "#152033",
+  "categories": ["weather", "lifestyle", "utilities"],
+  "icons": [
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

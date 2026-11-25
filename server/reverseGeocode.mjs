@@ -406,3 +406,166 @@ export function createAutoLocator({ fetchImpl = fetch, reverseGeocode } = {}) {
     }
   };
 }
+
+function foldVietnameseSearch(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const VIETNAM_DIRECTORY = [
+  ...PRESET_CITIES.map((c) => ({
+    id: c.id,
+    nameVi: c.nameVi,
+    regionVi: c.regionVi,
+    countryVi: 'Việt Nam',
+    latitude: c.latitude,
+    longitude: c.longitude,
+  })),
+  { id: 'hai_phong', nameVi: 'Hải Phòng', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 20.8449, longitude: 106.6881 },
+  { id: 'ha_long', nameVi: 'Hạ Long, Quảng Ninh', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 20.9511, longitude: 107.0748 },
+  { id: 'ninh_binh', nameVi: 'Ninh Bình', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 20.2506, longitude: 105.9745 },
+  { id: 'ha_giang', nameVi: 'Hà Giang', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 22.8233, longitude: 104.9836 },
+  { id: 'moc_chau', nameVi: 'Mộc Châu, Sơn La', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 20.8444, longitude: 104.6392 },
+  { id: 'tam_dao', nameVi: 'Tam Đảo, Vĩnh Phúc', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 21.4567, longitude: 105.6442 },
+  { id: 'bac_ninh', nameVi: 'Bắc Ninh', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 21.1861, longitude: 106.0763 },
+  { id: 'hai_duong', nameVi: 'Hải Dương', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 20.9373, longitude: 106.3146 },
+  { id: 'nam_dinh', nameVi: 'Nam Định', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 20.4388, longitude: 106.1621 },
+  { id: 'thai_nguyen', nameVi: 'Thái Nguyên', regionVi: 'Miền Bắc', countryVi: 'Việt Nam', latitude: 21.5942, longitude: 105.8482 },
+  { id: 'thanh_hoa', nameVi: 'Thanh Hóa', regionVi: 'Bắc Trung Bộ', countryVi: 'Việt Nam', latitude: 19.8067, longitude: 105.7852 },
+  { id: 'vinh', nameVi: 'Vinh, Nghệ An', regionVi: 'Bắc Trung Bộ', countryVi: 'Việt Nam', latitude: 18.6796, longitude: 105.6813 },
+  { id: 'dong_hoi', nameVi: 'Đồng Hới, Quảng Bình', regionVi: 'Bắc Trung Bộ', countryVi: 'Việt Nam', latitude: 17.4689, longitude: 106.6223 },
+  { id: 'hue', nameVi: 'Huế', regionVi: 'Miền Trung', countryVi: 'Việt Nam', latitude: 16.4637, longitude: 107.5909 },
+  { id: 'hoi_an', nameVi: 'Hội An, Quảng Nam', regionVi: 'Miền Trung', countryVi: 'Việt Nam', latitude: 15.8801, longitude: 108.338 },
+  { id: 'quang_ngai', nameVi: 'Quảng Ngãi', regionVi: 'Miền Trung', countryVi: 'Việt Nam', latitude: 15.1214, longitude: 108.8044 },
+  { id: 'quy_nhon', nameVi: 'Quy Nhơn, Bình Định', regionVi: 'Duyên hải Nam Trung Bộ', countryVi: 'Việt Nam', latitude: 13.783, longitude: 109.2197 },
+  { id: 'tuy_hoa', nameVi: 'Tuy Hòa, Phú Yên', regionVi: 'Duyên hải Nam Trung Bộ', countryVi: 'Việt Nam', latitude: 13.0955, longitude: 109.3209 },
+  { id: 'nha_trang', nameVi: 'Nha Trang, Khánh Hòa', regionVi: 'Duyên hải Nam Trung Bộ', countryVi: 'Việt Nam', latitude: 12.2388, longitude: 109.1967 },
+  { id: 'phan_thiet', nameVi: 'Phan Thiết, Bình Thuận', regionVi: 'Duyên hải Nam Trung Bộ', countryVi: 'Việt Nam', latitude: 10.9289, longitude: 108.1021 },
+  { id: 'pleiku', nameVi: 'Pleiku, Gia Lai', regionVi: 'Tây Nguyên', countryVi: 'Việt Nam', latitude: 13.9833, longitude: 108.0 },
+  { id: 'buon_ma_thuot', nameVi: 'Buôn Ma Thuột, Đắk Lắk', regionVi: 'Tây Nguyên', countryVi: 'Việt Nam', latitude: 12.6667, longitude: 108.05 },
+  { id: 'mang_den', nameVi: 'Măng Đen, Kon Tum', regionVi: 'Tây Nguyên', countryVi: 'Việt Nam', latitude: 14.5978, longitude: 108.2914 },
+  { id: 'bien_hoa', nameVi: 'Biên Hòa, Đồng Nai', regionVi: 'Đông Nam Bộ', countryVi: 'Việt Nam', latitude: 10.9574, longitude: 106.8427 },
+  { id: 'thu_dau_mot', nameVi: 'Thủ Dầu Một, Bình Dương', regionVi: 'Đông Nam Bộ', countryVi: 'Việt Nam', latitude: 10.9804, longitude: 106.6519 },
+  { id: 'vung_tau', nameVi: 'Vũng Tàu', regionVi: 'Đông Nam Bộ', countryVi: 'Việt Nam', latitude: 10.346, longitude: 107.0843 },
+  { id: 'tay_ninh', nameVi: 'Tây Ninh', regionVi: 'Đông Nam Bộ', countryVi: 'Việt Nam', latitude: 11.3100, longitude: 106.0983 },
+  { id: 'my_tho', nameVi: 'Mỹ Tho, Tiền Giang', regionVi: 'Miền Tây', countryVi: 'Việt Nam', latitude: 10.3600, longitude: 106.3600 },
+  { id: 'ben_tre', nameVi: 'Bến Tre', regionVi: 'Miền Tây', countryVi: 'Việt Nam', latitude: 10.2434, longitude: 106.3756 },
+  { id: 'long_xuyen', nameVi: 'Long Xuyên, An Giang', regionVi: 'Miền Tây', countryVi: 'Việt Nam', latitude: 10.3864, longitude: 105.4352 },
+  { id: 'rach_gia', nameVi: 'Rạch Giá, Kiên Giang', regionVi: 'Miền Tây', countryVi: 'Việt Nam', latitude: 10.0125, longitude: 105.0809 },
+  { id: 'phu_quoc', nameVi: 'Phú Quốc', regionVi: 'Đảo Ngọc · Kiên Giang', countryVi: 'Việt Nam', latitude: 10.227, longitude: 103.9632 },
+  { id: 'con_dao', nameVi: 'Côn Đảo', regionVi: 'Bà Rịa – Vũng Tàu', countryVi: 'Việt Nam', latitude: 8.6833, longitude: 106.6094 },
+  { id: 'ca_mau', nameVi: 'Cà Mau', regionVi: 'Miền Tây', countryVi: 'Việt Nam', latitude: 9.1769, longitude: 105.1524 },
+];
+
+export function createPlaceSearcher({ fetchImpl = fetch } = {}) {
+  const searchCache = new Map();
+
+  function pruneSearchCache() {
+    const now = Date.now();
+    for (const [k, entry] of searchCache.entries()) {
+      if (entry.expiresAtMs <= now) {
+        searchCache.delete(k);
+      }
+    }
+    while (searchCache.size > MAX_GEOCODE_CACHE_SIZE) {
+      const oldestKey = searchCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      searchCache.delete(oldestKey);
+    }
+  }
+
+  return async function searchPlaces(rawQuery, rawLimit = 8) {
+    const trimmed = String(rawQuery || '').trim().slice(0, 80);
+    const limit = Math.max(1, Math.min(15, Number(rawLimit) || 8));
+    if (!trimmed) {
+      return VIETNAM_DIRECTORY.slice(0, limit);
+    }
+
+    const folded = foldVietnameseSearch(trimmed);
+    const cacheKey = `${folded}:${limit}`;
+    pruneSearchCache();
+
+    const cached = searchCache.get(cacheKey);
+    if (cached && cached.expiresAtMs > Date.now()) {
+      return cached.results;
+    }
+
+    // 1. Instant local match across curated Vietnamese provinces, cities, and islands
+    const localMatches = VIETNAM_DIRECTORY.filter((item) => {
+      const fName = foldVietnameseSearch(item.nameVi);
+      const fRegion = foldVietnameseSearch(item.regionVi);
+      return fName.includes(folded) || fRegion.includes(folded);
+    }).sort((a, b) => {
+      const aStarts = foldVietnameseSearch(a.nameVi).startsWith(folded) ? 0 : 1;
+      const bStarts = foldVietnameseSearch(b.nameVi).startsWith(folded) ? 0 : 1;
+      return aStarts - bStarts;
+    });
+
+    const combined = [...localMatches];
+
+    // 2. Augment with Open-Meteo Global Geocoding API for districts, wards, and international cities
+    if (combined.length < limit && trimmed.length >= 2) {
+      const url =
+        `https://geocoding-api.open-meteo.com/v1/search` +
+        `?name=${encodeURIComponent(trimmed)}` +
+        `&count=12&language=vi&format=json`;
+      const remoteData = await fetchJsonWithTimeout(
+        url,
+        { headers: { Accept: 'application/json' } },
+        fetchImpl,
+        3500
+      );
+
+      const items = Array.isArray(remoteData?.results) ? remoteData.results : [];
+      for (const r of items) {
+        if (typeof r?.latitude !== 'number' || typeof r?.longitude !== 'number') {
+          continue;
+        }
+        const lat = Number(r.latitude.toFixed(4));
+        const lon = Number(r.longitude.toFixed(4));
+        const isDup = combined.some(
+          (existing) =>
+            Math.abs(existing.latitude - lat) < 0.06 &&
+            Math.abs(existing.longitude - lon) < 0.06
+        );
+        if (isDup) continue;
+
+        const nameVi = cleanVietnamesePlaceToken(r.name) || String(r.name || '').trim();
+        const admin1 = cleanVietnamesePlaceToken(r.admin1);
+        const countryVi = String(r.country || '').trim();
+        if (!nameVi) continue;
+
+        const regionParts = [admin1, countryVi].filter(
+          (part) => part && part.toLowerCase() !== nameVi.toLowerCase()
+        );
+
+        combined.push({
+          id: `geo_${lat}_${lon}`,
+          nameVi,
+          regionVi: regionParts.join(' · ') || countryVi || 'Quốc tế',
+          countryVi: countryVi || 'Quốc tế',
+          latitude: lat,
+          longitude: lon,
+        });
+
+        if (combined.length >= limit) {
+          break;
+        }
+      }
+    }
+
+    const finalResults = combined.slice(0, limit);
+    searchCache.set(cacheKey, {
+      results: finalResults,
+      expiresAtMs: Date.now() + GEOCODE_CACHE_TTL_MS,
+    });
+    return finalResults;
+  };
+}

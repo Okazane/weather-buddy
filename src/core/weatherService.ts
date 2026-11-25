@@ -1,9 +1,14 @@
 import { fetchGoogleWeather } from './googleWeatherClient';
-import { fetchOpenMeteoAqi, fetchOpenMeteoWeather } from './openMeteoClient';
+import {
+  fetchOpenMeteoAqiDetails,
+  fetchOpenMeteoWeather,
+} from './openMeteoClient';
+import { computeDewPointC, computeSolarAndMoonCycle } from './solarTime';
 import { fetchTomorrowIoWeather } from './tomorrowIoClient';
 import { fetchWeatherApiWeather } from './weatherApiClient';
 import { crossValidateWeatherSnapshot } from './weatherConsensus';
 import type {
+  DailyForecastPoint,
   HourlyForecastPoint,
   WeatherProviderType,
   WeatherSnapshot,
@@ -473,18 +478,121 @@ export const DEMO_SCENARIO_LIST: DemoScenarioMeta[] = [
   { id: 'high_aqi_hanoi', labelVi: 'Hà Nội bụi mịn', emoji: '😷' },
 ];
 
+function synthesize7DayForecast(snap: WeatherSnapshot): DailyForecastPoint[] {
+  const baseMs = Number.isFinite(Date.parse(snap.updatedAtIso))
+    ? Date.parse(snap.updatedAtIso)
+    : Date.now();
+  const offsetSec =
+    typeof snap.utcOffsetSeconds === 'number' && Number.isFinite(snap.utcOffsetSeconds)
+      ? snap.utcOffsetSeconds
+      : 7 * 3600;
+
+  const hourlyTemps = [snap.temperatureC, ...(snap.hourly ?? []).map((h) => h.temperatureC)];
+  const baseHi = Math.max(...hourlyTemps, snap.temperatureC + 2.2);
+  const baseLo = Math.min(...hourlyTemps, snap.temperatureC - 2.6);
+  const baseProb = Math.max(
+    snap.precipProbPct,
+    ...(snap.hourly ?? []).slice(0, 12).map((h) => h.precipProbPct)
+  );
+  const day0Sum = round1(
+    (snap.hourly ?? []).slice(0, 24).reduce((acc, h) => acc + (h.precipMm || 0), 0)
+  );
+
+  const offsets: Array<[number, number, number, number, string, string]> = [
+    [0, 0, baseProb, day0Sum, snap.hourly?.[2]?.conditionCode ?? 'PARTLY_CLOUDY', snap.conditionText],
+    [0.8, 0.4, Math.max(10, Math.round(baseProb * 0.75)), round1(day0Sum * 0.6), 'PARTLY_CLOUDY', 'Có mây rải rác'],
+    [1.3, 0.6, Math.min(85, Math.max(15, Math.round(baseProb * 0.5 + 15))), round1(day0Sum * 0.3), 'MOSTLY_CLEAR', 'Nắng dịu dễ chịu'],
+    [-0.6, -0.5, Math.min(90, Math.round(baseProb * 0.8 + 20)), round1(Math.max(0, day0Sum * 0.8 + 1.2)), baseProb >= 50 ? 'LIGHT_RAIN' : 'MOSTLY_CLOUDY', baseProb >= 50 ? 'Mưa nhỏ rải rác' : 'Nắng dịu có mây'],
+    [0.4, -0.2, 20, 0, 'PARTLY_CLOUDY', 'Trời tạnh ráo'],
+    [1.1, 0.3, 15, 0, 'CLEAR', 'Trời nắng quang đãng'],
+    [0.7, 0.2, 25, 0.4, 'PARTLY_CLOUDY', 'Có mây rải rác'],
+  ];
+
+  return offsets.map(([dHi, dLo, prob, sumMm, code, textVi], idx) => {
+    const dayMs = baseMs + idx * 86_400_000;
+    const shifted = new Date(dayMs + offsetSec * 1000);
+    const yyyy = shifted.getUTCFullYear();
+    const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(shifted.getUTCDate()).padStart(2, '0');
+    const solar = computeSolarAndMoonCycle(
+      new Date(dayMs).toISOString(),
+      snap.latitude,
+      snap.longitude,
+      offsetSec
+    );
+    return {
+      dateIso: `${yyyy}-${mm}-${dd}`,
+      tempMinC: round1(baseLo + dLo),
+      tempMaxC: round1(Math.max(baseLo + dLo + 2, baseHi + dHi)),
+      precipProbMaxPct: Math.max(0, Math.min(100, prob)),
+      precipSumMm: Math.max(0, sumMm),
+      uvIndexMax: Math.max(2, round1((snap.uvIndex || 5) + (idx % 2 === 0 ? 0.5 : -0.5))),
+      conditionCode: code,
+      conditionTextVi: textVi,
+      sunriseTimeVi: solar.sunriseTimeVi,
+      sunsetTimeVi: solar.sunsetTimeVi,
+    };
+  });
+}
+
+function enrichSnapshotDerivedFields(snap: WeatherSnapshot): WeatherSnapshot {
+  if (typeof snap.dewPointC !== 'number' || !Number.isFinite(snap.dewPointC)) {
+    snap.dewPointC = computeDewPointC(snap.temperatureC, snap.humidityPct);
+  }
+  const solar = computeSolarAndMoonCycle(
+    snap.updatedAtIso,
+    snap.latitude,
+    snap.longitude,
+    snap.utcOffsetSeconds
+  );
+  if (!snap.sunriseTimeVi) snap.sunriseTimeVi = solar.sunriseTimeVi;
+  if (!snap.sunsetTimeVi) snap.sunsetTimeVi = solar.sunsetTimeVi;
+  if (!snap.moonPhaseVi) snap.moonPhaseVi = solar.moonPhaseVi;
+  if (typeof snap.surfacePressureHpa !== 'number') {
+    snap.surfacePressureHpa = snap.precipMmPerHr >= 2 ? 1006.5 : 1012.4;
+  }
+  if (typeof snap.visibilityKm !== 'number') {
+    snap.visibilityKm = snap.precipMmPerHr >= 4 ? 4.5 : snap.aqi && snap.aqi >= 130 ? 5.8 : 10.0;
+  }
+  if (typeof snap.pm25 !== 'number' && typeof snap.aqi === 'number') {
+    snap.pm25 = round1(
+      snap.aqi <= 50
+        ? (snap.aqi / 50) * 9.0
+        : snap.aqi <= 100
+          ? 9.1 + ((snap.aqi - 51) / 49) * 26.3
+          : 35.5 + ((snap.aqi - 101) / 49) * 19.9
+    );
+  }
+  if (typeof snap.pm10 !== 'number' && typeof snap.pm25 === 'number') {
+    snap.pm10 = round1(snap.pm25 * 1.65);
+  }
+  if (!Array.isArray(snap.daily) || snap.daily.length < 7) {
+    const existing = Array.isArray(snap.daily) ? snap.daily : [];
+    const fallback = synthesize7DayForecast(snap);
+    snap.daily = fallback.map((fb, idx) => existing[idx] ?? fb);
+  }
+  return snap;
+}
+
+for (const preset of Object.values(DEMO_WEATHER_PRESETS)) {
+  enrichSnapshotDerivedFields(preset);
+}
+
 async function enrichWithOpenMeteoAqi(
   snapshot: WeatherSnapshot,
   lat: number,
   lon: number,
   fetchImpl: typeof fetch
 ): Promise<WeatherSnapshot> {
-  if (typeof snapshot.aqi === 'number') {
-    return snapshot;
+  const details = await fetchOpenMeteoAqiDetails(lat, lon, fetchImpl);
+  if (typeof snapshot.aqi !== 'number' && typeof details.aqi === 'number') {
+    snapshot.aqi = details.aqi;
   }
-  const aqi = await fetchOpenMeteoAqi(lat, lon, fetchImpl);
-  if (typeof aqi === 'number') {
-    snapshot.aqi = aqi;
+  if (typeof snapshot.pm25 !== 'number' && typeof details.pm25 === 'number') {
+    snapshot.pm25 = details.pm25;
+  }
+  if (typeof snapshot.pm10 !== 'number' && typeof details.pm10 === 'number') {
+    snapshot.pm10 = details.pm10;
   }
   return snapshot;
 }
@@ -523,13 +631,15 @@ export async function fetchWeatherSnapshot(params: {
     (fetchImpl === globalThis.fetch || enableConsensus === true);
 
   const finalize = async (snap: WeatherSnapshot): Promise<WeatherSnapshot> => {
+    enrichSnapshotDerivedFields(snap);
     if (!shouldRunConsensus) {
       return snap;
     }
-    return crossValidateWeatherSnapshot(snap, {
+    const verified = await crossValidateWeatherSnapshot(snap, {
       fetchImpl,
       timeoutMs: consensusTimeoutMs,
     });
+    return enrichSnapshotDerivedFields(verified);
   };
 
   if (provider === 'open_meteo') {
@@ -543,13 +653,13 @@ export async function fetchWeatherSnapshot(params: {
         'Vui lòng nhập Tomorrow.io API Key (miễn phí, không cần thẻ) hoặc chuyển sang Tự động.'
       );
     }
-    const [snap, aqi] = await Promise.all([
+    const [snap, aqiDetails] = await Promise.all([
       fetchTomorrowIoWeather(latitude, longitude, locationName, trimmedTomorrow, fetchImpl),
-      fetchOpenMeteoAqi(latitude, longitude, fetchImpl),
+      fetchOpenMeteoAqiDetails(latitude, longitude, fetchImpl),
     ]);
-    if (snap.aqi === undefined && typeof aqi === 'number') {
-      snap.aqi = aqi;
-    }
+    if (snap.aqi === undefined && typeof aqiDetails.aqi === 'number') snap.aqi = aqiDetails.aqi;
+    if (snap.pm25 === undefined && typeof aqiDetails.pm25 === 'number') snap.pm25 = aqiDetails.pm25;
+    if (snap.pm10 === undefined && typeof aqiDetails.pm10 === 'number') snap.pm10 = aqiDetails.pm10;
     return finalize(snap);
   }
 
@@ -576,13 +686,13 @@ export async function fetchWeatherSnapshot(params: {
         'Vui lòng nhập Google Cloud Weather API Key để sử dụng nguồn Google Weather.'
       );
     }
-    const [googleSnap, aqi] = await Promise.all([
+    const [googleSnap, aqiDetails] = await Promise.all([
       fetchGoogleWeather(latitude, longitude, locationName, trimmedGoogle, fetchImpl),
-      fetchOpenMeteoAqi(latitude, longitude, fetchImpl),
+      fetchOpenMeteoAqiDetails(latitude, longitude, fetchImpl),
     ]);
-    if (googleSnap.aqi === undefined && typeof aqi === 'number') {
-      googleSnap.aqi = aqi;
-    }
+    if (googleSnap.aqi === undefined && typeof aqiDetails.aqi === 'number') googleSnap.aqi = aqiDetails.aqi;
+    if (googleSnap.pm25 === undefined && typeof aqiDetails.pm25 === 'number') googleSnap.pm25 = aqiDetails.pm25;
+    if (googleSnap.pm10 === undefined && typeof aqiDetails.pm10 === 'number') googleSnap.pm10 = aqiDetails.pm10;
     return finalize(googleSnap);
   }
 
@@ -590,13 +700,13 @@ export async function fetchWeatherSnapshot(params: {
   // then Google WeatherNext if configured, and always fall back cleanly to Open-Meteo Free.
   if (trimmedTomorrow.length > 0) {
     try {
-      const [snap, aqi] = await Promise.all([
+      const [snap, aqiDetails] = await Promise.all([
         fetchTomorrowIoWeather(latitude, longitude, locationName, trimmedTomorrow, fetchImpl),
-        fetchOpenMeteoAqi(latitude, longitude, fetchImpl),
+        fetchOpenMeteoAqiDetails(latitude, longitude, fetchImpl),
       ]);
-      if (snap.aqi === undefined && typeof aqi === 'number') {
-        snap.aqi = aqi;
-      }
+      if (snap.aqi === undefined && typeof aqiDetails.aqi === 'number') snap.aqi = aqiDetails.aqi;
+      if (snap.pm25 === undefined && typeof aqiDetails.pm25 === 'number') snap.pm25 = aqiDetails.pm25;
+      if (snap.pm10 === undefined && typeof aqiDetails.pm10 === 'number') snap.pm10 = aqiDetails.pm10;
       return finalize(snap);
     } catch {
       // Fall through to next available provider
@@ -621,13 +731,13 @@ export async function fetchWeatherSnapshot(params: {
 
   if (trimmedGoogle.length > 0) {
     try {
-      const [googleSnap, aqi] = await Promise.all([
+      const [googleSnap, aqiDetails] = await Promise.all([
         fetchGoogleWeather(latitude, longitude, locationName, trimmedGoogle, fetchImpl),
-        fetchOpenMeteoAqi(latitude, longitude, fetchImpl),
+        fetchOpenMeteoAqiDetails(latitude, longitude, fetchImpl),
       ]);
-      if (googleSnap.aqi === undefined && typeof aqi === 'number') {
-        googleSnap.aqi = aqi;
-      }
+      if (googleSnap.aqi === undefined && typeof aqiDetails.aqi === 'number') googleSnap.aqi = aqiDetails.aqi;
+      if (googleSnap.pm25 === undefined && typeof aqiDetails.pm25 === 'number') googleSnap.pm25 = aqiDetails.pm25;
+      if (googleSnap.pm10 === undefined && typeof aqiDetails.pm10 === 'number') googleSnap.pm10 = aqiDetails.pm10;
       return finalize(googleSnap);
     } catch {
       // Fall through to Open-Meteo Free

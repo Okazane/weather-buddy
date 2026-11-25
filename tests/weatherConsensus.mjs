@@ -19,6 +19,12 @@ registerHooks({
       throw err;
     }
   },
+  load(url, context, nextLoad) {
+    if (url.endsWith('.ts') || url.endsWith('.tsx')) {
+      return nextLoad(url, { ...context, format: 'module-typescript' });
+    }
+    return nextLoad(url, context);
+  },
 });
 
 const core = await import('../src/core/index.ts');

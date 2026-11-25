@@ -143,12 +143,45 @@ function main() {
   console.log(`✅ Created ${extZipPath} (${(extBytes / 1024 / 1024).toFixed(2)} MB)`);
   console.log(`✅ Created ${widgetZipPath} (${(widgetBytes / 1024 / 1024).toFixed(2)} MB)`);
 
-  // Also mirror into dist/downloads if dist/ already exists
-  if (fs.existsSync(path.join(ROOT_DIR, 'dist'))) {
+  // Also mirror into dist/downloads and inject PWA manifest + Service Worker into dist/ if dist/ exists
+  const distRoot = path.join(ROOT_DIR, 'dist');
+  if (fs.existsSync(distRoot)) {
     ensureDir(DIST_DOWNLOADS_DIR);
     fs.copyFileSync(extZipPath, path.join(DIST_DOWNLOADS_DIR, 'weather-buddy-extension.zip'));
     fs.copyFileSync(widgetZipPath, path.join(DIST_DOWNLOADS_DIR, 'weather-buddy-desktop-widget.zip'));
-    console.log('✅ Mirrored archives into dist/downloads/');
+
+    const manifestSrc = path.join(ROOT_DIR, 'public', 'manifest.webmanifest');
+    const swSrc = path.join(ROOT_DIR, 'public', 'sw.js');
+    const iconCandidates = [
+      path.join(ROOT_DIR, 'rust', 'weather-buddy-tauri', 'icons', '128x128.png'),
+      path.join(ROOT_DIR, 'assets', 'icon.png'),
+      path.join(CHAR_SRC_DIR, 'female_pleasant_sunny.png'),
+    ];
+    const iconSrc = iconCandidates.find((p) => fs.existsSync(p));
+
+    if (fs.existsSync(manifestSrc)) {
+      fs.copyFileSync(manifestSrc, path.join(distRoot, 'manifest.webmanifest'));
+    }
+    if (fs.existsSync(swSrc)) {
+      fs.copyFileSync(swSrc, path.join(distRoot, 'sw.js'));
+    }
+    if (iconSrc) {
+      fs.copyFileSync(iconSrc, path.join(distRoot, 'pwa-icon.png'));
+      fs.copyFileSync(iconSrc, path.join(ROOT_DIR, 'public', 'pwa-icon.png'));
+    }
+
+    const distHtmlPath = path.join(distRoot, 'index.html');
+    if (fs.existsSync(distHtmlPath)) {
+      let html = fs.readFileSync(distHtmlPath, 'utf8');
+      if (!html.includes('rel="manifest"')) {
+        html = html.replace(
+          '</head>',
+          '  <link rel="manifest" href="/manifest.webmanifest" />\n  <meta name="theme-color" content="#152033" />\n  <link rel="apple-touch-icon" href="/pwa-icon.png" />\n</head>'
+        );
+        fs.writeFileSync(distHtmlPath, html, 'utf8');
+      }
+    }
+    console.log('✅ Mirrored archives & PWA assets (manifest.webmanifest + sw.js) into dist/');
   }
 }
 

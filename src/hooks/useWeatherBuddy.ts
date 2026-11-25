@@ -27,6 +27,8 @@ import {
 
 const PREFS_STORAGE_KEY = 'weather_buddy_user_prefs_v2';
 const LEGACY_PREFS_STORAGE_KEY = 'weather_buddy_user_prefs_v1';
+const SNAPSHOT_CACHE_STORAGE_KEY = 'weather_buddy_snapshot_swr_v1';
+const SNAPSHOT_SWR_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 export type LocationSource = 'gps' | 'ip';
 
@@ -38,6 +40,8 @@ interface PersistedUserPrefs {
   weatherApiKey: string;
   googleApiKey: string;
   selectedCityId: string;
+  customCity?: PresetCity | null;
+  favoriteCities?: PresetCity[];
   customGpsCoords?: {
     latitude: number;
     longitude: number;
@@ -55,8 +59,89 @@ const DEFAULT_PREFS: PersistedUserPrefs = {
   weatherApiKey: '',
   googleApiKey: '',
   selectedCityId: 'ha_noi',
+  customCity: null,
+  favoriteCities: [],
   customGpsCoords: null,
 };
+
+function makeSnapshotCacheKey(lat: number, lon: number): string {
+  return `${lat.toFixed(2)},${lon.toFixed(2)}`;
+}
+
+function loadWarmCachedSnapshot(lat: number, lon: number): WeatherSnapshot | null {
+  try {
+    const scope = globalThis as unknown as {
+      localStorage?: { getItem(k: string): string | null };
+    };
+    const raw = scope.localStorage?.getItem(SNAPSHOT_CACHE_STORAGE_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw) as Record<
+      string,
+      { savedAtMs?: number; snapshot?: WeatherSnapshot }
+    >;
+    const entry = map?.[makeSnapshotCacheKey(lat, lon)];
+    if (
+      entry?.snapshot &&
+      typeof entry.snapshot.temperatureC === 'number' &&
+      typeof entry.savedAtMs === 'number' &&
+      Date.now() - entry.savedAtMs <= SNAPSHOT_SWR_MAX_AGE_MS
+    ) {
+      return entry.snapshot;
+    }
+  } catch {
+    // Ignore storage read restrictions
+  }
+  return null;
+}
+
+function saveWarmCachedSnapshot(snapshot: WeatherSnapshot): void {
+  try {
+    const scope = globalThis as unknown as {
+      localStorage?: {
+        getItem(k: string): string | null;
+        setItem(k: string, v: string): void;
+      };
+    };
+    if (!scope.localStorage) return;
+    const raw = scope.localStorage.getItem(SNAPSHOT_CACHE_STORAGE_KEY);
+    const map: Record<string, { savedAtMs: number; snapshot: WeatherSnapshot }> =
+      raw ? JSON.parse(raw) : {};
+    const key = makeSnapshotCacheKey(snapshot.latitude, snapshot.longitude);
+    delete map[key];
+    map[key] = { savedAtMs: Date.now(), snapshot };
+    const keys = Object.keys(map);
+    while (keys.length > 12) {
+      const oldest = keys.shift();
+      if (oldest) delete map[oldest];
+    }
+    scope.localStorage.setItem(SNAPSHOT_CACHE_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // Ignore storage quota / write restrictions
+  }
+}
+
+function sanitizeSavedPlace(raw: unknown): PresetCity | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<PresetCity>;
+  if (
+    typeof r.id !== 'string' ||
+    typeof r.nameVi !== 'string' ||
+    !r.nameVi.trim() ||
+    typeof r.latitude !== 'number' ||
+    !Number.isFinite(r.latitude) ||
+    typeof r.longitude !== 'number' ||
+    !Number.isFinite(r.longitude)
+  ) {
+    return null;
+  }
+  return {
+    id: r.id.trim().slice(0, 64),
+    nameVi: r.nameVi.trim().slice(0, 80),
+    regionVi: typeof r.regionVi === 'string' && r.regionVi.trim() ? r.regionVi.trim().slice(0, 80) : 'Việt Nam',
+    latitude: Number(r.latitude.toFixed(4)),
+    longitude: Number(r.longitude.toFixed(4)),
+  };
+}
 
 let memoryPrefsFallback: PersistedUserPrefs = { ...DEFAULT_PREFS };
 let hasMemorySavedPrefs = false;
@@ -131,6 +216,10 @@ function loadPersistedPrefs(): {
             typeof parsed.selectedCityId === 'string'
               ? parsed.selectedCityId
               : 'ha_noi',
+          customCity: sanitizeSavedPlace(parsed.customCity),
+          favoriteCities: Array.isArray(parsed.favoriteCities)
+            ? (parsed.favoriteCities.map(sanitizeSavedPlace).filter(Boolean) as PresetCity[]).slice(0, 12)
+            : [],
           customGpsCoords: normalizedCoords,
         },
       };
@@ -698,7 +787,11 @@ export interface UseWeatherBuddyState {
   setGoogleApiKey: (key: string) => void;
   refreshIntervalMinutes: number;
   selectedCityId: string;
+  customCity: PresetCity | null;
+  favoriteCities: PresetCity[];
   selectPresetCity: (cityId: string) => void;
+  selectCustomCity: (city: PresetCity) => void;
+  toggleFavoriteCity: (city: PresetCity) => void;
   requestDeviceLocation: () => void;
   gpsLoading: boolean;
   gpsError: string | null;
@@ -780,13 +873,39 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
   const [selectedCityId, setSelectedCityId] = useState<string>(
     initialPrefs.selectedCityId
   );
+  const [customCity, setCustomCity] = useState<PresetCity | null>(
+    initialPrefs.customCity ?? null
+  );
+  const [favoriteCities, setFavoriteCities] = useState<PresetCity[]>(
+    initialPrefs.favoriteCities ?? []
+  );
   const [customGpsCoords, setCustomGpsCoords] = useState<
     PersistedUserPrefs['customGpsCoords']
   >(initialPrefs.customGpsCoords ?? null);
 
   const [activeScenarioId, setActiveScenarioId] =
     useState<ScenarioSelection>('live');
-  const [liveWeather, setLiveWeather] = useState<WeatherSnapshot | null>(null);
+  const [liveWeather, setLiveWeather] = useState<WeatherSnapshot | null>(() => {
+    if (initialPrefs.selectedCityId === 'gps' && initialPrefs.customGpsCoords) {
+      return loadWarmCachedSnapshot(
+        initialPrefs.customGpsCoords.latitude,
+        initialPrefs.customGpsCoords.longitude
+      );
+    }
+    if (
+      initialPrefs.customCity &&
+      initialPrefs.selectedCityId === initialPrefs.customCity.id
+    ) {
+      return loadWarmCachedSnapshot(
+        initialPrefs.customCity.latitude,
+        initialPrefs.customCity.longitude
+      );
+    }
+    const preset =
+      PRESET_CITIES.find((c) => c.id === initialPrefs.selectedCityId) ??
+      PRESET_CITIES[0];
+    return loadWarmCachedSnapshot(preset.latitude, preset.longitude);
+  });
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(true);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
@@ -844,6 +963,8 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
       weatherApiKey,
       googleApiKey,
       selectedCityId,
+      customCity,
+      favoriteCities,
       customGpsCoords,
     });
   }, [
@@ -854,6 +975,8 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
     weatherApiKey,
     googleApiKey,
     selectedCityId,
+    customCity,
+    favoriteCities,
     customGpsCoords,
   ]);
 
@@ -865,6 +988,21 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
     if (selectedCityId === 'gps' && customGpsCoords) {
       return customGpsCoords;
     }
+    if (customCity && selectedCityId === customCity.id) {
+      return {
+        latitude: customCity.latitude,
+        longitude: customCity.longitude,
+        locationName: customCity.nameVi,
+      };
+    }
+    const favMatch = favoriteCities.find((c) => c.id === selectedCityId);
+    if (favMatch) {
+      return {
+        latitude: favMatch.latitude,
+        longitude: favMatch.longitude,
+        locationName: favMatch.nameVi,
+      };
+    }
     const found: PresetCity | undefined = PRESET_CITIES.find(
       (c) => c.id === selectedCityId
     );
@@ -874,7 +1012,18 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
       longitude: city.longitude,
       locationName: city.nameVi,
     };
-  }, [selectedCityId, customGpsCoords]);
+  }, [selectedCityId, customCity, favoriteCities, customGpsCoords]);
+
+  // Instant SWR warm cache swap when switching cities before network responds
+  useEffect(() => {
+    const warm = loadWarmCachedSnapshot(
+      activeCityTarget.latitude,
+      activeCityTarget.longitude
+    );
+    if (warm) {
+      setLiveWeather(warm);
+    }
+  }, [activeCityTarget.latitude, activeCityTarget.longitude]);
 
   const refreshLiveWeather = useCallback(async () => {
     const seq = ++fetchSeqRef.current;
@@ -911,6 +1060,7 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
       }
       if (seq === fetchSeqRef.current) {
         lastLiveFetchAtRef.current = Date.now();
+        saveWarmCachedSnapshot(snapshot);
         setLiveWeather(snapshot);
         setLiveError(null);
       }
@@ -987,6 +1137,41 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
     setGpsError(null);
     setSelectedCityId(cityId);
     setActiveScenarioId('live');
+  }, []);
+
+  const selectCustomCity = useCallback((city: PresetCity) => {
+    const clean = sanitizeSavedPlace(city);
+    if (!clean) return;
+    geoSeqRef.current += 1;
+    setGpsLoading(false);
+    setGpsError(null);
+    setCustomCity(clean);
+    setSelectedCityId(clean.id);
+    setActiveScenarioId('live');
+  }, []);
+
+  const toggleFavoriteCity = useCallback((city: PresetCity) => {
+    const clean = sanitizeSavedPlace(city);
+    if (!clean) return;
+    setFavoriteCities((prev) => {
+      const exists = prev.some(
+        (item) =>
+          item.id === clean.id ||
+          (Math.abs(item.latitude - clean.latitude) < 0.04 &&
+            Math.abs(item.longitude - clean.longitude) < 0.04)
+      );
+      if (exists) {
+        return prev.filter(
+          (item) =>
+            item.id !== clean.id &&
+            !(
+              Math.abs(item.latitude - clean.latitude) < 0.04 &&
+              Math.abs(item.longitude - clean.longitude) < 0.04
+            )
+        );
+      }
+      return [clean, ...prev].slice(0, 10);
+    });
   }, []);
 
   const requestDeviceLocation = useCallback(() => {
@@ -1208,7 +1393,11 @@ export function useWeatherBuddy(): UseWeatherBuddyState {
     setGoogleApiKey: setGoogleApiKeyState,
     refreshIntervalMinutes: AUTO_REFRESH_INTERVAL_MINUTES,
     selectedCityId,
+    customCity,
+    favoriteCities,
     selectPresetCity,
+    selectCustomCity,
+    toggleFavoriteCity,
     requestDeviceLocation,
     gpsLoading,
     gpsError,

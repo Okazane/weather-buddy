@@ -5,6 +5,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import zlib from 'node:zlib';
 
 import { computeAnalytics24h } from './analytics.mjs';
 import {
@@ -14,7 +16,11 @@ import {
   evaluateCharacterDecision,
   fetchWeatherSnapshot,
 } from './coreLoader.mjs';
-import { createAutoLocator, createReverseGeocoder } from './reverseGeocode.mjs';
+import {
+  createAutoLocator,
+  createPlaceSearcher,
+  createReverseGeocoder,
+} from './reverseGeocode.mjs';
 import { createWeatherVerifier } from './weatherVerify.mjs';
 import {
   RuntimeStore,
@@ -88,16 +94,65 @@ const MIME_TYPES = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.wasm': 'application/wasm',
   '.zip': 'application/zip',
 };
 
+const COMPRESSIBLE_EXTENSIONS = new Set([
+  '.html',
+  '.js',
+  '.mjs',
+  '.css',
+  '.json',
+  '.webmanifest',
+  '.map',
+  '.svg',
+  '.txt',
+]);
+
+const brotliCompressAsync = promisify(zlib.brotliCompress);
+const gzipAsync = promisify(zlib.gzip);
+
+function negotiateCompression(acceptEncoding) {
+  const raw = String(acceptEncoding || '').toLowerCase();
+  if (!raw) return null;
+  if (/\bbr\b/.test(raw)) return 'br';
+  if (/\bgzip\b/.test(raw)) return 'gzip';
+  return null;
+}
+
 function sendJson(res, statusCode, payload) {
-  const body = `${JSON.stringify(payload)}\n`;
+  const bodyBuf = Buffer.from(`${JSON.stringify(payload)}\n`, 'utf8');
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Content-Length', Buffer.byteLength(body));
-  res.end(body);
+  res.setHeader('Vary', 'Accept-Encoding');
+
+  const encoding =
+    bodyBuf.byteLength >= 1024 ? negotiateCompression(res._acceptEncoding) : null;
+
+  if (encoding === 'br') {
+    const compressed = zlib.brotliCompressSync(bodyBuf, {
+      params: {
+        [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
+      },
+    });
+    res.setHeader('Content-Encoding', 'br');
+    res.setHeader('Content-Length', compressed.byteLength);
+    res.end(compressed);
+    return;
+  }
+
+  if (encoding === 'gzip') {
+    const compressed = zlib.gzipSync(bodyBuf, { level: 6 });
+    res.setHeader('Content-Encoding', 'gzip');
+    res.setHeader('Content-Length', compressed.byteLength);
+    res.end(compressed);
+    return;
+  }
+
+  res.setHeader('Content-Length', bodyBuf.byteLength);
+  res.end(bodyBuf);
 }
 
 async function readJsonBody(req, maxBytes = MAX_REQUEST_BODY_BYTES) {
@@ -264,6 +319,7 @@ export function createWeatherBuddyServer(options = {}) {
     fetchImpl: rawFetchImpl = globalThis.fetch,
     spawnImpl = nodeSpawn,
     cacheTtlMs = AUTO_REFRESH_INTERVAL_MS,
+    staleGraceMs = 45 * 60 * 1000,
     upstreamTimeoutMs = UPSTREAM_FETCH_TIMEOUT_MS,
     maxBodyBytes = MAX_REQUEST_BODY_BYTES,
     rateLimits = DEFAULT_RATE_LIMITS,
@@ -301,12 +357,16 @@ export function createWeatherBuddyServer(options = {}) {
   const runtimeStore = new RuntimeStore(runtimeDir);
   const reverseGeocode = createReverseGeocoder({ fetchImpl: timedFetch });
   const autoLocate = createAutoLocator({ fetchImpl: timedFetch, reverseGeocode });
+  const searchPlaces = createPlaceSearcher({ fetchImpl: timedFetch });
   const weatherVerifier = createWeatherVerifier({ fetchImpl: timedFetch });
   const rateLimiter = new SlidingWindowRateLimiter(rateLimits);
 
-  // 15-minute smart weather cache (keyed by rounded lat,lon,provider,saltedSha256(keys))
+  // 15-minute smart weather cache + 45-minute Stale-While-Revalidate (SWR) warm fallback
   const weatherCache = new Map();
+  const staleWeatherCache = new Map();
   const inFlightWeather = new Map();
+  const compressedAssetCache = new Map();
+  const MAX_COMPRESSED_ASSET_CACHE = 48;
 
   let totalRequests = 0;
   let cacheHits = 0;
@@ -322,6 +382,16 @@ export function createWeatherBuddyServer(options = {}) {
       const oldestKey = weatherCache.keys().next().value;
       if (oldestKey === undefined) break;
       weatherCache.delete(oldestKey);
+    }
+    for (const [k, entry] of staleWeatherCache.entries()) {
+      if (entry.staleUntilMs <= now) {
+        staleWeatherCache.delete(k);
+      }
+    }
+    while (staleWeatherCache.size > MAX_WEATHER_CACHE_ENTRIES) {
+      const oldestKey = staleWeatherCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      staleWeatherCache.delete(oldestKey);
     }
   }
 
@@ -445,68 +515,111 @@ export function createWeatherBuddyServer(options = {}) {
       }
     }
 
-    // Singleflight coalescing for both normal and concurrent force=true bursts
-    const inflightKey = force ? `${cacheKey}:force` : cacheKey;
-    let fetchPromise = inFlightWeather.get(inflightKey);
-    if (!fetchPromise) {
-      fetchPromise = (async () => {
-        const rawSnapshot = await fetchWeatherSnapshot({
-          latitude,
-          longitude,
-          locationName,
-          provider,
-          tomorrowIoApiKey,
-          weatherApiKey,
-          googleApiKey,
-          fetchImpl: timedFetch,
-          enableConsensus: false,
-        });
-        const fetchedSnapshot = enableConsensus
-          ? await weatherVerifier.enrichSnapshot(rawSnapshot, { force })
-          : rawSnapshot;
-        const storedAt = Date.now();
-        const entry = {
-          snapshot: fetchedSnapshot,
-          createdAtMs: storedAt,
-          expiresAtMs: storedAt + cacheTtlMs,
-        };
-        weatherCache.delete(cacheKey);
-        weatherCache.set(cacheKey, entry);
-        return entry;
-      })();
-
-      inFlightWeather.set(inflightKey, fetchPromise);
+    function ensureBackgroundWeatherRefresh(inflightKey) {
+      let existing = inFlightWeather.get(inflightKey);
+      if (!existing) {
+        existing = (async () => {
+          const rawSnapshot = await fetchWeatherSnapshot({
+            latitude,
+            longitude,
+            locationName,
+            provider,
+            tomorrowIoApiKey,
+            weatherApiKey,
+            googleApiKey,
+            fetchImpl: timedFetch,
+            enableConsensus: false,
+          });
+          const fetchedSnapshot = enableConsensus
+            ? await weatherVerifier.enrichSnapshot(rawSnapshot, { force })
+            : rawSnapshot;
+          const storedAt = Date.now();
+          const entry = {
+            snapshot: fetchedSnapshot,
+            createdAtMs: storedAt,
+            expiresAtMs: storedAt + cacheTtlMs,
+          };
+          weatherCache.delete(cacheKey);
+          weatherCache.set(cacheKey, entry);
+          if (staleGraceMs > 0) {
+            staleWeatherCache.delete(cacheKey);
+            staleWeatherCache.set(cacheKey, {
+              snapshot: fetchedSnapshot,
+              expiresAtMs: entry.expiresAtMs,
+              staleUntilMs: entry.expiresAtMs + staleGraceMs,
+            });
+          }
+          return entry;
+        })();
+        inFlightWeather.set(inflightKey, existing);
+        existing.finally(() => {
+          if (inFlightWeather.get(inflightKey) === existing) {
+            inFlightWeather.delete(inflightKey);
+          }
+        }).catch(() => {});
+      }
+      return existing;
     }
 
-    try {
-      const entry = await fetchPromise;
-      const snapshot = {
-        ...entry.snapshot,
-        locationName: resolveEffectiveLocationName(entry.snapshot.locationName),
-      };
-      const decision = evaluateCharacterDecision(snapshot, { gender, sensitivity });
-      const latencyMs = Math.max(0, Math.round(performance.now() - reqStart));
-      const expiresAtIso = new Date(entry.expiresAtMs).toISOString();
+    // Stale-While-Revalidate (SWR): return warm snapshot in <1ms after 15-min TTL while refreshing in background
+    if (!force && staleGraceMs > 0) {
+      const staleEntry = staleWeatherCache.get(cacheKey);
+      if (staleEntry && staleEntry.staleUntilMs > now) {
+        cacheHits += 1;
+        ensureBackgroundWeatherRefresh(cacheKey).catch(() => {});
+        const snapshot = {
+          ...staleEntry.snapshot,
+          locationName: resolveEffectiveLocationName(staleEntry.snapshot.locationName),
+        };
+        const decision = evaluateCharacterDecision(snapshot, { gender, sensitivity });
+        const latencyMs = Math.max(0, Math.round(performance.now() - reqStart));
+        const expiresAtIso = new Date(staleEntry.expiresAtMs).toISOString();
 
-      const telemetryEntry = buildTelemetryEntry({
-        snapshot,
-        cacheHit: false,
-        latencyMs,
-      });
-      await runtimeStore.recordTelemetry(telemetryEntry);
+        const telemetryEntry = buildTelemetryEntry({
+          snapshot,
+          cacheHit: true,
+          latencyMs,
+        });
+        await runtimeStore.recordTelemetry(telemetryEntry);
 
-      return {
-        snapshot,
-        decision,
-        cacheHit: false,
-        latencyMs,
-        expiresAtIso,
-      };
-    } finally {
-      if (inFlightWeather.get(inflightKey) === fetchPromise) {
-        inFlightWeather.delete(inflightKey);
+        return {
+          snapshot,
+          decision,
+          cacheHit: true,
+          staleRevalidating: true,
+          latencyMs,
+          expiresAtIso,
+        };
       }
     }
+
+    // Singleflight coalescing for both normal and concurrent force=true bursts
+    const inflightKey = force ? `${cacheKey}:force` : cacheKey;
+    const fetchPromise = ensureBackgroundWeatherRefresh(inflightKey);
+
+    const entry = await fetchPromise;
+    const snapshot = {
+      ...entry.snapshot,
+      locationName: resolveEffectiveLocationName(entry.snapshot.locationName),
+    };
+    const decision = evaluateCharacterDecision(snapshot, { gender, sensitivity });
+    const latencyMs = Math.max(0, Math.round(performance.now() - reqStart));
+    const expiresAtIso = new Date(entry.expiresAtMs).toISOString();
+
+    const telemetryEntry = buildTelemetryEntry({
+      snapshot,
+      cacheHit: false,
+      latencyMs,
+    });
+    await runtimeStore.recordTelemetry(telemetryEntry);
+
+    return {
+      snapshot,
+      decision,
+      cacheHit: false,
+      latencyMs,
+      expiresAtIso,
+    };
   }
 
   async function serveStaticFile(req, res, filePath, cacheControl) {
@@ -519,14 +632,68 @@ export function createWeatherBuddyServer(options = {}) {
       const ext = path.extname(filePath).toLowerCase();
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
       const isHtml = ext === '.html';
+      const etag = `W/"${stat.size.toString(16)}-${Math.trunc(stat.mtimeMs).toString(16)}"`;
 
-      res.statusCode = 200;
       res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Length', stat.size);
       res.setHeader('Cache-Control', cacheControl);
+      res.setHeader('ETag', etag);
       if (isHtml) {
         res.setHeader('Content-Security-Policy', HTML_CONTENT_SECURITY_POLICY);
       }
+
+      const canCompress =
+        COMPRESSIBLE_EXTENSIONS.has(ext) && stat.size >= 1024 && stat.size <= 12 * 1024 * 1024;
+      if (canCompress) {
+        res.setHeader('Vary', 'Accept-Encoding');
+      }
+
+      const ifNoneMatch = readHeaderString(req.headers, 'if-none-match');
+      if (ifNoneMatch && ifNoneMatch === etag) {
+        res.statusCode = 304;
+        res.end();
+        return true;
+      }
+
+      const encoding = canCompress
+        ? negotiateCompression(req.headers['accept-encoding'])
+        : null;
+
+      if (encoding) {
+        const assetCacheKey = `${filePath}:${Math.trunc(stat.mtimeMs)}:${stat.size}:${encoding}`;
+        let compressedBuf = compressedAssetCache.get(assetCacheKey);
+        if (!compressedBuf) {
+          const rawBuf = await fsp.readFile(filePath);
+          compressedBuf =
+            encoding === 'br'
+              ? await brotliCompressAsync(rawBuf, {
+                  params: {
+                    [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
+                  },
+                })
+              : await gzipAsync(rawBuf, { level: 6 });
+          if (compressedAssetCache.size >= MAX_COMPRESSED_ASSET_CACHE) {
+            const oldest = compressedAssetCache.keys().next().value;
+            if (oldest !== undefined) compressedAssetCache.delete(oldest);
+          }
+          compressedAssetCache.set(assetCacheKey, compressedBuf);
+        } else {
+          compressedAssetCache.delete(assetCacheKey);
+          compressedAssetCache.set(assetCacheKey, compressedBuf);
+        }
+
+        res.statusCode = 200;
+        res.setHeader('Content-Encoding', encoding);
+        res.setHeader('Content-Length', compressedBuf.byteLength);
+        if (req.method === 'HEAD') {
+          res.end();
+          return true;
+        }
+        res.end(compressedBuf);
+        return true;
+      }
+
+      res.statusCode = 200;
+      res.setHeader('Content-Length', stat.size);
 
       if (req.method === 'HEAD') {
         res.end();
@@ -662,6 +829,7 @@ export function createWeatherBuddyServer(options = {}) {
 
   const server = http.createServer(async (req, res) => {
     const rawUrl = req.url || '/';
+    res._acceptEncoding = readHeaderString(req.headers, 'accept-encoding');
 
     // Pre-parse traversal check on raw HTTP request target before URL normalization
     const rawPathPart = rawUrl.split('?')[0];
@@ -836,6 +1004,19 @@ export function createWeatherBuddyServer(options = {}) {
         const force = parseForceFlag(parsedUrl.searchParams.get('force'));
         const locResult = await autoLocate({ force });
         sendJson(res, 200, locResult);
+        return;
+      }
+
+      // 4c. GET /api/geocode-search?q=<query>&limit=8 (Vietnamese + Global city/district search autocomplete)
+      if (pathname === '/api/geocode-search' && req.method === 'GET') {
+        const rawQ = String(parsedUrl.searchParams.get('q') ?? '').trim().slice(0, 80);
+        const rawLimit = Number(parsedUrl.searchParams.get('limit') ?? 8);
+        const results = await searchPlaces(rawQ, rawLimit);
+        sendJson(res, 200, {
+          status: 'ok',
+          query: rawQ,
+          results,
+        });
         return;
       }
 
@@ -1099,6 +1280,76 @@ export function createWeatherBuddyServer(options = {}) {
           corner,
           gender,
         });
+        return;
+      }
+
+      // 9. GET /api/map-tile?z=&x=&y= (OSM-policy-compliant User-Agent + 24h in-memory LRU cache)
+      if (pathname === '/api/map-tile' && req.method === 'GET') {
+        const z = Number(parsedUrl.searchParams.get('z'));
+        const x = Number(parsedUrl.searchParams.get('x'));
+        const y = Number(parsedUrl.searchParams.get('y'));
+        const maxCoord = Number.isInteger(z) && z >= 0 && z <= 12 ? Math.pow(2, z) : -1;
+        if (
+          maxCoord < 1 ||
+          !Number.isInteger(x) ||
+          !Number.isInteger(y) ||
+          x < 0 ||
+          x >= maxCoord ||
+          y < 0 ||
+          y >= maxCoord
+        ) {
+          sendJson(res, 400, { status: 'error', error: 'Tham số ô bản đồ z/x/y không hợp lệ.' });
+          return;
+        }
+
+        if (!server._mapTileCache) {
+          server._mapTileCache = new Map();
+        }
+        const tileCache = server._mapTileCache;
+        const tileKey = `${z}/${x}/${y}`;
+        const etag = `W/"osm-${z}-${x}-${y}"`;
+
+        if (readHeaderString(req.headers, 'if-none-match') === etag) {
+          res.statusCode = 304;
+          res.end();
+          return;
+        }
+
+        const nowMs = Date.now();
+        const cachedTile = tileCache.get(tileKey);
+        if (cachedTile && nowMs < cachedTile.expiresAtMs) {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'image/png');
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          res.setHeader('ETag', etag);
+          res.setHeader('Content-Length', cachedTile.buf.byteLength);
+          res.end(cachedTile.buf);
+          return;
+        }
+
+        const upstreamRes = await timedFetch(`https://tile.openstreetmap.org/${z}/${x}/${y}.png`, {
+          headers: {
+            'User-Agent': 'WeatherBuddy/3.0 (+https://github.com/Okazane/weather-buddy)',
+            Accept: 'image/png,image/*;q=0.9',
+          },
+        });
+        if (!upstreamRes.ok) {
+          sendJson(res, 502, { status: 'error', error: 'Không tải được ô bản đồ nền.' });
+          return;
+        }
+        const buf = Buffer.from(await upstreamRes.arrayBuffer());
+        if (tileCache.size >= 180) {
+          const oldestKey = tileCache.keys().next().value;
+          if (oldestKey !== undefined) tileCache.delete(oldestKey);
+        }
+        tileCache.set(tileKey, { buf, expiresAtMs: nowMs + 24 * 60 * 60 * 1000 });
+
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('ETag', etag);
+        res.setHeader('Content-Length', buf.byteLength);
+        res.end(buf);
         return;
       }
 
